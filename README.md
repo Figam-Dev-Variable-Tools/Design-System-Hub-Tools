@@ -1,5 +1,12 @@
 # css-frameworks-storybook
 
+![Storybook](https://img.shields.io/badge/Storybook-8-FF4785?logo=storybook&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![Node](https://img.shields.io/badge/Node-22-339933?logo=nodedotjs&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-11-F69220?logo=pnpm&logoColor=white)
+
 CSS 프레임워크 7종(Bootstrap, Foundation, Bulma, Tailwind, Materialize, Semantic UI,
 Skeleton) × 컴포넌트 5종(Button, Card, Form, Alert, Navbar)을 단일 Storybook에서
 충돌 없이 비교하고, Figma와 양방향 연동하는 프로젝트다.

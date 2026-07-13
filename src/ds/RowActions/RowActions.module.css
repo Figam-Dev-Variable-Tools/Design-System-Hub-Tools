@@ -1,0 +1,63 @@
+/* 목록 행 우측 아이콘 액션 — 흰 면 위 아웃라인 아이콘 버튼.
+   AdminTable의 행 액션 버튼과 같은 룩(28px 정사각 + 1px 보더)을 따른다. */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-spacing-1);
+  font-family: var(--ds-font-family);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg);
+  /* 흰 배경 위 아이콘 — AA 통과 셰이드 */
+  color: var(--ds-color-secondary-600);
+  cursor: pointer;
+  transition: background var(--ds-duration-fast) var(--ds-ease-standard),
+    border-color var(--ds-duration-fast) var(--ds-ease-standard),
+    color var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.button:hover {
+  border-color: var(--ds-color-solid-primary);
+  color: var(--ds-color-primary-700);
+  background: color-mix(in srgb, var(--ds-color-primary) 8%, var(--ds-color-bg));
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--ds-color-solid-primary);
+  outline-offset: 1px;
+}
+
+/* ── 크기 ── */
+.md {
+  width: 32px;
+  height: 32px;
+}
+
+.sm {
+  width: 26px;
+  height: 26px;
+}
+
+/* ── 삭제 — error 톤. 평상시에도 위험을 읽히게 아이콘을 error 셰이드로 둔다 ── */
+.danger {
+  color: var(--ds-color-error-700);
+}
+
+.danger:hover {
+  border-color: var(--ds-color-solid-error);
+  color: var(--ds-color-error-700);
+  background: color-mix(in srgb, var(--ds-color-error) 8%, var(--ds-color-bg));
+}
+
+.danger:focus-visible {
+  outline-color: var(--ds-color-solid-error);
+}

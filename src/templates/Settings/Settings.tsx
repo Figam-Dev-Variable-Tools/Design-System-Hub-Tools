@@ -22,13 +22,18 @@ const cardStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--ds-spacing-4)',
+  minWidth: 0,
 }
 
 const sectionTitleStyle: CSSProperties = {
   margin: 0,
+  minWidth: 0,
   fontSize: 'var(--ds-font-size-md)',
   fontWeight: 'var(--ds-font-weight-bold)' as CSSProperties['fontWeight'],
   color: 'var(--ds-color-text)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
 
 function SectionCard({ title, style, children }: { title: string; style?: CSSProperties; children: ReactNode }) {
@@ -63,6 +68,7 @@ export function SettingsPage() {
       <div
         style={{
           maxWidth: 640,
+          minWidth: 0,
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
@@ -90,8 +96,12 @@ export function SettingsPage() {
           <p
             style={{
               margin: 0,
+              minWidth: 0,
               fontSize: 'var(--ds-font-size-sm)',
               color: 'var(--ds-color-secondary)',
+              lineHeight: 1.5,
+              overflowWrap: 'anywhere',
+              wordBreak: 'keep-all',
             }}
           >
             계정을 삭제하면 모든 데이터가 영구적으로 제거되며 복구할 수 없습니다.

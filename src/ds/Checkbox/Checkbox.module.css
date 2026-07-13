@@ -1,4 +1,6 @@
 .checkbox {
+  /* 선택 상태 색 — SiteSection 안이면 섹션 강조색, 밖이면 primary(기존 동작) */
+  --control-accent: var(--site-accent-solid, var(--ds-color-primary));
   display: inline-flex;
   align-items: center;
   gap: var(--ds-spacing-2);
@@ -42,8 +44,8 @@
 
 /* Checked */
 .input:checked + .box {
-  background: var(--ds-color-primary);
-  border-color: var(--ds-color-primary);
+  background: var(--control-accent);
+  border-color: var(--control-accent);
 }
 
 .input:checked:not(:indeterminate) + .box .check {
@@ -52,8 +54,8 @@
 
 /* Indeterminate */
 .input:indeterminate + .box {
-  background: var(--ds-color-primary);
-  border-color: var(--ds-color-primary);
+  background: var(--control-accent);
+  border-color: var(--control-accent);
 }
 
 .input:indeterminate + .box .bar {
@@ -62,8 +64,8 @@
 
 /* Hover */
 .checkbox:hover .input:not(:disabled):not(:checked):not(:indeterminate) + .box {
-  border-color: var(--ds-color-primary);
-  background: color-mix(in srgb, var(--ds-color-primary) 8%, var(--ds-color-bg));
+  border-color: var(--control-accent);
+  background: color-mix(in srgb, var(--control-accent) 8%, var(--ds-color-bg));
 }
 
 .checkbox:hover .input:checked:not(:disabled) + .box,
@@ -73,7 +75,7 @@
 
 /* Focus */
 .input:focus-visible + .box {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-primary) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--control-accent) 25%, transparent);
 }
 
 /* Disabled */

@@ -25,7 +25,7 @@
   margin-left: auto;
   font-size: var(--ds-font-size-sm);
   font-weight: var(--ds-font-weight-medium);
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
   font-variant-numeric: tabular-nums;
 }
 
@@ -47,10 +47,10 @@
 }
 
 .range:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-primary) 15%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-solid-primary) 15%, transparent);
 }
 
-/* 썸 — 20px 원형, primary 채움 + bg 색 테두리 */
+/* 썸 — 20px 원형, solid 면 채움 + bg 색 테두리 */
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -58,9 +58,9 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--ds-color-primary);
+  background: var(--ds-color-solid-primary);
   border: 2px solid var(--ds-color-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ds-color-text) 25%, transparent);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
@@ -70,9 +70,9 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--ds-color-primary);
+  background: var(--ds-color-solid-primary);
   border: 2px solid var(--ds-color-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ds-color-text) 25%, transparent);
   cursor: pointer;
   transition: transform 0.15s ease;
 }

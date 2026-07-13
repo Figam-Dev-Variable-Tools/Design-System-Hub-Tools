@@ -20,6 +20,10 @@
 .brand {
   display: inline-flex;
   align-items: center;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--ds-font-size-md);
   font-weight: var(--ds-font-weight-bold);
   color: var(--ds-color-text);
@@ -30,11 +34,14 @@
   display: flex;
   align-items: stretch;
   gap: var(--ds-spacing-2);
+  min-width: 0; /* 좁아지면 항목 라벨이 말줄임된다 */
 }
 
 .item {
   display: inline-flex;
   align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -46,6 +53,13 @@
   border-top: 2px solid transparent;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.itemLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .item:hover:not(.active) {
@@ -67,4 +81,6 @@
   align-items: center;
   gap: var(--ds-spacing-2);
   margin-left: auto;
+  min-width: 0;
+  flex-shrink: 0;
 }

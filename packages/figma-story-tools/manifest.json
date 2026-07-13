@@ -50,6 +50,14 @@
         {
           "name": "showIcon",
           "default": false
+        },
+        {
+          "name": "showLeftIcon",
+          "default": false
+        },
+        {
+          "name": "showRightIcon",
+          "default": false
         }
       ],
       "swaps": [
@@ -61,6 +69,12 @@
             "_Icon/Heart",
             "_Icon/Bell"
           ]
+        },
+        {
+          "name": "leftIcon"
+        },
+        {
+          "name": "rightIcon"
         }
       ]
     },

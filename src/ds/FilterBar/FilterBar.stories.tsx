@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
+import { Download, Plus } from 'lucide-react'
 import { FIGMA_FILE } from '../../shared/figma'
+import { Button } from '../Button/Button'
 import { FilterBar, type FilterBarProps } from './FilterBar'
 
 const DEMO_FILTERS = [
@@ -66,6 +68,7 @@ const meta = {
     onRemoveChip: { control: false },
     onReset: { control: false },
     activeChips: { control: false },
+    actions: { control: false },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -77,6 +80,35 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   render: (args) => <FilterBarDemo {...args} />,
+}
+
+// 검색 + 필터 + 우측 액션 버튼 구성 — 어드민 목록 화면 표준 헤더
+export const WithActions: Story = {
+  render: (args) => (
+    <FilterBarDemo
+      {...args}
+      searchPlaceholder="상품명 검색"
+      actions={
+        <>
+          <Button
+            variant="secondary"
+            appearance="outline"
+            size="sm"
+            label="엑셀 다운로드"
+            showIcon
+            icon={<Download size={14} />}
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            label="상품 등록"
+            showIcon
+            icon={<Plus size={14} />}
+          />
+        </>
+      }
+    />
+  ),
 }
 
 export const States: Story = {

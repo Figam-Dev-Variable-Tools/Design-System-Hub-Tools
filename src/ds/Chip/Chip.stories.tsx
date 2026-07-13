@@ -72,3 +72,24 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 라벨 — 칩 폭이 좁아도 라벨만 말줄임되고 아이콘·× 버튼은 유지된다 */
+export const LongLabel: Story = {
+  render: () => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 8,
+        width: 220,
+        border: '1px dashed var(--ds-color-border)',
+        padding: 12,
+      }}
+    >
+      <Chip label="아주 긴 한글 필터 이름이 들어가도 칩 밖으로 나가지 않습니다" />
+      <Chip label="VeryLongUnbrokenFilterNameForOverflowTest" leading={starIcon} onRemove={() => {}} />
+      <Chip label="긴 라벨 + 제거 버튼이 함께 있는 경우" size="sm" onRemove={() => {}} />
+    </div>
+  ),
+}

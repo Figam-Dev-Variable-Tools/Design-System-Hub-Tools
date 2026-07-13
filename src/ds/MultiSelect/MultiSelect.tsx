@@ -56,7 +56,7 @@ export function MultiSelect({
             <span className={styles.chips}>
               {selectedOptions.map((option) => (
                 <span key={option.value} className={styles.chip}>
-                  {option.label}
+                  <span className={styles.chipLabel}>{option.label}</span>
                   <span
                     role="button"
                     tabIndex={0}
@@ -108,7 +108,7 @@ export function MultiSelect({
                   >
                     {checked && <CheckIcon />}
                   </span>
-                  <span>{option.label}</span>
+                  <span className={styles.optionLabel}>{option.label}</span>
                 </button>
               )
             })}

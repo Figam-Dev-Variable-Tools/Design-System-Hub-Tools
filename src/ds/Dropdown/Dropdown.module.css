@@ -1,6 +1,8 @@
 .root {
   position: relative;
   display: inline-block;
+  max-width: 100%;
+  min-width: 0;
   font-family: var(--ds-font-family);
 }
 
@@ -9,6 +11,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--ds-spacing-2);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   font-family: var(--ds-font-family);
   font-size: var(--ds-font-size-md);
   color: var(--ds-color-text);
@@ -38,6 +43,13 @@
   pointer-events: none;
 }
 
+.triggerLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chevron {
   display: inline-flex;
   color: var(--ds-color-secondary);
@@ -54,6 +66,7 @@
   top: calc(100% + 4px);
   z-index: 20;
   min-width: 180px;
+  max-width: 280px; /* 긴 항목은 메뉴 안에서 말줄임 */
   background: var(--ds-color-bg);
   border: 1px solid var(--ds-color-border);
   border-radius: var(--ds-radius-md);
@@ -83,6 +96,13 @@
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease;
+}
+
+.itemLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .item:hover:not(:disabled) {

@@ -48,7 +48,7 @@ const preview: Preview = {
           [
             // Figma 카테고리 순서로 하위 드롭다운 그룹(각 그룹 내부는 컴포넌트 순서)
             'Input',
-            ['TextField', 'Textarea', 'PasswordField', 'SearchField', 'EmailField', 'NumberField', 'CurrencyField', 'OtpField', 'Select', 'MultiSelect', 'Autocomplete', 'Slider', 'Upload', 'FileUpload', 'ImageUpload'],
+            ['TextField', 'Textarea', 'PasswordField', 'SearchField', 'EmailField', 'NumberField', 'CurrencyField', 'OtpField', 'Select', 'MultiSelect', 'Autocomplete', 'Slider', 'Upload'],
             'Selection',
             ['Toggle', 'Checkbox', 'Radio', 'Chip'],
             'Action',
@@ -75,6 +75,7 @@ const preview: Preview = {
           '6. KR 컴포넌트',
           '7. 상태 & 검증',
           '8. Playground',
+          '9. 어드민 레이아웃',
           '10. 접근성',
           'Templates',
           'Admin',

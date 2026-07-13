@@ -1,0 +1,72 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-spacing-1);
+  font-family: var(--ds-font-family);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-bg);
+  color: var(--ds-color-secondary);
+  cursor: pointer;
+  transition: background var(--ds-duration-fast) var(--ds-ease-standard),
+    border-color var(--ds-duration-fast) var(--ds-ease-standard),
+    color var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--ds-color-bgSubtle);
+  border-color: var(--ds-color-primary);
+  color: var(--ds-color-primary);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-primary) 25%, transparent);
+}
+
+/* ── 크기 ── */
+.md {
+  width: 36px;
+  height: 36px;
+}
+
+.sm {
+  width: 28px;
+  height: 28px;
+}
+
+/* 새로고침 중 회전 — 연속 회전은 토큰 duration(최대 320ms)보다 길어야 해서
+   Loading.module.css의 선례(0.8s linear infinite)를 따른다. 모션 감소 선호 시에는
+   tokens/motion.css의 전역 규칙이 애니메이션을 무력화한다. */
+.spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+/* 커스텀 아이콘(refreshIcon) 래퍼 — 회전이 아이콘 중심을 축으로 돌도록 상자를 만들어 준다 */
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

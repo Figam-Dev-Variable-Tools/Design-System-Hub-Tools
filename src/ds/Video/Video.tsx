@@ -1,33 +1,31 @@
+import { ratioClassName, type MediaRatio } from '../Image/Image'
+import { Placeholder } from '../../shared/placeholders'
 import styles from './Video.module.css'
 
 export type VideoProps = {
   src?: string
   poster?: string
   title?: string
+  /** 비율 축 — 단일 출처는 src/ds/Image/Image.tsx의 MediaRatio */
+  ratio?: MediaRatio
+  rounded?: boolean
 }
 
-export function Video({ src, poster, title }: VideoProps) {
+export function Video({ src, poster, title, ratio = '16x9', rounded = true }: VideoProps) {
+  const rootClassName = [styles.video, rounded ? styles.rounded : ''].filter(Boolean).join(' ')
+  const frameClassName = [styles.frame, ratioClassName(styles, ratio)].filter(Boolean).join(' ')
+
   return (
-    <figure className={styles.video}>
-      <div className={styles.frame}>
+    <figure className={rootClassName}>
+      <div className={frameClassName}>
         {src ? (
           <video className={styles.player} controls poster={poster}>
             <source src={src} />
           </video>
         ) : (
+          // src가 없으면 공용 대체 영상 그림(src/shared/placeholders.tsx)
           <div className={styles.placeholder} role="img" aria-label={title ?? 'Video preview'}>
-            <button type="button" className={styles.playButton} aria-label="Play video">
-              <svg
-                className={styles.playIcon}
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
+            <Placeholder kind="video" size="fill" />
           </div>
         )}
       </div>

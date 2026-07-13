@@ -91,3 +91,9 @@
   margin-left: auto;
   flex-shrink: 0;
 }
+
+/* 폼 그리드에서는 열이 폭을 정한다 — 기본 상한(320/480px)을 푼다 */
+.fullWidth {
+  max-width: none;
+  width: 100%;
+}

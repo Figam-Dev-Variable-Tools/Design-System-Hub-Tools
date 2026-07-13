@@ -11,6 +11,7 @@ export type ColorKey =
   | 'error'
   | 'success'
   | 'warning'
+  | 'neutral'
   | 'bg'
   | 'bgSubtle'
   | 'text'
@@ -40,6 +41,7 @@ export const COLOR_KEYS: ColorKey[] = [
   'error',
   'success',
   'warning',
+  'neutral',
   'bg',
   'bgSubtle',
   'text',

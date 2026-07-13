@@ -54,7 +54,8 @@ export function Tab({ items, value, onChange, variant = 'segmented', size = 'md'
             className={[styles.tab, selected ? styles.active : ''].filter(Boolean).join(' ')}
             onClick={() => onChange?.(item.value)}
           >
-            {item.label}
+            {/* 라벨 span — 탭 폭이 줄면 말줄임 */}
+            <span className={styles.label}>{item.label}</span>
           </button>
         )
       })}

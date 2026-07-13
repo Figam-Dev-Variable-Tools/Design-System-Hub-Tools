@@ -60,7 +60,7 @@ export function SocialLoginButton({
           dangerouslySetInnerHTML={{ __html: LOGOS[provider] }}
         />
       )}
-      <span>{label ?? DEFAULT_LABELS[provider]}</span>
+      <span className={styles.label}>{label ?? DEFAULT_LABELS[provider]}</span>
     </button>
   )
 }

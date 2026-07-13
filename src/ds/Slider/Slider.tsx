@@ -43,7 +43,8 @@ export function Slider({
         type="range"
         className={styles.range}
         style={{
-          background: `linear-gradient(to right, var(--ds-color-primary) ${percent}%, var(--ds-color-border) ${percent}%)`,
+          // 채워진 구간은 '면' — 흰 트랙 위에서 3:1을 넘기는 solid 셰이드를 쓴다.
+          background: `linear-gradient(to right, var(--ds-color-solid-primary) ${percent}%, var(--ds-color-border) ${percent}%)`,
         }}
         value={value}
         min={min}

@@ -2,18 +2,24 @@
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-1);
+  min-width: 0;
   font-family: var(--ds-font-family);
   max-width: 320px;
 }
 
 .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--ds-font-size-sm);
   font-weight: var(--ds-font-weight-medium);
   color: var(--ds-color-text);
 }
 
+/* 필수 표시 * — 흰 배경 위 텍스트라 AA 통과 셰이드 */
 .required {
-  color: var(--ds-color-error);
+  color: var(--ds-color-error-700);
   margin-left: 2px;
 }
 
@@ -29,12 +35,12 @@
 }
 
 .inputWrap:hover:not(.disabled):not(.readOnly) {
-  border-color: var(--ds-color-primary);
+  border-color: var(--ds-color-solid-primary);
 }
 
 .inputWrap:focus-within {
-  border-color: var(--ds-color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-primary) 15%, transparent);
+  border-color: var(--ds-color-solid-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-solid-primary) 15%, transparent);
 }
 
 .input {
@@ -52,9 +58,10 @@
   outline: none;
 }
 
+/* placeholder도 실텍스트 — opacity로 흐리면 AA가 깨지므로 불투명 AA 셰이드 사용 */
 .input::placeholder {
-  color: var(--ds-color-secondary);
-  opacity: 0.6;
+  color: var(--ds-color-secondary-600);
+  opacity: 1;
 }
 
 .disabled {
@@ -63,7 +70,7 @@
 }
 
 .disabled .input {
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
 }
 
 .readOnly {
@@ -77,7 +84,7 @@
 
 .error .inputWrap,
 .error .inputWrap:focus-within {
-  border-color: var(--ds-color-error);
+  border-color: var(--ds-color-solid-error);
 }
 
 .error .inputWrap:focus-within {
@@ -86,7 +93,7 @@
 
 .success .inputWrap,
 .success .inputWrap:focus-within {
-  border-color: var(--ds-color-success);
+  border-color: var(--ds-color-solid-success);
 }
 
 .success .inputWrap:focus-within {
@@ -97,7 +104,7 @@
 .trailing {
   display: inline-flex;
   align-items: center;
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
   flex-shrink: 0;
 }
 
@@ -107,16 +114,25 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--ds-spacing-2);
+  min-width: 0;
   font-size: var(--ds-font-size-xs);
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
+}
+
+/* 헬퍼 문구는 줄바꿈으로 흘리되 카운터 자리는 침범하지 않는다 */
+.helper {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  line-height: 1.4;
 }
 
 .error .helper {
-  color: var(--ds-color-error);
+  color: var(--ds-color-error-700);
 }
 
 .success .helper {
-  color: var(--ds-color-success);
+  color: var(--ds-color-success-900);
 }
 
 .counter {
@@ -134,7 +150,7 @@
   border: none;
   background: transparent;
   border-radius: var(--ds-radius-sm);
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
   cursor: pointer;
   padding: 0;
   transition: background 0.15s ease, color 0.15s ease;
@@ -148,4 +164,10 @@
 .iconButton:disabled {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* 폼 그리드에서는 열이 폭을 정한다 — 기본 상한(320/480px)을 푼다 */
+.fullWidth {
+  max-width: none;
+  width: 100%;
 }

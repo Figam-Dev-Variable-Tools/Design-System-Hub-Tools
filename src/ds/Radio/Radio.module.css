@@ -1,4 +1,6 @@
 .group {
+  /* 선택 상태 색 — SiteSection 안이면 섹션 강조색, 밖이면 primary(기존 동작) */
+  --control-accent: var(--site-accent-solid, var(--ds-color-primary));
   display: flex;
   gap: var(--ds-spacing-4);
   font-family: var(--ds-font-family);
@@ -53,14 +55,14 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--ds-color-primary);
+  background: var(--control-accent);
   transform: scale(0);
   transition: transform 0.15s ease;
 }
 
 /* Selected */
 .input:checked + .circle {
-  border-color: var(--ds-color-primary);
+  border-color: var(--control-accent);
 }
 
 .input:checked + .circle::after {
@@ -69,13 +71,13 @@
 
 /* Hover */
 .item:hover .input:not(:disabled):not(:checked) + .circle {
-  border-color: var(--ds-color-primary);
-  background: color-mix(in srgb, var(--ds-color-primary) 8%, var(--ds-color-bg));
+  border-color: var(--control-accent);
+  background: color-mix(in srgb, var(--control-accent) 8%, var(--ds-color-bg));
 }
 
 /* Focus */
 .input:focus-visible + .circle {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-primary) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--control-accent) 25%, transparent);
 }
 
 /* Disabled */

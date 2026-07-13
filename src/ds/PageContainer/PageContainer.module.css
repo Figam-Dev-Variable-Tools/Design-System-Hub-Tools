@@ -1,0 +1,63 @@
+.container {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  font-family: var(--ds-font-family);
+  background: var(--ds-color-bgSubtle);
+  color: var(--ds-color-text);
+}
+
+/* 콘텐츠 좌우 패딩 40 → 1680 − 80 = 실사용 1600 */
+.padded {
+  padding: var(--admin-content-pad);
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── 최대 폭 (가운데 정렬) ── */
+.max-md {
+  max-width: var(--admin-max-md);
+}
+
+.max-lg {
+  max-width: var(--admin-max-lg);
+}
+
+.max-full {
+  max-width: var(--admin-max-full);
+}
+
+/* ── 수직 리듬 — 섹션 간 간격 ── */
+.gap-md {
+  gap: var(--admin-section-gap);
+}
+
+.gap-lg {
+  gap: var(--admin-section-gap-lg);
+}
+
+/* ── 섹션 ── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-3);
+}
+
+/* 섹션 헤더(제목·설명·액션)는 PageHeaderBar가 그린다 — 여기에 사본을 두지 않는다 */
+
+.card {
+  box-sizing: border-box;
+  padding: var(--ds-spacing-5);
+  background: var(--ds-color-bg);
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+}
+
+.plain {
+  min-width: 0;
+}

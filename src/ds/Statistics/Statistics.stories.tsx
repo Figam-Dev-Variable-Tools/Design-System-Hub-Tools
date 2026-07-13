@@ -52,3 +52,24 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 라벨·값·힌트 — 좁은 카드에서도 각 줄이 말줄임되어 카드를 뚫지 않는다 */
+export const LongText: Story = {
+  render: () => (
+    <div style={{ width: 460, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <Statistics
+        columns={3}
+        items={[
+          {
+            label: '아주 긴 지표 라벨이 들어간 경우입니다',
+            value: '₩1,234,567,890',
+            delta: 12.4,
+            hint: '지난달 같은 기간 대비 증감률',
+          },
+          { label: '신규 가입', value: 'VeryLongUnbrokenValue123456', delta: -3.1, hint: '지난달 대비' },
+          { label: '이탈률', value: '2.4%', hint: '지난달 대비' },
+        ]}
+      />
+    </div>
+  ),
+}

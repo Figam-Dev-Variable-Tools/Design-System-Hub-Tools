@@ -104,3 +104,25 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 좁은 컨테이너 — 셀이 줄바꿈으로 짜부라지지 않고 래퍼가 가로 스크롤된다 */
+export const NarrowContainer: Story = {
+  render: () => (
+    <div style={{ width: 320, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <Table<Person>
+        columns={columns}
+        rows={[
+          {
+            id: 'p1',
+            name: '김서연',
+            role: '아주 긴 직군 이름이 들어간 프로덕트 디자이너',
+            status: '재직',
+            joinedAt: '2021-03-15',
+          },
+          ...people.slice(1, 3),
+        ]}
+        rowKey={(row) => row.id}
+      />
+    </div>
+  ),
+}

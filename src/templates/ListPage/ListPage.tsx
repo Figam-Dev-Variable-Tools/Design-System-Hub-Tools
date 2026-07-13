@@ -66,12 +66,17 @@ const dtStyle: CSSProperties = {
   margin: 0,
   fontSize: 'var(--ds-font-size-sm)',
   color: 'var(--ds-color-secondary)',
+  whiteSpace: 'nowrap',
 }
 
+// 이메일처럼 끊기지 않는 긴 값도 Drawer를 뚫지 않게 줄바꿈
 const ddStyle: CSSProperties = {
   margin: 0,
+  minWidth: 0,
   fontSize: 'var(--ds-font-size-sm)',
   color: 'var(--ds-color-text)',
+  overflowWrap: 'anywhere',
+  wordBreak: 'keep-all',
 }
 
 /** Templates/ListPage — 검색·필터·테이블·상세 Drawer를 조합한 목록 페이지 */
@@ -111,6 +116,7 @@ export function ListPage() {
       <div
         style={{
           maxWidth: 960,
+          minWidth: 0,
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',

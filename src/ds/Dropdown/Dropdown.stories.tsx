@@ -76,3 +76,26 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 트리거·항목 라벨 — 트리거는 컨테이너 폭에서, 메뉴 항목은 메뉴 폭에서 말줄임된다 */
+export const LongLabels: Story = {
+  render: () => (
+    <div
+      style={{
+        width: 240,
+        minHeight: 240,
+        border: '1px dashed var(--ds-color-border)',
+        padding: 12,
+      }}
+    >
+      <Dropdown
+        label="아주 긴 드롭다운 트리거 라벨입니다"
+        items={[
+          { label: '아주 긴 메뉴 항목 라벨이 들어간 경우' },
+          { label: 'VeryLongUnbrokenMenuItemLabelWithoutSpaces' },
+          { label: '삭제', danger: true, divider: true },
+        ]}
+      />
+    </div>
+  ),
+}

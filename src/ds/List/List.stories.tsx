@@ -120,3 +120,27 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 제목·설명 — 제목 1줄 말줄임, 설명 2줄 클램프. leading/trailing은 자리를 지킨다 */
+export const LongText: Story = {
+  render: () => (
+    <div style={{ width: 280, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <List
+        items={[
+          {
+            id: 'l1',
+            title: '아주 긴 리스트 항목 제목이 들어가도 넘치지 않습니다',
+            description:
+              '설명 문구도 길어지면 두 줄까지만 보이고 말줄임됩니다. 끊기지 않는 문자열도 안전합니다: ExtremelyLongUnbrokenToken1234567890',
+            trailing: <Badge variant="success" label="활성" size="sm" />,
+          },
+          {
+            id: 'l2',
+            title: 'VeryLongUnbrokenTitleWithoutAnySpaceCharacters',
+            description: 'https://example.com/very/long/path/without/spaces/that/must/not/overflow',
+          },
+        ]}
+      />
+    </div>
+  ),
+}

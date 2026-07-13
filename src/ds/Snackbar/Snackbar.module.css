@@ -44,16 +44,27 @@
   flex-shrink: 0;
 }
 
+/* Snackbar는 --ds-color-text를 면으로 쓰는 역전 표면 —
+   톤 아이콘·액션은 어두운 면 위라서 밝은 셰이드(-300/-400)를 써야 대비가 선다. */
 .success .icon {
-  color: var(--ds-color-success);
+  color: var(--ds-color-success-400);
 }
 
 .error .icon {
-  color: var(--ds-color-error);
+  color: var(--ds-color-error-400);
 }
 
+/* 긴 메시지는 2줄 말줄임 — 액션/닫기 버튼 자리를 침범하지 않는다 */
 .message {
   flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .action {
@@ -61,10 +72,14 @@
   background: transparent;
   cursor: pointer;
   flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--ds-font-family);
   font-size: var(--ds-font-size-sm);
   font-weight: var(--ds-font-weight-bold);
-  color: color-mix(in srgb, var(--ds-color-primary) 70%, var(--ds-color-bg));
+  color: var(--ds-color-primary-300);
   padding: var(--ds-spacing-1) var(--ds-spacing-2);
   border-radius: var(--ds-radius-sm);
   transition: background 0.15s ease;
@@ -75,7 +90,7 @@
 }
 
 .action:focus-visible {
-  outline: 2px solid var(--ds-color-primary);
+  outline: 2px solid var(--ds-color-primary-300);
   outline-offset: 1px;
 }
 
@@ -89,7 +104,7 @@
   cursor: pointer;
   padding: var(--ds-spacing-1);
   border-radius: var(--ds-radius-sm);
-  color: color-mix(in srgb, var(--ds-color-bg) 70%, transparent);
+  color: color-mix(in srgb, var(--ds-color-bg) 75%, var(--ds-color-text));
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -99,6 +114,6 @@
 }
 
 .close:focus-visible {
-  outline: 2px solid var(--ds-color-primary);
+  outline: 2px solid var(--ds-color-primary-300);
   outline-offset: 1px;
 }

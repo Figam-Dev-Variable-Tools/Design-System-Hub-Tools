@@ -61,3 +61,19 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 경로 라벨 — 항목마다 최대 180px에서 말줄임되고, 좁으면 줄바꿈된다 */
+export const LongLabels: Story = {
+  render: () => (
+    <div style={{ width: 320, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <Breadcrumb
+        items={[
+          { label: '홈', href: '#' },
+          { label: '아주 긴 카테고리 이름이 들어간 경로', href: '#' },
+          { label: 'VeryLongUnbrokenBreadcrumbSegmentName', href: '#' },
+          { label: '현재 페이지의 아주 긴 제목입니다' },
+        ]}
+      />
+    </div>
+  ),
+}

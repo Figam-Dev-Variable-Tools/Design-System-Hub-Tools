@@ -1,0 +1,81 @@
+/*
+ * 어드민 상세 페이지 뼈대
+ *   본문(1fr) + 우측 사이드(360 | 280) — 사이 간격은 그리드 gutter(24)와 동일
+ *   하단 sticky 액션 바 — 그림자 없이 1px 보더 + 큰 radius (Toss)
+ */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-section-gap);
+  width: 100%;
+  min-width: 0;
+  font-family: var(--ds-font-family);
+  color: var(--ds-color-text);
+}
+
+.body {
+  display: grid;
+  gap: var(--admin-grid-gutter);
+  align-items: start;
+  min-width: 0;
+}
+
+.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.aside-md {
+  grid-template-columns: minmax(0, 1fr) var(--admin-aside-md);
+}
+
+.aside-sm {
+  grid-template-columns: minmax(0, 1fr) var(--admin-aside-sm);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-section-gap);
+  min-width: 0;
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-section-gap);
+  min-width: 0;
+}
+
+/* 상단 헤더(72) 아래에 붙어 따라다닌다 */
+.sticky {
+  position: sticky;
+  top: var(--ds-spacing-6);
+}
+
+/* ── 하단 고정 액션 바 ── */
+.footer {
+  position: sticky;
+  bottom: var(--ds-spacing-4);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ds-spacing-2);
+  box-sizing: border-box;
+  padding: var(--ds-spacing-3) var(--ds-spacing-5);
+  background: var(--ds-color-bg);
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+}
+
+/* 사이드를 붙일 자리가 없으면 본문 아래로 내린다 */
+@media (max-width: 1199px) {
+  .aside-md,
+  .aside-sm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sticky {
+    position: static;
+  }
+}

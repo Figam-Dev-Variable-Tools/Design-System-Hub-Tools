@@ -1,6 +1,9 @@
 .chip {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid var(--ds-color-border);
   border-radius: 999px;
   background: var(--ds-color-bg);
@@ -13,11 +16,11 @@
   background: var(--ds-color-bgSubtle);
 }
 
-/* 선택 — primary 12% 배경 + primary 글자/보더 */
+/* 선택 — primary 12% 틴트 배경 + AA 셰이드 글자 + 면 색(solid) 보더 */
 .selected {
   background: color-mix(in srgb, var(--ds-color-primary) 12%, var(--ds-color-bg));
-  border-color: var(--ds-color-primary);
-  color: var(--ds-color-primary);
+  border-color: var(--ds-color-solid-primary);
+  color: var(--ds-color-primary-800);
 }
 
 .selected:hover:not(.disabled) {
@@ -28,6 +31,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--ds-spacing-1);
+  min-width: 0; /* 라벨 말줄임을 위해 축소 허용 */
   margin: 0;
   border: none;
   background: none;
@@ -56,6 +60,10 @@
 }
 
 .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--ds-font-weight-medium);
   line-height: 1.4;
 }
@@ -63,12 +71,14 @@
 .leading {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   padding: 0;
   margin: 0;
   border: none;
@@ -100,7 +110,7 @@
 .action:focus-visible,
 .remove:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-primary) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-color-solid-primary) 25%, transparent);
   border-radius: 999px;
 }
 

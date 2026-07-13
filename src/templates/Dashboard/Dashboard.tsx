@@ -79,6 +79,7 @@ const cardStyle: CSSProperties = {
   border: '1px solid var(--ds-color-border)',
   borderRadius: 'var(--ds-radius-lg)',
   padding: 'var(--ds-spacing-5)',
+  minWidth: 0,
   overflowX: 'auto',
 }
 

@@ -19,7 +19,7 @@
 }
 
 .value {
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
   font-variant-numeric: tabular-nums;
 }
 
@@ -30,9 +30,10 @@
   overflow: hidden;
 }
 
+/* 채움 막대는 '면' — 흰 트랙 위에서 3:1을 넘기는 solid 셰이드 사용 */
 .fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--ds-color-primary);
+  background: var(--ds-color-solid-primary);
   transition: width 0.3s ease;
 }

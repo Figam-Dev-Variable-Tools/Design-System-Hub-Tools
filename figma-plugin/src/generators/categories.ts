@@ -23,6 +23,7 @@ import {
 } from './foundations'
 import { iconInstance, ICON_COMPONENTS } from './icon-vec'
 import { brandLogo } from './brand-logos'
+import { solidToneHex, onToneHex, solidVarName, onVarName } from './tone'
 import type { PresetName } from '../presets'
 
 const FIELD_W = 300
@@ -80,6 +81,8 @@ const VARIANT_HEX: Record<string, string> = {
   error: '#F04452',
   success: '#00C471',
   warning: '#FF9F0A',
+  // 브랜드가 아닌 검정 톤 — 변수(color/neutral 등)가 항상 존재하므로 실사용되진 않는 폴백.
+  neutral: INK,
 }
 // soft(연한 톤) 배경 폴백 — 변수 color/<tone>/100 이 없을 때만 쓰는 리터럴(흰색 쪽으로 mix).
 function tintHex(hex: string, amt = 0.86): string {
@@ -130,6 +133,29 @@ function bindFillVar(ctx: Ctx, node: GeometryMixin, varName: string, hex: string
 function bindStrokeVar(ctx: Ctx, node: MinimalStrokesMixin, varName: string, hex: string) {
   const v = ctx.vars.get(varName)
   node.strokes = [v ? boundPaint(v) : solid(ctx.userColors[varName] ?? hex)]
+}
+
+// ── solid 면 · on-color 바인딩 ────────────────────────────────────────
+// 오너 확정: 브랜드 hue는 유지하되 solid 면 위 글자는 흰색이 기본.
+//   면   = color/solid-<tone>  (base에서 계산된 파생 변수 — tokens.ts가 생성)
+//   글자 = color/on-<tone>     (그 면 위 AA를 통과하는 전경색)
+// soft/outline/ghost의 톤 글자는 웹(Button.module.css의 --tone = --ds-color-<tone>)과 같은
+// 셰이드, 즉 base인 color/<tone>을 그대로 쓴다.
+/** 톤의 base hex — 사용자가 고른 색 > 프리셋 폴백. 변수가 없을 때만 쓰인다. */
+function toneBase(ctx: Ctx, tone: string): string {
+  return ctx.userColors['color/' + tone] || VARIANT_HEX[tone] || ACCENT
+}
+/** solid 면 fill — color/solid-<tone> 바인딩(없으면 같은 공식으로 계산한 hex). */
+function bindSolidFill(ctx: Ctx, node: GeometryMixin, tone: string) {
+  bindFillVar(ctx, node, solidVarName(tone), solidToneHex(toneBase(ctx, tone)))
+}
+/** solid 면 위 도형(노브·체크바 등) fill — color/on-<tone> 바인딩. */
+function bindOnFill(ctx: Ctx, node: GeometryMixin, tone: string) {
+  bindFillVar(ctx, node, onVarName(tone), onToneHex(toneBase(ctx, tone)))
+}
+/** solid 면 위 전경 hex(변수 없을 때의 폴백 · txt() 리터럴용). */
+function onHex(ctx: Ctx, tone: string): string {
+  return onToneHex(toneBase(ctx, tone))
 }
 // 오너: 생성 컴포넌트의 보더·마진(패딩/간격)·라운드를 값이 맞는 변수에 후처리 바인딩.
 function bindTokens(ctx: Ctx, root: SceneNode) {
@@ -329,7 +355,7 @@ const INPUTS: InputDef[] = [
   { key: 'NumberField', setName: 'DS/NumberField', label: '수량', placeholder: '0', eyebrow: 'MOLECULE · INPUT', desc: '단위 표기 + 증감(−/+) 스테퍼가 붙은 숫자 입력.', helper: '', affordance: { trailing: 'stepper', unit: '개' }, axes: ['disabled', 'readOnly'], states: [{ caption: 'Default', props: {} }, { caption: 'ReadOnly', props: { readOnly: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }] },
   { key: 'CurrencyField', setName: 'DS/CurrencyField', label: '금액', placeholder: '0', eyebrow: 'MOLECULE · INPUT', desc: '천단위 콤마 + 통화 단위 표기가 붙은 금액 입력.', helper: '최대 50,000원까지 입력할 수 있어요.', affordance: { trailing: 'unit', unit: '원' }, axes: ['error', 'disabled', 'readOnly'], states: [{ caption: 'Default', props: {} }, { caption: 'Error', props: { error: 'true' } }, { caption: 'ReadOnly', props: { readOnly: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }] },
   { key: 'OtpField', setName: 'DS/OtpField', label: '인증번호', placeholder: '', eyebrow: 'MOLECULE · INPUT', desc: '자릿수만큼 분리된 셀에 입력하는 인증번호(OTP) 필드.', helper: '문자로 받은 6자리를 입력하세요.', affordance: { otp: 6 }, axes: ['error', 'disabled'], states: [{ caption: 'Default', props: {} }, { caption: 'Error', props: { error: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }] },
-  { key: 'Textarea', setName: 'DS/Textarea', label: '내용', placeholder: '내용을 입력하세요', eyebrow: 'MOLECULE · INPUT', desc: '자동 높이 조절 + 글자수 카운터가 붙은 여러 줄 텍스트 입력.', helper: '10자 이상 입력하세요.', affordance: { textarea: true }, axes: ['error', 'disabled', 'readOnly', 'required'], states: [{ caption: 'Default', props: {} }, { caption: 'Error', props: { error: 'true' } }, { caption: 'ReadOnly', props: { readOnly: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }, { caption: 'Required', props: { required: 'true' } }] },
+  { key: 'Textarea', setName: 'DS/Textarea', label: '내용', placeholder: '내용을 입력하세요', eyebrow: 'MOLECULE · INPUT', desc: '자동 높이 조절 + 글자수 카운터가 붙은 여러 줄 텍스트 입력. fullWidth 축은 폼 그리드 열을 채우는 넓은 폭을 보여줍니다.', helper: '10자 이상 입력하세요.', affordance: { textarea: true }, axes: ['error', 'disabled', 'readOnly', 'required', 'fullWidth'], states: [{ caption: 'Default', props: {} }, { caption: 'Error', props: { error: 'true' } }, { caption: 'ReadOnly', props: { readOnly: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }, { caption: 'Required', props: { required: 'true' } }, { caption: 'Full Width', props: { fullWidth: 'true' } }] },
 ]
 
 function errorMsg(key: string): string {
@@ -354,11 +380,14 @@ function renderInput(ctx: Ctx, def: InputDef, combo: Record<string, string>): Co
   }
   const toneVar = error ? 'color/error' : success ? 'color/success' : null
   const toneHex = error ? '#F04452' : success ? '#00C471' : null
+  // fullWidth(Textarea 전용 축) — 폼 그리드 열을 채운다(기본 480px 상한을 푼다). 격리된 컴포넌트에서는
+  // 상한을 아예 없애는 대신 더 넉넉한 고정 폭으로 대신 보여준다(Select·Button fullWidth와 같은 패턴).
+  const fieldW = combo.fullWidth === 'true' ? 480 : FIELD_W
 
   const c = figma.createComponent()
   c.layoutMode = 'VERTICAL'
   c.counterAxisSizingMode = 'FIXED'
-  c.resize(FIELD_W, c.height)
+  c.resize(fieldW, c.height)
   c.primaryAxisSizingMode = 'AUTO'
   c.itemSpacing = 6
   c.fills = []
@@ -475,10 +504,13 @@ function renderToggle(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   track.counterAxisAlignItems = 'CENTER'
   track.paddingLeft = track.paddingRight = 3
   track.cornerRadius = th / 2
-  bindFillVar(ctx, track, checked ? 'color/primary' : 'color/border', checked ? ACCENT : BORDER)
+  // 켜짐 = solid 면(color/solid-primary), 노브 = 그 면 위 전경(color/on-primary)
+  if (checked) bindSolidFill(ctx, track, 'primary')
+  else bindFillVar(ctx, track, 'color/border', BORDER)
   const knob = figma.createEllipse()
   knob.resize(kn, kn)
-  knob.fills = [solid(WHITE)]
+  if (checked) bindOnFill(ctx, knob, 'primary')
+  else bindFillVar(ctx, knob, 'color/bg', WHITE)
   track.appendChild(knob)
   c.appendChild(track)
   const lbl = boundText(ctx, '알림 받기', 14, 'color/text', INK)
@@ -503,16 +535,21 @@ function renderCheckbox(ctx: Ctx, combo: Record<string, string>): ComponentNode 
   box.primaryAxisAlignItems = 'CENTER'
   box.counterAxisAlignItems = 'CENTER'
   box.cornerRadius = 6
-  bindFillVar(ctx, box, on ? 'color/primary' : 'color/bg', on ? ACCENT : WHITE)
-  bindStrokeVar(ctx, box, on ? 'color/primary' : 'color/border', on ? ACCENT : BORDER)
+  // 체크됨 = solid 면 + on-color 체크/대시(면 위 전경)
+  if (on) bindSolidFill(ctx, box, 'primary')
+  else bindFillVar(ctx, box, 'color/bg', WHITE)
+  bindStrokeVar(ctx, box, on ? solidVarName('primary') : 'color/border', on ? solidToneHex(toneBase(ctx, 'primary')) : BORDER)
   box.strokeWeight = 1
   box.strokeAlign = 'INSIDE'
-  if (checked) box.appendChild(iconNode(ctx, '_Icon/Check', 14, WHITE))
-  else if (indet) {
+  if (checked) {
+    const ck = iconInstance('_Icon/Check', 'icon', 14)
+    recolorIconOn(ctx, ck, 'primary')
+    box.appendChild(ck)
+  } else if (indet) {
     const dash = figma.createRectangle()
     dash.resize(10, 2)
     dash.cornerRadius = 1
-    dash.fills = [solid(WHITE)]
+    bindOnFill(ctx, dash, 'primary')
     box.appendChild(dash)
   }
   c.appendChild(box)
@@ -564,20 +601,30 @@ function renderChip(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.paddingTop = c.paddingBottom = 7
   c.paddingLeft = c.paddingRight = 14
   c.cornerRadius = 999
-  bindFillVar(ctx, c, selected ? 'color/primary' : 'color/bgSubtle', selected ? ACCENT : SURFACE)
-  if (!selected) {
+  // 선택됨 = solid 면 + on-color 글자/아이콘
+  if (selected) bindSolidFill(ctx, c, 'primary')
+  else {
+    bindFillVar(ctx, c, 'color/bgSubtle', SURFACE)
     bindStrokeVar(ctx, c, 'color/border', BORDER)
     c.strokeWeight = 1
     c.strokeAlign = 'INSIDE'
   }
   if (disabled) c.opacity = 0.45
-  const lbl = boundText(ctx, '필터', 13, selected ? 'color/bg' : 'color/text', selected ? WHITE : INK, true)
+  const lbl = boundText(
+    ctx,
+    '필터',
+    13,
+    selected ? onVarName('primary') : 'color/text',
+    selected ? onHex(ctx, 'primary') : INK,
+    true,
+  )
   lbl.name = 'Label'
   c.appendChild(lbl)
   if (combo.removable === 'true') {
     c.paddingRight = 8
     const x = iconInstance('_Icon/Close', 'Remove', 14)
-    recolorIcon(x, selected ? WHITE : SUB)
+    if (selected) recolorIconOn(ctx, x, 'primary')
+    else recolorIconVar(ctx, x, 'color/secondary', SUB)
     c.appendChild(x)
   }
   return c
@@ -591,11 +638,24 @@ function recolorIcon(node: SceneNode, hex: string) {
     if (v) (v as VectorNode).strokes = [solid(hex)]
   }
 }
+/** 인스턴스 아이콘 색을 변수에 바인딩(없으면 hex). 아이콘도 글자와 같은 색 토큰을 따라간다. */
+function recolorIconVar(ctx: Ctx, node: SceneNode, varName: string, hex: string) {
+  if (node.type !== 'INSTANCE') return
+  const vv = ctx.vars.get(varName)
+  const v = node.findOne((n) => n.type === 'VECTOR')
+  if (v) (v as VectorNode).strokes = [vv ? boundPaint(vv) : solid(ctx.userColors[varName] ?? hex)]
+}
+/** solid 면 위 아이콘 — color/on-<tone> 바인딩. */
+function recolorIconOn(ctx: Ctx, node: SceneNode, tone: string) {
+  recolorIconVar(ctx, node, onVarName(tone), onHex(ctx, tone))
+}
 function renderButton(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   const variant = combo.variant || 'primary'
   const appearance = combo.appearance || 'solid'
   const size = combo.size || 'md'
   const disabled = combo.disabled === 'true'
+  const fullWidth = combo.fullWidth === 'true'
+  const iconOnly = combo.iconOnly === 'true'
   const pad: Record<string, { v: number; h: number; f: number }> = {
     sm: { v: 7, h: 12, f: 13 },
     md: { v: 10, h: 16, f: 15 },
@@ -608,14 +668,16 @@ function renderButton(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.counterAxisAlignItems = 'CENTER'
   c.itemSpacing = 6
   c.paddingTop = c.paddingBottom = pad[size].v
-  c.paddingLeft = c.paddingRight = pad[size].h
+  // iconOnly = 라벨 없는 정사각 버튼 → 좌우 패딩도 상하와 같은 값으로 squarify.
+  c.paddingLeft = c.paddingRight = iconOnly ? pad[size].v : pad[size].h
   c.cornerRadius = 8
   const toneHex = VARIANT_HEX[variant] ?? ACCENT
-  // appearance: solid=톤 채움+흰 글자 / outline=투명+톤 보더+톤 글자 / ghost=투명+톤 글자
-  let fgVar = 'color/bg'
-  let fgHex = WHITE
+  // appearance: solid=solid 면(color/solid-*) + on-color 글자 / outline=투명+톤 보더+톤 글자 / ghost=투명+톤 글자
+  // 웹 Button.module.css: .solid{background:solid 면; color:on-color} · .outline/.ghost{color:var(--tone)=base}
+  let fgVar = onVarName(variant)
+  let fgHex = onHex(ctx, variant)
   if (appearance === 'solid') {
-    bindFillVar(ctx, c, `color/${variant}`, toneHex)
+    bindSolidFill(ctx, c, variant)
   } else {
     c.fills = []
     fgVar = `color/${variant}`
@@ -628,19 +690,30 @@ function renderButton(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   }
   if (disabled) c.opacity = 0.45
   const ipx = pad[size].f + 2
-  // 왼쪽 아이콘(기본 숨김, 토글 대상)
+  // 왼쪽 아이콘(기본 숨김, 토글 대상) — 아이콘도 글자와 같은 색 변수를 따라간다(currentColor와 동일).
+  // iconOnly 변형은 Storybook의 IconOnly 스토리(iconOnly + showLeftIcon 조합)와 같이 기본으로 보여준다 —
+  // 이 visible은 이 변형만의 기본값이고, "Show Left Icon" 공유 속성 바인딩은 인스턴스별로 계속 덮어쓸 수 있다.
   const li = iconInstance(ICON_DEFAULT, 'Left Icon', ipx)
-  li.visible = false
-  recolorIcon(li, fgHex)
+  li.visible = iconOnly
+  recolorIconVar(ctx, li, fgVar, fgHex)
   c.appendChild(li)
   const lbl = boundText(ctx, '버튼', pad[size].f, fgVar, fgHex, true)
   lbl.name = 'Label'
+  // iconOnly = 라벨을 화면에서 감춘다(characters 자체는 남아 접근성 이름 역할을 계속한다).
+  lbl.visible = !iconOnly
   c.appendChild(lbl)
   // 오른쪽 아이콘(기본 숨김, 토글 대상)
   const ri = iconInstance('_Icon/ChevronRight', 'Right Icon', ipx)
   ri.visible = false
-  recolorIcon(ri, fgHex)
+  recolorIconVar(ctx, ri, fgVar, fgHex)
   c.appendChild(ri)
+  // fullWidth = 폼 하단 제출 CTA처럼 부모 폭을 꽉 채운다 — 격리된 컴포넌트에서는 상한을 푸는 대신
+  // 넉넉한 고정 폭(400)으로 펼치고 내용을 가운데로 둔다(Storybook FullWidth 스토리와 같은 폭 축소판).
+  if (fullWidth) {
+    c.primaryAxisSizingMode = 'FIXED'
+    c.primaryAxisAlignItems = 'CENTER'
+    c.resize(400, c.height)
+  }
   return c
 }
 function renderBadge(ctx: Ctx, combo: Record<string, string>): ComponentNode {
@@ -656,11 +729,12 @@ function renderBadge(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.paddingLeft = c.paddingRight = size === 'sm' ? 7 : 9
   c.cornerRadius = 6
   const toneHex = VARIANT_HEX[variant] ?? ACCENT
-  // appearance: solid=톤 채움+흰 글자 / soft=톤 100(연한) 배경+톤 글자 / outline=투명+톤 보더+톤 글자
-  let fgVar = 'color/bg'
-  let fgHex = WHITE
+  // appearance: solid=solid 면(color/solid-*)+on-color 글자 / soft=톤 100(연한) 배경+톤 글자 / outline=투명+톤 보더+톤 글자
+  // 웹 Badge.module.css: .soft/.outline의 글자는 var(--tone)=base → Figma도 color/<variant>(base)로 같은 셰이드.
+  let fgVar = onVarName(variant)
+  let fgHex = onHex(ctx, variant)
   if (appearance === 'solid') {
-    bindFillVar(ctx, c, `color/${variant}`, toneHex)
+    bindSolidFill(ctx, c, variant)
   } else {
     fgVar = `color/${variant}`
     fgHex = toneHex
@@ -676,6 +750,48 @@ function renderBadge(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   const lbl = boundText(ctx, 'Badge', size === 'sm' ? 11 : 13, fgVar, fgHex, true)
   lbl.name = 'Label'
   c.appendChild(lbl)
+  return c
+}
+
+// ── DS/Tag — 분류 라벨(중립 표면 + 톤 점). Badge/Chip과 달리 톤이 면을 채우지 않는다. ──
+// 출처: Tag.module.css — 보더/배경은 톤을 옅게 섞은 색(color-mix), 점(dot)·글자는 톤 그대로.
+// Figma는 color-mix 8%/28% 믹스를 그대로 표현할 변수가 없어 soft 배지와 같은 톤/100(연한) 배경으로 근사한다.
+function renderTag(ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  const tone = combo.tone || 'secondary'
+  const size = combo.size || 'md'
+  const dim = size === 'sm' ? { pv: 1, ph: 6, f: 11, dot: 5 } : { pv: 2, ph: 8, f: 13, dot: 6 }
+  const toneHex = VARIANT_HEX[tone] ?? SUB
+
+  const c = figma.createComponent()
+  c.layoutMode = 'HORIZONTAL'
+  c.primaryAxisSizingMode = 'AUTO'
+  c.counterAxisSizingMode = 'AUTO'
+  c.counterAxisAlignItems = 'CENTER'
+  c.itemSpacing = 4
+  c.paddingTop = c.paddingBottom = dim.pv
+  c.paddingLeft = c.paddingRight = dim.ph
+  c.cornerRadius = 4
+  bindFillVar(ctx, c, `color/${tone}/100`, tintHex(toneHex))
+  bindStrokeVar(ctx, c, `color/${tone}`, toneHex)
+  c.strokeWeight = 1
+  c.strokeAlign = 'INSIDE'
+
+  const dot = figma.createEllipse()
+  dot.name = 'Dot'
+  dot.resize(dim.dot, dim.dot)
+  bindFillVar(ctx, dot, `color/${tone}`, toneHex)
+  c.appendChild(dot)
+
+  // 라벨은 톤이 아니라 중립 텍스트색 — Tag는 "낮은 강조"라 여러 개를 나열해도 시끄럽지 않다.
+  const lbl = boundText(ctx, '태그', dim.f, 'color/text', INK)
+  lbl.name = 'Label'
+  c.appendChild(lbl)
+
+  // 제거 버튼(onRemove) — 기본 숨김, "Show Remove" 속성으로 토글.
+  const rm = iconInstance('_Icon/Close', 'Remove', size === 'sm' ? 10 : 12)
+  recolorIconVar(ctx, rm, 'color/secondary', SUB)
+  rm.visible = false
+  c.appendChild(rm)
   return c
 }
 
@@ -871,8 +987,17 @@ function renderTab(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     c.paddingTop = c.paddingBottom = 8
     c.paddingLeft = c.paddingRight = 18
     c.cornerRadius = 999
-    bindFillVar(ctx, c, active ? 'color/primary' : 'color/bgSubtle', active ? ACCENT : SURFACE)
-    const t = boundText(ctx, '메뉴', 14, active ? 'color/bg' : 'color/text', active ? WHITE : INK, active)
+    // 활성 세그먼트 = solid 면 + on-color 글자
+    if (active) bindSolidFill(ctx, c, 'primary')
+    else bindFillVar(ctx, c, 'color/bgSubtle', SURFACE)
+    const t = boundText(
+      ctx,
+      '메뉴',
+      14,
+      active ? onVarName('primary') : 'color/text',
+      active ? onHex(ctx, 'primary') : INK,
+      active,
+    )
     t.name = 'Label'
     c.appendChild(t)
     return c
@@ -895,6 +1020,86 @@ function renderTab(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   if (active) bindFillVar(ctx, ul, 'color/primary', ACCENT)
   else ul.fills = []
   c.appendChild(ul)
+  return c
+}
+
+// ── DS/CategoryTabs — 탭 그룹(3항목 예시). variant(underline·pill) × align × rule ──
+// 출처: CategoryTabs.module.css. 어드민 목록에서 쓰이므로(제목상 Admin/CategoryTabs) site-accent가 아닌
+// primary를 강조색으로 쓴다(다른 admin 컴포넌트와 동일한 관례 — ViewSwitch 등 참고).
+/** 탭 그룹의 항목 하나 — pill(알약 필터) / underline(라벨+2px 밑줄) 두 룩. */
+function ctItem(ctx: Ctx, label: string, selected: boolean, pill: boolean, layerName: string): FrameNode {
+  if (pill) {
+    const item = autoFrame(layerName + ' Item', 'HORIZONTAL')
+    item.counterAxisAlignItems = 'CENTER'
+    item.paddingTop = item.paddingBottom = 8
+    item.paddingLeft = item.paddingRight = 16
+    item.cornerRadius = 999
+    if (selected) bindSolidFill(ctx, item, 'primary')
+    else {
+      bindFillVar(ctx, item, 'color/bg', WHITE)
+      bindStrokeVar(ctx, item, 'color/border', BORDER)
+      item.strokeWeight = 1
+      item.strokeAlign = 'INSIDE'
+    }
+    const t = boundText(ctx, label, 14, selected ? onVarName('primary') : 'color/text', selected ? onHex(ctx, 'primary') : INK, selected)
+    t.name = layerName
+    item.appendChild(t)
+    return item
+  }
+  const item = autoFrame(layerName + ' Item', 'VERTICAL')
+  item.counterAxisAlignItems = 'CENTER'
+  item.itemSpacing = 8
+  const t = boundText(ctx, label, 14, selected ? 'color/primary' : 'color/secondary', selected ? ACCENT : SUB, selected)
+  t.name = layerName
+  item.appendChild(t)
+  const bar = figma.createRectangle()
+  bar.name = layerName + ' Bar'
+  bar.resize(32, 2)
+  bar.cornerRadius = 1
+  if (selected) bindFillVar(ctx, bar, 'color/primary', ACCENT)
+  else bar.fills = []
+  item.appendChild(bar)
+  return item
+}
+function renderCategoryTabs(ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  const pill = combo.variant === 'pill'
+  const center = combo.align === 'center'
+  // rule: underline 룩의 컨테이너 가로선 ON/OFF(기본 true) — pill은 애초에 면 경계가 없다.
+  const showRule = combo.rule !== 'false'
+  const W = 460
+
+  const c = figma.createComponent()
+  c.layoutMode = 'VERTICAL'
+  c.primaryAxisSizingMode = 'AUTO'
+  c.counterAxisSizingMode = 'FIXED'
+  c.resize(W, c.height)
+  c.itemSpacing = 0
+  c.fills = []
+
+  const tablist = autoFrame('Tablist', 'HORIZONTAL')
+  tablist.counterAxisAlignItems = 'CENTER'
+  tablist.itemSpacing = pill ? 8 : 20
+  tablist.paddingBottom = pill ? 12 : 10
+  tablist.appendChild(ctItem(ctx, '전체', true, pill, 'Tab 1'))
+  tablist.appendChild(ctItem(ctx, '진행 중', false, pill, 'Tab 2'))
+  tablist.appendChild(ctItem(ctx, '완료', false, pill, 'Tab 3'))
+  // align=center — 격리된 컴포넌트에서는 여유 폭이 있어야 가운데 정렬이 보이므로
+  // 고정 폭(W)으로 펼치고 그 안에서 가운데로 둔다(Pagination·Button fullWidth와 같은 패턴).
+  if (center) {
+    tablist.primaryAxisSizingMode = 'FIXED'
+    tablist.resize(W, tablist.height)
+    tablist.primaryAxisAlignItems = 'CENTER'
+  }
+  c.appendChild(tablist)
+
+  if (!pill) {
+    const rule = figma.createRectangle()
+    rule.name = 'Rule'
+    rule.resize(W, 1)
+    bindFillVar(ctx, rule, 'color/border', BORDER)
+    rule.visible = showRule
+    c.appendChild(rule)
+  }
   return c
 }
 function renderBreadcrumb(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
@@ -923,7 +1128,12 @@ function renderBreadcrumb(ctx: Ctx, _combo: Record<string, string>): ComponentNo
   c.appendChild(t3)
   return c
 }
-function renderPagination(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
+function renderPagination(ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  // shape: square=라운드 사각(기본) / circle=원형. align: 격리된 컴포넌트에서 좌/가운데/우측 정렬은
+  // 여유 폭이 있어야 보이므로, start가 아니면 넉넉한 고정 폭(480)으로 펼치고 그 안에서 정렬한다.
+  const circle = combo.shape === 'circle'
+  const align = combo.align || 'start'
+  const cellRadius = circle ? 16 : 8
   const c = figma.createComponent()
   c.layoutMode = 'HORIZONTAL'
   c.primaryAxisSizingMode = 'AUTO'
@@ -935,22 +1145,32 @@ function renderPagination(ctx: Ctx, _combo: Record<string, string>): ComponentNo
     const f = fixedFrame('cell', 'HORIZONTAL', 32, 32)
     f.primaryAxisAlignItems = 'CENTER'
     f.counterAxisAlignItems = 'CENTER'
-    f.cornerRadius = 8
-    if (active) bindFillVar(ctx, f, 'color/primary', ACCENT)
+    f.cornerRadius = cellRadius
+    // 현재 페이지 = solid 면 + on-color 숫자
+    if (active) bindSolidFill(ctx, f, 'primary')
     else {
       bindFillVar(ctx, f, 'color/bg', WHITE)
       bindStrokeVar(ctx, f, 'color/border', BORDER)
       f.strokeWeight = 1
       f.strokeAlign = 'INSIDE'
     }
-    f.appendChild(boundText(ctx, label, 13, active ? 'color/bg' : 'color/text', active ? WHITE : INK, active))
+    f.appendChild(
+      boundText(
+        ctx,
+        label,
+        13,
+        active ? onVarName('primary') : 'color/text',
+        active ? onHex(ctx, 'primary') : INK,
+        active,
+      ),
+    )
     return f
   }
   const arrow = (key: string) => {
     const f = fixedFrame('arrow', 'HORIZONTAL', 32, 32)
     f.primaryAxisAlignItems = 'CENTER'
     f.counterAxisAlignItems = 'CENTER'
-    f.cornerRadius = 8
+    f.cornerRadius = cellRadius
     bindFillVar(ctx, f, 'color/bg', WHITE)
     bindStrokeVar(ctx, f, 'color/border', BORDER)
     f.strokeWeight = 1
@@ -967,6 +1187,11 @@ function renderPagination(ctx: Ctx, _combo: Record<string, string>): ComponentNo
   c.appendChild(boundText(ctx, '…', 13, 'color/secondary', MUTED))
   c.appendChild(cell('10', false))
   c.appendChild(arrow('_Icon/ChevronRight'))
+  if (align !== 'start') {
+    c.primaryAxisSizingMode = 'FIXED'
+    c.resize(480, c.height)
+    c.primaryAxisAlignItems = align === 'center' ? 'CENTER' : 'MAX'
+  }
   return c
 }
 function renderDropdown(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
@@ -1045,8 +1270,8 @@ function renderCard(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     btn.paddingTop = btn.paddingBottom = 7
     btn.paddingLeft = btn.paddingRight = 14
     btn.cornerRadius = 8
-    bindFillVar(ctx, btn, 'color/primary', ACCENT)
-    btn.appendChild(boundText(ctx, '확인', 13, 'color/bg', WHITE, true))
+    bindSolidFill(ctx, btn, 'primary')
+    btn.appendChild(boundText(ctx, '확인', 13, onVarName('primary'), onHex(ctx, 'primary'), true))
     f.appendChild(btn)
     c.appendChild(f)
   }
@@ -1253,8 +1478,8 @@ function renderModal(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   confirm.paddingTop = confirm.paddingBottom = 9
   confirm.paddingLeft = confirm.paddingRight = 16
   confirm.cornerRadius = 8
-  bindFillVar(ctx, confirm, 'color/primary', ACCENT)
-  const cf = boundText(ctx, '확인', 14, 'color/bg', WHITE, true)
+  bindSolidFill(ctx, confirm, 'primary')
+  const cf = boundText(ctx, '확인', 14, onVarName('primary'), onHex(ctx, 'primary'), true)
   cf.name = 'Confirm'
   confirm.appendChild(cf)
   footer.appendChild(confirm)
@@ -1306,10 +1531,11 @@ function renderDialog(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     b.counterAxisAlignItems = 'CENTER'
     b.paddingTop = b.paddingBottom = 10
     b.cornerRadius = 8
-    const bg = primary ? (danger ? 'color/error' : 'color/primary') : 'color/bgSubtle'
-    const bgHex = primary ? (danger ? '#F04452' : ACCENT) : SURFACE
-    bindFillVar(ctx, b, bg, bgHex)
-    const t = boundText(ctx, label, 14, primary ? 'color/bg' : 'color/text', primary ? WHITE : INK, true)
+    // 주 버튼(확인/삭제) = solid 면 + on-color 글자. 보조 버튼(취소)은 옅은 배경 + 본문색.
+    const tone = danger ? 'error' : 'primary'
+    if (primary) bindSolidFill(ctx, b, tone)
+    else bindFillVar(ctx, b, 'color/bgSubtle', SURFACE)
+    const t = boundText(ctx, label, 14, primary ? onVarName(tone) : 'color/text', primary ? onHex(ctx, tone) : INK, true)
     t.name = name
     b.appendChild(t)
     return b
@@ -1374,9 +1600,10 @@ function renderAvatar(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   // 모양: shape=rounded면 라운드 사각, 아니면 원
   c.cornerRadius = combo.shape === 'rounded' ? Math.round(px * 0.28) : px / 2
   c.clipsContent = true
-  bindFillVar(ctx, c, 'color/primary', ACCENT)
-  const initial = txt(ctx, '김', fs, WHITE, true)
-  const iv = ctx.vars.get('color/bg')
+  // 아바타 = solid 면(color/solid-primary) + on-color 이니셜
+  bindSolidFill(ctx, c, 'primary')
+  const initial = txt(ctx, '김', fs, onHex(ctx, 'primary'), true)
+  const iv = ctx.vars.get(onVarName('primary'))
   if (iv) initial.fills = [boundPaint(iv)]
   initial.name = 'Initial'
   c.appendChild(initial)
@@ -1542,9 +1769,9 @@ function optionPanel(ctx: Ctx, opts: Array<[string, boolean]>, multi: boolean): 
       box.counterAxisAlignItems = 'CENTER'
       box.cornerRadius = 5
       if (selected) {
-        bindFillVar(ctx, box, 'color/primary', ACCENT)
+        bindSolidFill(ctx, box, 'primary')
         const ck = iconInstance('_Icon/Check', 'check', 13)
-        recolorIcon(ck, WHITE)
+        recolorIconOn(ctx, ck, 'primary')
         box.appendChild(ck)
       } else {
         box.fills = []
@@ -1572,6 +1799,9 @@ function renderSelect(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   const error = combo.error === 'true'
   const disabled = combo.disabled === 'true'
   const { c, addField } = inputShell(ctx, '카테고리', disabled)
+  // fullWidth — 폼 그리드에서 열을 채운다(기본 320px 상한을 푼다). 격리된 컴포넌트에서는
+  // 상한을 아예 없애는 대신 더 넉넉한 고정 폭으로 대신 보여준다(다른 fullWidth 축과 같은 패턴).
+  if (combo.fullWidth === 'true') c.resize(480, c.height)
   const row = fieldRow(ctx, error ? 'color/error' : null, error ? '#F04452' : null, disabled)
   const val = boundText(ctx, '선택하세요', 15, 'color/secondary', MUTED)
   val.name = 'Value'
@@ -1844,8 +2074,8 @@ function pillButton(ctx: Ctx, label: string, name: string): FrameNode {
   btn.paddingTop = btn.paddingBottom = 9
   btn.paddingLeft = btn.paddingRight = 16
   btn.cornerRadius = 8
-  bindFillVar(ctx, btn, 'color/primary', ACCENT)
-  const t = boundText(ctx, label, 14, 'color/onPrimary', '#FFFFFF', true)
+  bindSolidFill(ctx, btn, 'primary')
+  const t = boundText(ctx, label, 14, onVarName('primary'), onHex(ctx, 'primary'), true)
   t.name = name
   btn.appendChild(t)
   return btn
@@ -1855,7 +2085,7 @@ function avatarCircle(ctx: Ctx, size: number): FrameNode {
   a.name = 'Avatar'
   a.resize(size, size)
   a.cornerRadius = 999
-  bindFillVar(ctx, a, 'color/primary', ACCENT)
+  bindSolidFill(ctx, a, 'primary')
   return a
 }
 function renderNavbar(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
@@ -2088,13 +2318,23 @@ function renderCalendar(ctx: Ctx, _combo: Record<string, string>): ComponentNode
       cell.cornerRadius = 999
       if (day >= 1 && day <= days) {
         const isSel = day === selected
-        if (isSel) bindFillVar(ctx, cell, 'color/primary', ACCENT)
+        // 선택 날짜 = solid 면 + on-color 숫자
+        if (isSel) bindSolidFill(ctx, cell, 'primary')
         else if (day === today) {
           bindStrokeVar(ctx, cell, 'color/primary', ACCENT)
           cell.strokeWeight = 1
           cell.strokeAlign = 'INSIDE'
         }
-        cell.appendChild(boundText(ctx, String(day), 14, isSel ? 'color/onPrimary' : 'color/text', isSel ? '#FFFFFF' : INK, isSel))
+        cell.appendChild(
+          boundText(
+            ctx,
+            String(day),
+            14,
+            isSel ? onVarName('primary') : 'color/text',
+            isSel ? onHex(ctx, 'primary') : INK,
+            isSel,
+          ),
+        )
       }
       r.appendChild(cell)
     }
@@ -2543,13 +2783,18 @@ function renderKrStep(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
     marker.primaryAxisAlignItems = 'CENTER'
     marker.counterAxisAlignItems = 'CENTER'
     marker.cornerRadius = 999
-    bindFillVar(ctx, marker, done || active ? 'color/primary' : 'color/bgSubtle', done || active ? ACCENT : SURFACE)
+    // 완료·진행 중 마커 = solid 면 + on-color 체크/번호
+    const strong = done || active
+    if (strong) bindSolidFill(ctx, marker, 'primary')
+    else bindFillVar(ctx, marker, 'color/bgSubtle', SURFACE)
     if (done) {
       const ck = iconInstance('_Icon/Check', 'c', 14)
-      recolorIcon(ck, WHITE)
+      recolorIconOn(ctx, ck, 'primary')
       marker.appendChild(ck)
     } else {
-      marker.appendChild(txt(ctx, String(i + 1), 12, active ? WHITE : MUTED, true))
+      marker.appendChild(
+        boundText(ctx, String(i + 1), 12, active ? onVarName('primary') : 'color/secondary', active ? onHex(ctx, 'primary') : MUTED, true),
+      )
     }
     item.appendChild(marker)
     item.appendChild(boundText(ctx, s, 13, active ? 'color/text' : 'color/secondary', active ? INK : SUB, active))
@@ -2587,13 +2832,17 @@ function renderKrCarrier(ctx: Ctx, _combo: Record<string, string>): ComponentNod
     p.paddingTop = p.paddingBottom = 8
     p.paddingLeft = p.paddingRight = 16
     p.cornerRadius = 999
-    bindFillVar(ctx, p, sel ? 'color/primary' : 'color/bgSubtle', sel ? ACCENT : SURFACE)
-    if (!sel) {
+    // 선택된 통신사 = solid 면 + on-color 글자
+    if (sel) bindSolidFill(ctx, p, 'primary')
+    else {
+      bindFillVar(ctx, p, 'color/bgSubtle', SURFACE)
       bindStrokeVar(ctx, p, 'color/border', BORDER)
       p.strokeWeight = 1
       p.strokeAlign = 'INSIDE'
     }
-    p.appendChild(boundText(ctx, n, 13, sel ? 'color/bg' : 'color/text', sel ? WHITE : INK, sel))
+    p.appendChild(
+      boundText(ctx, n, 13, sel ? onVarName('primary') : 'color/text', sel ? onHex(ctx, 'primary') : INK, sel),
+    )
     wrap.appendChild(p)
   })
   c.appendChild(wrap)
@@ -2765,8 +3014,8 @@ function krPrimaryBtn(ctx: Ctx, label: string): FrameNode {
   b.counterAxisAlignItems = 'CENTER'
   b.paddingTop = b.paddingBottom = 12
   b.cornerRadius = 8
-  bindFillVar(ctx, b, 'color/primary', ACCENT)
-  const t = boundText(ctx, label, 15, 'color/bg', WHITE, true)
+  bindSolidFill(ctx, b, 'primary')
+  const t = boundText(ctx, label, 15, onVarName('primary'), onHex(ctx, 'primary'), true)
   t.name = 'Submit'
   b.appendChild(t)
   return b
@@ -2876,8 +3125,13 @@ function renderKrStepInline(ctx: Ctx): FrameNode {
     marker.primaryAxisAlignItems = 'CENTER'
     marker.counterAxisAlignItems = 'CENTER'
     marker.cornerRadius = 999
-    bindFillVar(ctx, marker, done || active ? 'color/primary' : 'color/bgSubtle', done || active ? ACCENT : SURFACE)
-    marker.appendChild(txt(ctx, String(i + 1), 11, done || active ? WHITE : MUTED, true))
+    // 완료·진행 중 마커 = solid 면 + on-color 번호
+    const strong = done || active
+    if (strong) bindSolidFill(ctx, marker, 'primary')
+    else bindFillVar(ctx, marker, 'color/bgSubtle', SURFACE)
+    marker.appendChild(
+      boundText(ctx, String(i + 1), 11, strong ? onVarName('primary') : 'color/secondary', strong ? onHex(ctx, 'primary') : MUTED, true),
+    )
     item.appendChild(marker)
     item.appendChild(boundText(ctx, s, 12, active ? 'color/text' : 'color/secondary', active ? INK : SUB, active))
     wrap.appendChild(item)
@@ -3059,10 +3313,13 @@ function renderTplSettings(ctx: Ctx, _combo: Record<string, string>): ComponentN
     tr.counterAxisAlignItems = 'CENTER'
     tr.paddingLeft = tr.paddingRight = 3
     tr.cornerRadius = 12
-    bindFillVar(ctx, tr, on ? 'color/primary' : 'color/border', on ? ACCENT : BORDER)
+    // 켜짐 = solid 면 + on-color 노브
+    if (on) bindSolidFill(ctx, tr, 'primary')
+    else bindFillVar(ctx, tr, 'color/border', BORDER)
     const kn = figma.createEllipse()
     kn.resize(18, 18)
-    kn.fills = [solid(WHITE)]
+    if (on) bindOnFill(ctx, kn, 'primary')
+    else bindFillVar(ctx, kn, 'color/bg', WHITE)
     tr.appendChild(kn)
     r.appendChild(tr)
     return r
@@ -3136,8 +3393,8 @@ function renderTplEmptyState(ctx: Ctx, _combo: Record<string, string>): Componen
   b.paddingTop = b.paddingBottom = 9
   b.paddingLeft = b.paddingRight = 16
   b.cornerRadius = 8
-  bindFillVar(ctx, b, 'color/primary', ACCENT)
-  const bt = boundText(ctx, '추가하기', 14, 'color/bg', WHITE, true)
+  bindSolidFill(ctx, b, 'primary')
+  const bt = boundText(ctx, '추가하기', 14, onVarName('primary'), onHex(ctx, 'primary'), true)
   bt.name = 'Action'
   b.appendChild(bt)
   c.appendChild(b)
@@ -3184,7 +3441,10 @@ function renderTplFilterBar(ctx: Ctx, _combo: Record<string, string>): Component
   return c
 }
 
-// ══ Storybook-only 백필: Autocomplete · FileUpload · ImageUpload ═════
+// ══ Storybook-only 백필: Autocomplete ════════════════════════════════
+// FileUpload · ImageUpload는 여기서 제거했다 — Storybook src/ds에서 사라졌고(커밋 64bd32f 'empty slate for
+// full rebuild'), 두 역할은 살아 있는 DS/Upload 한 세트로 흡수됐다. 없는 컴포넌트의 Figma 세트를 계속 찍으면
+// 디자이너가 코드에 없는 컴포넌트를 쓰게 된다. (DS/Upload는 그대로 둔다.)
 function renderAutocomplete(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   const disabled = combo.state === 'disabled'
   const { c, addField } = inputShell(ctx, '검색', disabled)
@@ -3200,142 +3460,152 @@ function renderAutocomplete(ctx: Ctx, combo: Record<string, string>): ComponentN
   if (!disabled) addField(optionPanel(ctx, [['서울특별시', false], ['서울대입구역', false], ['서울숲', false]], false))
   return c
 }
-function dropzone(ctx: Ctx, prompt: string, hint: string, disabled: boolean): FrameNode {
-  const z = autoFrame('dropzone', 'VERTICAL')
-  z.layoutAlign = 'STRETCH'
-  z.primaryAxisSizingMode = 'FIXED'
-  z.counterAxisAlignItems = 'CENTER'
-  z.primaryAxisAlignItems = 'CENTER'
-  z.itemSpacing = 6
-  z.paddingTop = z.paddingBottom = 24
-  z.cornerRadius = 10
-  bindFillVar(ctx, z, 'color/bgSubtle', SURFACE)
-  bindStrokeVar(ctx, z, 'color/border', BORDER)
-  z.strokeWeight = 1
-  z.dashPattern = [6, 6]
-  if (disabled) z.opacity = 0.45
-  const ic = iconInstance('_Icon/Upload', 'Icon', 22)
-  recolorIcon(ic, SUB)
-  z.appendChild(ic)
-  const p = boundText(ctx, prompt, 14, 'color/text', INK, true)
-  p.name = 'Prompt'
-  z.appendChild(p)
-  const h = boundText(ctx, hint, 12, 'color/secondary', SUB)
-  h.name = 'Hint'
-  z.appendChild(h)
-  return z
-}
-function renderFileUpload(ctx: Ctx, combo: Record<string, string>): ComponentNode {
-  const disabled = combo.state === 'disabled'
-  const { c, addField } = inputShell(ctx, '첨부 파일', disabled)
-  addField(dropzone(ctx, '파일을 끌어다 놓거나 클릭', 'PDF, PNG · 최대 10MB', disabled))
-  ;[['기획서.pdf', '1.2MB'], ['디자인.png', '820KB']].forEach(([name, size]) => {
-    const r = autoFrame('file', 'HORIZONTAL')
-    r.layoutAlign = 'STRETCH'
-    r.primaryAxisSizingMode = 'FIXED'
-    r.counterAxisAlignItems = 'CENTER'
-    r.itemSpacing = 8
-    r.paddingTop = r.paddingBottom = 8
-    r.paddingLeft = r.paddingRight = 10
-    r.cornerRadius = 8
-    bindStrokeVar(ctx, r, 'color/border', BORDER)
-    r.strokeWeight = 1
-    r.strokeAlign = 'INSIDE'
-    const fi = iconInstance('_Icon/File', 'Icon', 16)
-    recolorIcon(fi, SUB)
-    r.appendChild(fi)
-    const t = boundText(ctx, name, 13, 'color/text', INK)
-    t.layoutGrow = 1
-    r.appendChild(t)
-    r.appendChild(boundText(ctx, size, 12, 'color/tertiary', MUTED))
-    const x = iconInstance('_Icon/Close', 'Remove', 14)
-    recolorIcon(x, SUB)
-    r.appendChild(x)
-    addField(r)
-  })
-  return c
-}
-function renderImageUpload(ctx: Ctx, combo: Record<string, string>): ComponentNode {
-  const disabled = combo.state === 'disabled'
-  const { c, addField } = inputShell(ctx, '이미지', disabled)
-  const grid = figma.createFrame()
-  grid.name = 'grid'
-  grid.layoutMode = 'HORIZONTAL'
-  grid.layoutWrap = 'WRAP'
-  grid.primaryAxisSizingMode = 'FIXED'
-  grid.counterAxisSizingMode = 'AUTO'
-  grid.layoutAlign = 'STRETCH'
-  grid.itemSpacing = 8
-  grid.counterAxisSpacing = 8
-  grid.fills = []
-  grid.resize(FIELD_W, grid.height)
-  if (disabled) grid.opacity = 0.45
-  for (let i = 0; i < 3; i++) {
-    const th = figma.createFrame()
-    th.name = 'thumb'
-    th.resize(72, 72)
-    th.cornerRadius = 8
-    bindFillVar(ctx, th, 'color/bgSubtle', SURFACE)
-    grid.appendChild(th)
-  }
-  const add = autoFrame('add', 'VERTICAL')
-  add.primaryAxisSizingMode = 'FIXED'
-  add.counterAxisSizingMode = 'FIXED'
-  add.resize(72, 72)
-  add.primaryAxisAlignItems = 'CENTER'
-  add.counterAxisAlignItems = 'CENTER'
-  add.cornerRadius = 8
-  bindStrokeVar(ctx, add, 'color/border', BORDER)
-  add.strokeWeight = 1
-  add.dashPattern = [6, 6]
-  add.fills = []
-  const pl = iconInstance('_Icon/Plus', 'Icon', 20)
-  recolorIcon(pl, SUB)
-  add.appendChild(pl)
-  grid.appendChild(add)
-  addField(grid)
-  return c
-}
 
 // ══ MEDIA (Image · Video · YouTube · ImageCard · ImageSlide) ═════════
-function imgBox(ctx: Ctx, w: number, h: number, iconSize = 36): FrameNode {
+// 비율 축의 단일 출처는 Storybook src/ds/Image/Image.tsx의 MediaRatio(10값).
+// 값 순서만 다르다: Figma의 defaultVariant = '각 축 values[0] 조합'이라, Storybook 기본값(ratio='16x9')이
+// 기본 변형이 되도록 16x9를 맨 앞에 둔다(나머지는 Storybook 선언 순서 유지).
+const MEDIA_RATIOS = ['16x9', '1x1', '4x3', '3x2', '21x9', '4x5', '3x4', '9x16', '2x1', 'auto']
+// ImageCard는 4축(ratio×layout×align×scrim) 곱이라 비율은 대표 4값만 — 변형 폭발 방지.
+const CARD_RATIOS = ['16x9', '4x3', '1x1', '21x9']
+// 가로÷세로. auto(원본 비율 유지)는 플레이스홀더에 원본이 없으므로 16:9로 폴백
+// (Storybook의 `.ratioAuto .placeholder { aspect-ratio: 16/9 }`와 같은 규칙).
+const RATIO_WH: Record<string, number> = {
+  '1x1': 1,
+  '4x3': 4 / 3,
+  '3x2': 3 / 2,
+  '16x9': 16 / 9,
+  '21x9': 21 / 9,
+  '4x5': 4 / 5,
+  '3x4': 3 / 4,
+  '9x16': 9 / 16,
+  '2x1': 2,
+  auto: 16 / 9,
+}
+/** 기준 폭 w의 비율 박스. 세로 비율(9x16·3x4 등)은 maxH에서 잘라 세트가 세로로 폭발하지 않게 한다. */
+function ratioBox(ratio: string, w: number, maxH: number): { w: number; h: number } {
+  const r = RATIO_WH[ratio] ?? RATIO_WH['16x9']
+  let bw = w
+  let bh = Math.round(w / r)
+  if (bh > maxH) {
+    bh = maxH
+    bw = Math.round(maxH * r)
+  }
+  return { w: bw, h: bh }
+}
+/** 박스 크기에 맞춘 심볼 크기 — 짧은 변의 45%(28~72px). */
+function glyphSize(w: number, h: number): number {
+  return Math.max(28, Math.min(72, Math.round(Math.min(w, h) * 0.45)))
+}
+
+// 공용 플레이스홀더 SVG 언어(src/shared/placeholders.tsx)의 획 두께 — 크기와 무관하게 1.5 고정.
+const PH_STROKE = 1.5
+/**
+ * 이미지/영상 없음 자리의 심볼. 공용 SVG 언어를 그대로 옮긴다:
+ *  - 모티프: 둥근 사각 프레임(64 캔버스 기준 x6 y8 52×48 rx10) + 그 안의 심볼
+ *  - 획: 1.5 고정 · 둥근 캡/조인 / 강조(primary)는 심볼 안 요소 '하나'에만
+ * `_Placeholder/*` 컴포넌트에는 의존하지 않는다 — 카테고리 세트는 자립해야 한다.
+ * 좌표는 brand-logos.ts와 같은 방식으로 스케일 후 bbox 최소점으로 배치한다.
+ */
+function phGlyph(ctx: Ctx, kind: 'image' | 'video', size: number): FrameNode {
+  const k = size / 64
+  const p = (n: number) => Math.round(n * k * 100) / 100
+  const g = figma.createFrame()
+  g.name = 'Placeholder'
+  g.resize(size, size)
+  g.fills = []
+  g.clipsContent = false
+
+  // 8종 공통 둥근 사각 프레임(선 = secondary/300)
+  const box = figma.createRectangle()
+  box.name = 'frame'
+  box.resize(p(52), p(48))
+  box.fills = []
+  bindStrokeVar(ctx, box, 'color/secondary/300', MUTED)
+  box.strokeWeight = PH_STROKE
+  box.strokeAlign = 'CENTER'
+  box.cornerRadius = p(10)
+  g.appendChild(box)
+  box.x = p(6)
+  box.y = p(8)
+
+  if (kind === 'image') {
+    // 이미지: 산등성이 + 해(강조)
+    const sun = figma.createEllipse()
+    sun.name = 'sun'
+    sun.resize(p(7), p(7))
+    sun.strokes = []
+    bindFillVar(ctx, sun, 'color/primary', ACCENT)
+    g.appendChild(sun)
+    sun.x = p(17.5)
+    sun.y = p(18.5)
+
+    const ridge = figma.createVector()
+    ridge.name = 'ridge'
+    ridge.vectorPaths = [
+      { windingRule: 'NONE', data: `M ${p(8)} ${p(47)} L ${p(22)} ${p(33)} L ${p(31)} ${p(42)} L ${p(40)} ${p(34)} L ${p(56)} ${p(50)}` },
+    ]
+    ridge.fills = []
+    bindStrokeVar(ctx, ridge, 'color/secondary/300', MUTED)
+    ridge.strokeWeight = PH_STROKE
+    ridge.strokeCap = 'ROUND'
+    ridge.strokeJoin = 'ROUND'
+    g.appendChild(ridge)
+    ridge.x = p(8) // 경로 bbox 최소점 (8,33)
+    ridge.y = p(33)
+  } else {
+    // 동영상: 중앙 재생 삼각형(강조)
+    const play = figma.createVector()
+    play.name = 'play'
+    play.vectorPaths = [{ windingRule: 'NONZERO', data: `M ${p(27)} ${p(23)} L ${p(44)} ${p(32)} L ${p(27)} ${p(41)} Z` }]
+    bindFillVar(ctx, play, 'color/primary', ACCENT)
+    bindStrokeVar(ctx, play, 'color/primary', ACCENT)
+    play.strokeWeight = PH_STROKE
+    play.strokeCap = 'ROUND'
+    play.strokeJoin = 'ROUND'
+    g.appendChild(play)
+    play.x = p(27) // 경로 bbox 최소점 (27,23)
+    play.y = p(23)
+  }
+  return g
+}
+/** 회색(bgSubtle) 비율 박스 + 플레이스홀더 심볼. 캡션(Counter 등)은 심볼 아래로 쌓인다. */
+function imgBox(ctx: Ctx, w: number, h: number, kind: 'image' | 'video' = 'image'): FrameNode {
   const f = figma.createFrame()
   f.name = 'image'
-  f.layoutMode = 'HORIZONTAL'
+  f.layoutMode = 'VERTICAL'
   f.primaryAxisSizingMode = 'FIXED'
   f.counterAxisSizingMode = 'FIXED'
   f.resize(w, h)
   f.primaryAxisAlignItems = 'CENTER'
   f.counterAxisAlignItems = 'CENTER'
+  f.itemSpacing = 8
   f.clipsContent = true
   bindFillVar(ctx, f, 'color/bgSubtle', SURFACE)
-  const ic = iconInstance('_Icon/Image', 'Icon', iconSize)
-  recolorIcon(ic, MUTED)
-  f.appendChild(ic)
+  f.appendChild(phGlyph(ctx, kind, glyphSize(w, h)))
   return f
 }
-function playButton(ctx: Ctx, yt = false): FrameNode {
+/** 유튜브 재생 버튼 — 빨강+흰 삼각은 브랜드 크롬(brand-logos와 같이 테마 토큰 대상이 아님). */
+function ytPlayButton(): FrameNode {
   const b = figma.createFrame()
   b.name = 'play'
   b.layoutMode = 'HORIZONTAL'
   b.primaryAxisSizingMode = 'FIXED'
   b.counterAxisSizingMode = 'FIXED'
-  b.resize(yt ? 62 : 56, yt ? 44 : 56)
+  b.resize(62, 44)
   b.primaryAxisAlignItems = 'CENTER'
   b.counterAxisAlignItems = 'CENTER'
-  b.cornerRadius = yt ? 12 : 999
-  b.fills = [{ type: 'SOLID', color: yt ? { r: 1, g: 0, b: 0 } : { r: 1, g: 1, b: 1 }, opacity: yt ? 1 : 0.92 }]
+  b.cornerRadius = 12
+  b.fills = [solid('#FF0000')]
   const tri = figma.createVector()
-  tri.vectorPaths = [{ windingRule: 'NONZERO', data: 'M0 0 L14 8 L0 16 Z' }]
-  tri.fills = [{ type: 'SOLID', color: yt ? { r: 1, g: 1, b: 1 } : { r: 0.1, g: 0.12, b: 0.16 } }]
+  tri.vectorPaths = [{ windingRule: 'NONZERO', data: 'M 0 0 L 14 8 L 0 16 Z' }]
+  tri.fills = [solid(WHITE)]
   tri.strokes = []
   b.appendChild(tri)
   return b
 }
 function renderImage(ctx: Ctx, combo: Record<string, string>): ComponentNode {
-  const ratio = combo.ratio || '16x9'
-  const w = 280
-  const h = ratio === '1x1' ? 280 : ratio === '4x3' ? 210 : 158
+  const { w, h } = ratioBox(combo.ratio || '16x9', 280, 280)
   const c = figma.createComponent()
   c.layoutMode = 'HORIZONTAL'
   c.primaryAxisSizingMode = 'FIXED'
@@ -3343,48 +3613,125 @@ function renderImage(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.resize(w, h)
   c.primaryAxisAlignItems = 'CENTER'
   c.counterAxisAlignItems = 'CENTER'
-  c.cornerRadius = combo.rounded === 'false' ? 0 : 12
+  c.cornerRadius = combo.rounded === 'true' ? 12 : 0 // Storybook Image 기본 rounded=false
   c.clipsContent = true
   bindFillVar(ctx, c, 'color/bgSubtle', SURFACE)
-  const ic = iconInstance('_Icon/Image', 'Icon', 40)
-  recolorIcon(ic, MUTED)
-  c.appendChild(ic)
+  c.appendChild(phGlyph(ctx, 'image', glyphSize(w, h)))
   return c
 }
-function renderVideo(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
+function renderVideo(ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  const { w, h } = ratioBox(combo.ratio || '16x9', 320, 280)
   const c = figma.createComponent()
   c.layoutMode = 'HORIZONTAL'
   c.primaryAxisSizingMode = 'FIXED'
   c.counterAxisSizingMode = 'FIXED'
-  c.resize(320, 180)
+  c.resize(w, h)
   c.primaryAxisAlignItems = 'CENTER'
   c.counterAxisAlignItems = 'CENTER'
-  c.cornerRadius = 12
+  c.cornerRadius = combo.rounded === 'false' ? 0 : 12 // Storybook Video 기본 rounded=true
   c.clipsContent = true
-  c.fills = [solid('#1A1F28')]
-  c.appendChild(playButton(ctx))
+  // src 없는 상태 = Storybook의 Placeholder(kind="video") — 회색 면 + 재생 심볼(토큰 바인딩).
+  bindFillVar(ctx, c, 'color/bgSubtle', SURFACE)
+  c.appendChild(phGlyph(ctx, 'video', glyphSize(w, h)))
   return c
 }
-function renderYouTube(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
+function renderYouTube(_ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  const { w, h } = ratioBox(combo.ratio || '16x9', 320, 280)
   const c = figma.createComponent()
   c.layoutMode = 'HORIZONTAL'
   c.primaryAxisSizingMode = 'FIXED'
   c.counterAxisSizingMode = 'FIXED'
-  c.resize(320, 180)
+  c.resize(w, h)
   c.primaryAxisAlignItems = 'CENTER'
   c.counterAxisAlignItems = 'CENTER'
   c.cornerRadius = 12
   c.clipsContent = true
-  c.fills = [solid('#0F0F0F')]
-  c.appendChild(playButton(ctx, true))
+  c.fills = [solid('#0F0F0F')] // 유튜브 플레이어 크롬 — 브랜드 고정색(테마 토큰 대상 아님)
+  c.appendChild(ytPlayButton())
   return c
 }
-function renderImageCard(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
+
+// ── ImageCard: layout(below|overlay) × align × scrim ─────────────────
+/** overlay 스크림 — 테마와 무관하게 항상 어두워야 흰 글자가 읽히므로 토큰이 아닌 검정 알파(Storybook과 동일). */
+function scrimPaint(scrim: string, align: string): Paint {
+  const black = { r: 0, g: 0, b: 0 }
+  if (scrim === 'solid') return { type: 'SOLID', color: black, opacity: 0.45 }
+  // gradientTransform [[0,1,0],[-1,0,1]] = 위→아래. position 0 = 위, 1 = 아래.
+  const stops: ColorStop[] =
+    align === 'top'
+      ? [
+          { position: 0, color: { ...black, a: 0.78 } },
+          { position: 0.45, color: { ...black, a: 0.35 } },
+          { position: 0.75, color: { ...black, a: 0 } },
+          { position: 1, color: { ...black, a: 0 } },
+        ]
+      : align === 'center'
+        ? [
+            { position: 0, color: { ...black, a: 0.15 } },
+            { position: 0.5, color: { ...black, a: 0.6 } },
+            { position: 1, color: { ...black, a: 0.15 } },
+          ]
+        : [
+            { position: 0, color: { ...black, a: 0 } },
+            { position: 0.25, color: { ...black, a: 0 } },
+            { position: 0.55, color: { ...black, a: 0.35 } },
+            { position: 1, color: { ...black, a: 0.78 } },
+          ]
+  return {
+    type: 'GRADIENT_LINEAR',
+    gradientTransform: [
+      [0, 1, 0],
+      [-1, 0, 1],
+    ],
+    gradientStops: stops,
+  }
+}
+/** 좌상단 배지 — 프레임/텍스트 모두 'Badge'라 Show Badge 하나로 함께 껐다 켠다. */
+function cardBadge(ctx: Ctx): FrameNode {
+  const b = autoFrame('Badge', 'HORIZONTAL')
+  b.counterAxisAlignItems = 'CENTER'
+  b.paddingTop = b.paddingBottom = 4
+  b.paddingLeft = b.paddingRight = 8
+  b.cornerRadius = 999
+  bindSolidFill(ctx, b, 'primary')
+  const t = boundText(ctx, 'NEW', 12, onVarName('primary'), onHex(ctx, 'primary'), true)
+  t.name = 'Badge'
+  b.appendChild(t)
+  return b
+}
+/** 하단 CTA — overlay는 이미지 위 흰 반투명(고정색), below는 토큰 색. */
+function cardAction(ctx: Ctx, overlay: boolean): FrameNode {
+  const a = autoFrame('Action', 'HORIZONTAL')
+  a.counterAxisAlignItems = 'CENTER'
+  a.paddingTop = a.paddingBottom = 8
+  a.paddingLeft = a.paddingRight = 12
+  a.cornerRadius = 8
+  a.strokeWeight = 1
+  a.strokeAlign = 'INSIDE'
+  if (overlay) {
+    a.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0.16 }]
+    a.strokes = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0.6 }]
+  } else {
+    bindFillVar(ctx, a, 'color/bg', WHITE)
+    bindStrokeVar(ctx, a, 'color/border', BORDER)
+  }
+  const t = boundText(ctx, '자세히 보기', 13, overlay ? 'color/bg' : 'color/primary', overlay ? WHITE : ACCENT, true)
+  t.name = 'Action'
+  a.appendChild(t)
+  return a
+}
+function renderImageCard(ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  const overlay = combo.layout === 'overlay'
+  const align = combo.align || 'bottom'
+  const scrim = combo.scrim || 'gradient'
+  const W = 280
+  const { h } = ratioBox(combo.ratio || '16x9', W, 320) // 카드 폭은 고정, 높이만 비율에서
+
   const c = figma.createComponent()
   c.layoutMode = 'VERTICAL'
   c.primaryAxisSizingMode = 'AUTO'
   c.counterAxisSizingMode = 'FIXED'
-  c.resize(280, c.height)
+  c.resize(W, c.height)
   c.itemSpacing = 0
   c.cornerRadius = 12
   c.clipsContent = true
@@ -3392,26 +3739,85 @@ function renderImageCard(ctx: Ctx, _combo: Record<string, string>): ComponentNod
   bindStrokeVar(ctx, c, 'color/border', BORDER)
   c.strokeWeight = 1
   c.strokeAlign = 'INSIDE'
-  const img = imgBox(ctx, 280, 158)
-  img.layoutAlign = 'STRETCH'
-  c.appendChild(img)
-  const body = autoFrame('body', 'VERTICAL')
-  body.layoutAlign = 'STRETCH'
-  body.itemSpacing = 4
-  body.paddingTop = body.paddingBottom = 16
-  body.paddingLeft = body.paddingRight = 16
-  const t = boundText(ctx, '이미지 카드', 16, 'color/text', INK, true)
-  t.name = 'Title'
-  body.appendChild(t)
-  const d = boundText(ctx, '이미지 위에 제목과 설명이 붙는 카드입니다.', 13, 'color/secondary', SUB)
-  d.name = 'Body'
-  d.layoutAlign = 'STRETCH'
-  d.textAutoResize = 'HEIGHT'
-  body.appendChild(d)
-  c.appendChild(body)
+
+  const media = imgBox(ctx, W, h)
+  media.name = 'media'
+  media.layoutAlign = 'STRETCH'
+  c.appendChild(media)
+
+  if (overlay) {
+    // z 순서 = 자식 순서: 스크림 → 본문 → 배지(Storybook의 z-index 1·2·3과 동일)
+    if (scrim !== 'none') {
+      const sc = figma.createRectangle()
+      sc.name = 'Scrim'
+      sc.resize(W, h)
+      sc.strokes = []
+      sc.fills = [scrimPaint(scrim, align)]
+      media.appendChild(sc)
+      sc.layoutPositioning = 'ABSOLUTE'
+      sc.constraints = { horizontal: 'STRETCH', vertical: 'STRETCH' }
+      sc.x = 0
+      sc.y = 0
+    }
+    const body = autoFrame('overlay body', 'VERTICAL')
+    body.counterAxisSizingMode = 'FIXED'
+    body.itemSpacing = 8
+    body.counterAxisAlignItems = align === 'center' ? 'CENTER' : 'MIN'
+    body.resize(W - 32, body.height)
+    const t = boundText(ctx, '이미지 카드', 18, 'color/bg', WHITE, true) // 이미지 위 글자 = 흰색(color/bg)
+    t.name = 'Title'
+    t.layoutAlign = 'STRETCH'
+    t.textAutoResize = 'HEIGHT'
+    if (align === 'center') t.textAlignHorizontal = 'CENTER'
+    body.appendChild(t)
+    const d = boundText(ctx, '이미지 위에 제목과 설명이 붙는 카드입니다.', 13, 'color/bg', WHITE)
+    d.name = 'Body'
+    d.layoutAlign = 'STRETCH'
+    d.textAutoResize = 'HEIGHT'
+    d.opacity = 0.9
+    if (align === 'center') d.textAlignHorizontal = 'CENTER'
+    body.appendChild(d)
+    body.appendChild(cardAction(ctx, true))
+    media.appendChild(body)
+    body.layoutPositioning = 'ABSOLUTE'
+    body.constraints = { horizontal: 'STRETCH', vertical: align === 'top' ? 'MIN' : align === 'center' ? 'CENTER' : 'MAX' }
+    body.x = 16
+    // 낮은 비율(21:9)에서 본문이 위로 새지 않게 최소 여백을 남긴다.
+    const y = align === 'top' ? 16 : align === 'center' ? Math.round((h - body.height) / 2) : h - body.height - 16
+    body.y = Math.max(8, y)
+  } else {
+    const body = autoFrame('body', 'VERTICAL')
+    body.layoutAlign = 'STRETCH'
+    body.itemSpacing = 8
+    body.paddingTop = body.paddingBottom = 16
+    body.paddingLeft = body.paddingRight = 16
+    // eyebrow — 제목 위 한 줄 라벨(분류). below 배치에서만 그린다(Storybook과 동일).
+    const eyebrow = boundText(ctx, '카테고리', 12, 'color/secondary', SUB, true)
+    eyebrow.name = 'Eyebrow'
+    body.appendChild(eyebrow)
+    const t = boundText(ctx, '이미지 카드', 16, 'color/text', INK, true)
+    t.name = 'Title'
+    body.appendChild(t)
+    const d = boundText(ctx, '이미지 위에 제목과 설명이 붙는 카드입니다.', 13, 'color/secondary', SUB)
+    d.name = 'Body'
+    d.layoutAlign = 'STRETCH'
+    d.textAutoResize = 'HEIGHT'
+    body.appendChild(d)
+    body.appendChild(cardAction(ctx, false))
+    c.appendChild(body)
+  }
+
+  // 배지는 below·overlay 공통으로 미디어 좌상단(맨 위 레이어)
+  const badge = cardBadge(ctx)
+  media.appendChild(badge)
+  badge.layoutPositioning = 'ABSOLUTE'
+  badge.constraints = { horizontal: 'MIN', vertical: 'MIN' }
+  badge.x = 12
+  badge.y = 12
   return c
 }
-function renderImageSlide(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
+function renderImageSlide(ctx: Ctx, combo: Record<string, string>): ComponentNode {
+  const { w, h } = ratioBox(combo.ratio || '16x9', 300, 260)
   const c = figma.createComponent()
   c.layoutMode = 'VERTICAL'
   c.primaryAxisSizingMode = 'AUTO'
@@ -3423,12 +3829,12 @@ function renderImageSlide(ctx: Ctx, _combo: Record<string, string>): ComponentNo
   stage.counterAxisAlignItems = 'CENTER'
   stage.itemSpacing = 12
   stage.appendChild(circleBtn(ctx, '_Icon/ChevronLeft', 'Prev', 36))
-  const slide = imgBox(ctx, 300, 169, 40)
+  const slide = imgBox(ctx, w, h)
+  slide.name = 'slide'
   slide.cornerRadius = 12
   const lbl = boundText(ctx, '1 / 3', 13, 'color/secondary', SUB, true)
   lbl.name = 'Counter'
-  slide.appendChild(lbl)
-  slide.itemSpacing = 8
+  slide.appendChild(lbl) // imgBox는 VERTICAL → 심볼 아래에 붙는다(Storybook 플레이스홀더 label과 동일)
   stage.appendChild(slide)
   stage.appendChild(circleBtn(ctx, '_Icon/ChevronRight', 'Next', 36))
   c.appendChild(stage)
@@ -3465,9 +3871,9 @@ function renderForm(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
   box.primaryAxisAlignItems = 'CENTER'
   box.counterAxisAlignItems = 'CENTER'
   box.cornerRadius = 5
-  bindFillVar(ctx, box, 'color/primary', ACCENT)
+  bindSolidFill(ctx, box, 'primary')
   const ck = iconInstance('_Icon/Check', 'check', 13)
-  recolorIcon(ck, WHITE)
+  recolorIconOn(ctx, ck, 'primary')
   box.appendChild(ck)
   agree.appendChild(box)
   agree.appendChild(boundText(ctx, '개인정보 수집에 동의합니다', 13, 'color/secondary', SUB))
@@ -3544,10 +3950,14 @@ function renderAvatarGroup(ctx: Ctx, _combo: Record<string, string>): ComponentN
     a.primaryAxisAlignItems = 'CENTER'
     a.counterAxisAlignItems = 'CENTER'
     a.cornerRadius = 999
-    bindFillVar(ctx, a, muted ? 'color/bgSubtle' : 'color/primary', muted ? SURFACE : ACCENT)
+    // 아바타 칩 = solid 면 + on-color 이니셜(+N만 옅은 배경 + 보조 글자색)
+    if (muted) bindFillVar(ctx, a, 'color/bgSubtle', SURFACE)
+    else bindSolidFill(ctx, a, 'primary')
     a.strokes = [solid(WHITE)]
     a.strokeWeight = 2
-    a.appendChild(boundText(ctx, text, 13, muted ? 'color/secondary' : 'color/bg', muted ? SUB : WHITE, true))
+    a.appendChild(
+      boundText(ctx, text, 13, muted ? 'color/secondary' : onVarName('primary'), muted ? SUB : onHex(ctx, 'primary'), true),
+    )
     return a
   }
   ;['김', '이', '박'].forEach((n) => c.appendChild(chip(n, false)))
@@ -3692,9 +4102,9 @@ const INPUT_CATEGORY: CategoryDef = {
       key: 'Select',
       setName: 'DS/Select',
       eyebrow: 'ORGANISM · INPUT',
-      desc: '옵션 목록에서 하나를 고르는 단일 선택.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Select', [{ name: 'open', values: ['false', 'true'] }, { name: 'error', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderSelect(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '카테고리' }, { prop: 'Value', layer: 'Value', def: '선택하세요' }, { prop: 'Helper', layer: 'Helper', def: '하나를 선택하세요.' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/ChevronDown' }] }),
-      states: [{ caption: 'Default', props: {} }, { caption: 'Open', props: { open: 'true' } }, { caption: 'Error', props: { error: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
+      desc: '옵션 목록에서 하나를 고르는 단일 선택. fullWidth 축은 폼 그리드 열을 채우는 넓은 폭을 보여줍니다.',
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Select', [{ name: 'open', values: ['false', 'true'] }, { name: 'error', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }, { name: 'fullWidth', values: ['false', 'true'] }], (c) => renderSelect(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '카테고리' }, { prop: 'Value', layer: 'Value', def: '선택하세요' }, { prop: 'Helper', layer: 'Helper', def: '하나를 선택하세요.' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/ChevronDown' }] }),
+      states: [{ caption: 'Default', props: {} }, { caption: 'Open', props: { open: 'true' } }, { caption: 'Error', props: { error: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }, { caption: 'Full Width', props: { fullWidth: 'true' } }],
     },
     {
       key: 'MultiSelect',
@@ -3728,22 +4138,7 @@ const INPUT_CATEGORY: CategoryDef = {
       build: (ctx, page) => buildSet(ctx, page, 'DS/Autocomplete', [{ name: 'state', values: ['default', 'disabled'] }], (c) => renderAutocomplete(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '검색' }, { prop: 'Value', layer: 'Value', def: '검색어를 입력하세요' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Search' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'Disabled', props: { state: 'disabled' } }],
     },
-    {
-      key: 'FileUpload',
-      setName: 'DS/FileUpload',
-      eyebrow: 'ORGANISM · INPUT',
-      desc: '드롭존 + 첨부 파일 목록.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/FileUpload', [{ name: 'state', values: ['default', 'disabled'] }], (c) => renderFileUpload(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '첨부 파일' }, { prop: 'Prompt', layer: 'Prompt', def: '파일을 끌어다 놓거나 클릭' }, { prop: 'Hint', layer: 'Hint', def: 'PDF, PNG · 최대 10MB' }] }),
-      states: [{ caption: 'Default', props: {} }, { caption: 'Disabled', props: { state: 'disabled' } }],
-    },
-    {
-      key: 'ImageUpload',
-      setName: 'DS/ImageUpload',
-      eyebrow: 'ORGANISM · INPUT',
-      desc: '드롭존 + 썸네일 그리드(추가 타일).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/ImageUpload', [{ name: 'state', values: ['default', 'disabled'] }], (c) => renderImageUpload(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '이미지' }] }),
-      states: [{ caption: 'Default', props: {} }, { caption: 'Disabled', props: { state: 'disabled' } }],
-    },
+    // DS/FileUpload · DS/ImageUpload는 제거했다 — Storybook src/ds에서 삭제된 컴포넌트라 세트만 남아 있었다(둘 다 DS/Upload로 흡수).
   ],
 }
 
@@ -3790,7 +4185,7 @@ const SELECTION_CATEGORY: CategoryDef = {
 const ACTION_CATEGORY: CategoryDef = {
   pageName: PAGE_ACTION,
   title: 'Action',
-  subtitle: '액션 계열 — 사용자 행동을 유발하거나 상태를 표시. Button · Badge.',
+  subtitle: '액션 계열 — 사용자 행동을 유발하거나 상태를 표시. Button · Badge · Tag.',
   docs: [
     {
       key: 'Button',
@@ -3798,7 +4193,7 @@ const ACTION_CATEGORY: CategoryDef = {
       eyebrow: 'ATOM · ACTION',
       desc: '주요 액션을 실행하는 버튼. variant·size 축을 가집니다.',
       build: (ctx, page) =>
-        buildSet(ctx, page, 'DS/Button', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning'] }, { name: 'appearance', values: ['solid', 'outline', 'ghost'] }, { name: 'size', values: ['md', 'sm', 'lg'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderButton(ctx, c), {
+        buildSet(ctx, page, 'DS/Button', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] }, { name: 'appearance', values: ['solid', 'outline', 'ghost'] }, { name: 'size', values: ['md', 'sm', 'lg'] }, { name: 'disabled', values: ['false', 'true'] }, { name: 'fullWidth', values: ['false', 'true'] }, { name: 'iconOnly', values: ['false', 'true'] }], (c) => renderButton(ctx, c), {
           texts: [{ prop: 'Label', layer: 'Label', def: '버튼' }],
           bools: [
             { prop: 'Show Left Icon', layer: 'Left Icon', def: false },
@@ -3809,15 +4204,45 @@ const ACTION_CATEGORY: CategoryDef = {
             { prop: 'Right Icon', layer: 'Right Icon', defKey: '_Icon/ChevronRight' },
           ],
         }),
-      states: [{ caption: 'Primary', props: { variant: 'primary' } }, { caption: 'Secondary', props: { variant: 'secondary' } }, { caption: 'Error', props: { variant: 'error' } }, { caption: 'Success', props: { variant: 'success' } }, { caption: 'Small', props: { size: 'sm' } }, { caption: 'Large', props: { size: 'lg' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
+      states: [{ caption: 'Primary', props: { variant: 'primary' } }, { caption: 'Secondary', props: { variant: 'secondary' } }, { caption: 'Error', props: { variant: 'error' } }, { caption: 'Success', props: { variant: 'success' } }, { caption: 'Neutral', props: { variant: 'neutral' } }, { caption: 'Small', props: { size: 'sm' } }, { caption: 'Large', props: { size: 'lg' } }, { caption: 'Disabled', props: { disabled: 'true' } }, { caption: 'Full Width', props: { fullWidth: 'true' } }, { caption: 'Icon Only', props: { iconOnly: 'true' } }],
     },
     {
       key: 'Badge',
       setName: 'DS/Badge',
       eyebrow: 'ATOM · ACTION',
       desc: '상태·분류를 표시하는 배지. variant·size 축을 가집니다.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Badge', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning'] }, { name: 'appearance', values: ['soft', 'solid', 'outline'] }, { name: 'size', values: ['md', 'sm'] }], (c) => renderBadge(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: 'Badge' }] }),
-      states: [{ caption: 'Primary', props: { variant: 'primary' } }, { caption: 'Secondary', props: { variant: 'secondary' } }, { caption: 'Error', props: { variant: 'error' } }, { caption: 'Success', props: { variant: 'success' } }, { caption: 'Small', props: { size: 'sm' } }],
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Badge', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] }, { name: 'appearance', values: ['soft', 'solid', 'outline'] }, { name: 'size', values: ['md', 'sm'] }], (c) => renderBadge(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: 'Badge' }] }),
+      states: [{ caption: 'Primary', props: { variant: 'primary' } }, { caption: 'Secondary', props: { variant: 'secondary' } }, { caption: 'Error', props: { variant: 'error' } }, { caption: 'Success', props: { variant: 'success' } }, { caption: 'Neutral', props: { variant: 'neutral' } }, { caption: 'Small', props: { size: 'sm' } }],
+    },
+    {
+      key: 'Tag',
+      setName: 'DS/Tag',
+      eyebrow: 'ATOM · ACTION',
+      desc:
+        '분류(카테고리) 라벨 — 중립 표면 + 톤 점(dot). Badge(상태, 톤이 면을 채움)·Chip(선택 가능한 pill)과 시각적으로 구분됩니다. ' +
+        'tone·size 축이고, 점 노출은 "Show Dot"(기본 켜짐), 제거 버튼은 "Show Remove"(기본 꺼짐) 속성입니다.',
+      build: (ctx, page) => {
+        const set = buildSet(
+          ctx,
+          page,
+          'DS/Tag',
+          [
+            { name: 'tone', values: ['secondary', 'primary', 'success', 'warning', 'error', 'neutral'] },
+            { name: 'size', values: ['md', 'sm'] },
+          ],
+          (c) => renderTag(ctx, c),
+          { texts: [{ prop: 'Label', layer: 'Label', def: '태그' }] },
+        )
+        addBoolProp(set, 'Show Dot', 'Dot', true)
+        addBoolProp(set, 'Show Remove', 'Remove', false)
+        return set
+      },
+      states: [
+        { caption: 'Default', props: {} },
+        { caption: 'Primary', props: { tone: 'primary' } },
+        { caption: 'Neutral', props: { tone: 'neutral' } },
+        { caption: 'Small', props: { size: 'sm' } },
+      ],
     },
   ],
 }
@@ -3919,7 +4344,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
 const NAVIGATION_CATEGORY: CategoryDef = {
   pageName: PAGE_NAV,
   title: 'Navigation',
-  subtitle: '내비게이션 계열 — 이동·탐색 컨트롤. Tab · Breadcrumb · Pagination · Dropdown.',
+  subtitle: '내비게이션 계열 — 이동·탐색 컨트롤. Tab · CategoryTabs · Breadcrumb · Pagination · Dropdown.',
   docs: [
     {
       key: 'Tab',
@@ -3928,6 +4353,39 @@ const NAVIGATION_CATEGORY: CategoryDef = {
       desc: '섹션을 전환하는 탭 아이템(활성/비활성).',
       build: (ctx, page) => buildSet(ctx, page, 'DS/Tab', [{ name: 'active', values: ['false', 'true'] }, { name: 'variant', values: ['underline', 'segmented'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderTab(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '메뉴' }] }),
       states: [{ caption: 'Underline (Active)', props: { active: 'true' } }, { caption: 'Underline', props: {} }, { caption: 'Segmented (Active)', props: { active: 'true', variant: 'segmented' } }, { caption: 'Segmented', props: { variant: 'segmented' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
+    },
+    {
+      key: 'CategoryTabs',
+      setName: 'DS/CategoryTabs',
+      eyebrow: 'MOLECULE · NAVIGATION',
+      desc:
+        '탭 그룹(전체·진행 중·완료 3개 예시). variant(underline·pill) × align(start·center) × rule(가로선) 축입니다. ' +
+        '항목 라벨은 Tab 1/Tab 2/Tab 3 TEXT 속성으로 편집합니다. (추가·삭제 입력은 문서화 범위 밖 — Figma는 정적 세트입니다.)',
+      build: (ctx, page) =>
+        buildSet(
+          ctx,
+          page,
+          'DS/CategoryTabs',
+          [
+            { name: 'variant', values: ['underline', 'pill'] },
+            { name: 'align', values: ['start', 'center'] },
+            { name: 'rule', values: ['true', 'false'] },
+          ],
+          (c) => renderCategoryTabs(ctx, c),
+          {
+            texts: [
+              { prop: 'Tab 1', layer: 'Tab 1', def: '전체' },
+              { prop: 'Tab 2', layer: 'Tab 2', def: '진행 중' },
+              { prop: 'Tab 3', layer: 'Tab 3', def: '완료' },
+            ],
+          },
+        ),
+      states: [
+        { caption: 'Underline (기본)', props: {} },
+        { caption: 'Pill', props: { variant: 'pill' } },
+        { caption: 'Center', props: { align: 'center' } },
+        { caption: 'No Rule', props: { rule: 'false' } },
+      ],
     },
     {
       key: 'Breadcrumb',
@@ -3941,9 +4399,24 @@ const NAVIGATION_CATEGORY: CategoryDef = {
       key: 'Pagination',
       setName: 'DS/Pagination',
       eyebrow: 'MOLECULE · NAVIGATION',
-      desc: '페이지를 넘기는 페이지네이션.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Pagination', [{ name: 'state', values: ['default'] }], (c) => renderPagination(ctx, c)),
-      states: [{ caption: 'Default', props: {} }],
+      desc: '페이지를 넘기는 페이지네이션. shape(square·circle) × align(start·center·end) 축을 가집니다.',
+      build: (ctx, page) =>
+        buildSet(
+          ctx,
+          page,
+          'DS/Pagination',
+          [
+            { name: 'shape', values: ['square', 'circle'] },
+            { name: 'align', values: ['start', 'center', 'end'] },
+          ],
+          (c) => renderPagination(ctx, c),
+        ),
+      states: [
+        { caption: 'Square (Start)', props: {} },
+        { caption: 'Circle', props: { shape: 'circle' } },
+        { caption: 'Center', props: { align: 'center' } },
+        { caption: 'End', props: { align: 'end' } },
+      ],
     },
     {
       key: 'Dropdown',
@@ -4317,47 +4790,137 @@ const TEMPLATES_CATEGORY: CategoryDef = {
 const MEDIA_CATEGORY: CategoryDef = {
   pageName: PAGE_MEDIA,
   title: 'Media',
-  subtitle: '미디어 계열 — 이미지·동영상·임베드. Image · Video · YouTube · ImageCard · ImageSlide.',
+  subtitle: '미디어 계열 — 이미지·동영상·임베드. 비율 축(MediaRatio 10값)은 Storybook src/ds/Image/Image.tsx가 단일 출처.',
   docs: [
     {
       key: 'Image',
       setName: 'DS/Image',
       eyebrow: 'ATOM · MEDIA',
-      desc: '비율 지정 이미지(플레이스홀더).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Image', [{ name: 'ratio', values: ['16x9', '4x3', '1x1'] }], (c) => renderImage(ctx, c)),
-      states: [{ caption: '16:9', props: {} }, { caption: '4:3', props: { ratio: '4x3' } }, { caption: '1:1', props: { ratio: '1x1' } }],
+      desc: '비율 지정 이미지. ratio 10값 × rounded 축(이미지가 없으면 공용 플레이스홀더 심볼).',
+      build: (ctx, page) =>
+        buildSet(
+          ctx,
+          page,
+          'DS/Image',
+          [
+            { name: 'ratio', values: MEDIA_RATIOS },
+            { name: 'rounded', values: ['false', 'true'] },
+          ],
+          (c) => renderImage(ctx, c),
+        ),
+      states: [
+        { caption: '16:9', props: {} },
+        { caption: '1:1', props: { ratio: '1x1' } },
+        { caption: '4:3', props: { ratio: '4x3' } },
+        { caption: '21:9', props: { ratio: '21x9' } },
+        { caption: '9:16', props: { ratio: '9x16' } },
+        { caption: 'auto (16:9 폴백)', props: { ratio: 'auto' } },
+        { caption: 'Rounded', props: { rounded: 'true' } },
+      ],
     },
     {
       key: 'Video',
       setName: 'DS/Video',
       eyebrow: 'MOLECULE · MEDIA',
-      desc: '재생 버튼 오버레이가 있는 동영상 플레이어.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Video', [{ name: 'state', values: ['default'] }], (c) => renderVideo(ctx, c)),
-      states: [{ caption: 'Default', props: {} }],
+      desc: '동영상 — src가 없으면 재생 심볼 플레이스홀더. ratio 10값 × rounded 축.',
+      build: (ctx, page) =>
+        buildSet(
+          ctx,
+          page,
+          'DS/Video',
+          [
+            { name: 'ratio', values: MEDIA_RATIOS },
+            { name: 'rounded', values: ['true', 'false'] },
+          ],
+          (c) => renderVideo(ctx, c),
+        ),
+      states: [
+        { caption: '16:9', props: {} },
+        { caption: '1:1', props: { ratio: '1x1' } },
+        { caption: '9:16', props: { ratio: '9x16' } },
+        { caption: '21:9', props: { ratio: '21x9' } },
+        { caption: 'Square edge', props: { rounded: 'false' } },
+      ],
     },
     {
       key: 'YouTube',
       setName: 'DS/YouTube',
       eyebrow: 'MOLECULE · MEDIA',
-      desc: '유튜브 임베드(빨강 재생 버튼).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/YouTube', [{ name: 'state', values: ['default'] }], (c) => renderYouTube(ctx, c)),
-      states: [{ caption: 'Default', props: {} }],
+      desc: '유튜브 임베드(빨강 재생 버튼 = 브랜드 크롬). ratio 10값.',
+      build: (ctx, page) => buildSet(ctx, page, 'DS/YouTube', [{ name: 'ratio', values: MEDIA_RATIOS }], (c) => renderYouTube(ctx, c)),
+      states: [
+        { caption: '16:9', props: {} },
+        { caption: '4:3', props: { ratio: '4x3' } },
+        { caption: '21:9', props: { ratio: '21x9' } },
+        { caption: '9:16', props: { ratio: '9x16' } },
+      ],
     },
     {
       key: 'ImageCard',
       setName: 'DS/ImageCard',
       eyebrow: 'MOLECULE · MEDIA',
-      desc: '이미지 + 제목/설명 카드.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/ImageCard', [{ name: 'state', values: ['default'] }], (c) => renderImageCard(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '이미지 카드' }, { prop: 'Body', layer: 'Body', def: '이미지 위에 제목과 설명이 붙는 카드입니다.' }] }),
-      states: [{ caption: 'Default', props: {} }],
+      desc:
+        '이미지 카드 — layout(below·overlay) × align × scrim + eyebrow(분류 라벨) + 배지 + CTA. 비율은 대표 4값(변형 폭발 방지). ' +
+        'fill(그리드 셀을 꽉 채움)은 격리된 컴포넌트 외형을 바꾸지 않는 컨텍스트 축이라 축 대신 문서화용 BOOLEAN 속성으로만 남깁니다.',
+      build: (ctx, page) => {
+        const set = buildSet(
+          ctx,
+          page,
+          'DS/ImageCard',
+          [
+            { name: 'ratio', values: CARD_RATIOS },
+            { name: 'layout', values: ['below', 'overlay'] },
+            { name: 'align', values: ['bottom', 'top', 'center'] },
+            { name: 'scrim', values: ['gradient', 'solid', 'none'] },
+          ],
+          (c) => renderImageCard(ctx, c),
+          {
+            texts: [
+              { prop: 'Eyebrow', layer: 'Eyebrow', def: '카테고리' },
+              { prop: 'Title', layer: 'Title', def: '이미지 카드' },
+              { prop: 'Body', layer: 'Body', def: '이미지 위에 제목과 설명이 붙는 카드입니다.' },
+              { prop: 'Badge', layer: 'Badge', def: 'NEW' },
+              { prop: 'Action', layer: 'Action', def: '자세히 보기' },
+            ],
+          },
+        )
+        // fill — 그리드 셀 폭을 꽉 채우는 컨텍스트 종속 동작(인스턴스가 놓이는 부모가 결정)이라
+        // Figma의 componentPropertyReferences로는 리사이즈를 바인딩할 수 없다. 축 폭발 없이
+        // Storybook과의 prop 이름 대응만 남긴다(바인딩 대상 레이어 없음 — 문서/핸드오프용).
+        set.addComponentProperty('fill', 'BOOLEAN', false)
+        return set
+      },
+      // align·scrim은 overlay에서만 의미가 있다(below는 Storybook과 동일하게 무시).
+      states: [
+        { caption: 'Below (기본)', props: {} },
+        { caption: 'Overlay · Bottom', props: { layout: 'overlay' } },
+        { caption: 'Overlay · Top', props: { layout: 'overlay', align: 'top' } },
+        { caption: 'Overlay · Center', props: { layout: 'overlay', align: 'center' } },
+        { caption: 'Overlay · Solid scrim', props: { layout: 'overlay', scrim: 'solid' } },
+        { caption: 'Overlay · No scrim', props: { layout: 'overlay', scrim: 'none' } },
+        { caption: 'Below · 1:1', props: { ratio: '1x1' } },
+        { caption: 'Overlay · 21:9', props: { ratio: '21x9', layout: 'overlay' } },
+      ],
     },
     {
       key: 'ImageSlide',
       setName: 'DS/ImageSlide',
       eyebrow: 'ORGANISM · MEDIA',
-      desc: '3개 이미지 슬라이드(좌우 이동 + 도트).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/ImageSlide', [{ name: 'state', values: ['default'] }], (c) => renderImageSlide(ctx, c), { swaps: [{ prop: 'Prev', layer: 'Prev Icon', defKey: '_Icon/ChevronLeft' }, { prop: 'Next', layer: 'Next Icon', defKey: '_Icon/ChevronRight' }] }),
-      states: [{ caption: 'Default', props: {} }],
+      desc: '3개 이미지 슬라이드(좌우 이동 + 도트). ratio 10값.',
+      build: (ctx, page) =>
+        buildSet(ctx, page, 'DS/ImageSlide', [{ name: 'ratio', values: MEDIA_RATIOS }], (c) => renderImageSlide(ctx, c), {
+          texts: [{ prop: 'Counter', layer: 'Counter', def: '1 / 3' }],
+          swaps: [
+            { prop: 'Prev', layer: 'Prev Icon', defKey: '_Icon/ChevronLeft' },
+            { prop: 'Next', layer: 'Next Icon', defKey: '_Icon/ChevronRight' },
+          ],
+        }),
+      states: [
+        { caption: '16:9', props: {} },
+        { caption: '4:3', props: { ratio: '4x3' } },
+        { caption: '1:1', props: { ratio: '1x1' } },
+        { caption: '9:16', props: { ratio: '9x16' } },
+      ],
     },
   ],
 }

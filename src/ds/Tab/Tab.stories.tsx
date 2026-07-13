@@ -61,3 +61,18 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 탭 라벨 — 좁은 폭에서 각 탭 라벨이 말줄임된다 */
+export const LongLabels: Story = {
+  render: () => (
+    <div style={{ width: 320, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <TabDemo
+        items={[
+          { value: 'all', label: '아주 긴 첫 번째 탭 라벨' },
+          { value: 'growth', label: '두 번째 긴 탭 라벨' },
+          { value: 'guide', label: 'VeryLongUnbrokenTabLabel' },
+        ]}
+      />
+    </div>
+  ),
+}

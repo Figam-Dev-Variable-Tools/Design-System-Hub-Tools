@@ -5,6 +5,11 @@ import { COLLECTION_NAMES } from './tokens'
 import { COMPONENT_PAGE_NAMES } from './components'
 import { FOUNDATION_PAGE_NAMES } from './foundations'
 import { CATEGORY_PAGE_NAMES } from './categories'
+import { ADMIN_PAGE_NAMES } from './admin'
+import { LAYOUT_GUIDE_PAGE_NAMES } from './layout-guide'
+import { SCREEN_PAGE_NAMES } from './screens'
+import { SITE_PAGE_NAMES } from './site'
+import { SITE_SCREEN_PAGE_NAMES } from './site-screens'
 import type { DocsContent } from './docs'
 
 export async function resetGenerated(docsContent: DocsContent): Promise<string[]> {
@@ -32,8 +37,19 @@ export async function resetGenerated(docsContent: DocsContent): Promise<string[]
   }
   if (stN) notes.push(`Text Style ${stN}개 삭제`)
 
-  // 3) 페이지(컴포넌트 + 문서). Figma는 최소 1페이지 필요 → 마지막 페이지는 남긴다.
-  const targets = new Set<string>([...COMPONENT_PAGE_NAMES, ...FOUNDATION_PAGE_NAMES, ...CATEGORY_PAGE_NAMES])
+  // 3) 페이지(컴포넌트 + 어드민 + 문서). Figma는 최소 1페이지 필요 → 마지막 페이지는 남긴다.
+  // 각 생성기가 export하는 페이지명 배열이 유일한 관리 지점 — 여기에 합치지 않으면
+  // 생성기의 '이미 존재 → 건너뜀' 가드에 걸려 영영 갱신되지 않는 좀비 페이지가 된다.
+  const targets = new Set<string>([
+    ...COMPONENT_PAGE_NAMES,
+    ...FOUNDATION_PAGE_NAMES,
+    ...CATEGORY_PAGE_NAMES,
+    ...ADMIN_PAGE_NAMES,
+    ...LAYOUT_GUIDE_PAGE_NAMES,
+    ...SCREEN_PAGE_NAMES,
+    ...SITE_PAGE_NAMES,
+    ...SITE_SCREEN_PAGE_NAMES,
+  ])
   for (const s of docsContent.sections) targets.add(`${s.order}. ${s.title}`)
   let pgN = 0
   for (const p of [...figma.root.children]) {

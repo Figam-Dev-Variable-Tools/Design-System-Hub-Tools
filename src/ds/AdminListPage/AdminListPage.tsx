@@ -1,0 +1,798 @@
+import { Fragment, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
+import styles from './AdminListPage.module.css'
+import { AdminPageLayout } from '../AdminPageLayout/AdminPageLayout'
+import { AdminListView } from '../AdminListView/AdminListView'
+import {
+  AdminTable,
+  type AdminBulkAction,
+  type AdminColumn,
+  type AdminColumnKind,
+} from '../AdminTable/AdminTable'
+import { Button } from '../Button/Button'
+import { CategoryTabs, type CategoryTabItem } from '../CategoryTabs/CategoryTabs'
+import { CrudDialog } from '../CrudDialog/CrudDialog'
+import { ListToolbar, type ListToolbarSelect } from '../ListToolbar/ListToolbar'
+import { Loading } from '../Loading/Loading'
+import { SearchPanel, type SearchFieldDef, type SearchValues } from '../SearchPanel/SearchPanel'
+import type { SelectOption } from '../Select/Select'
+import type { ViewSwitchValue } from '../ViewSwitch/ViewSwitch'
+
+/*
+ * 왜 이 컴포넌트가 있나 —
+ * 어드민 목록 화면 13종은 골격이 한 글자도 다르지 않다.
+ *   AdminPageLayout(헤더 · 탭 · 툴바) → SearchPanel|ListToolbar → AdminTable(선택·일괄·페이징·컬럼·내보내기)
+ * 화면마다 진짜로 다른 건 세 가지뿐이다 — 컬럼 배열, 상태 enum(라벨/톤), 한국어 문구.
+ * 그 세 가지만 화면에 남기고 골격·상태(선택/페이지/탭/검색어)·조립은 전부 이 셸이 갖는다.
+ * 화면은 이 셸을 조합해서 쓰고, 공용 조각(AdminTable·SearchPanel…)은 절대 다시 만들지 않는다.
+ *
+ * 본문은 세 갈래다(선언한 prop이 고른다) —
+ *   기본        : AdminTable
+ *   renderCard  : AdminListView(카드형/게시물형 전환 + 카드 그리드) — 상품 목록
+ *   renderBody  : 표가 아닌 목록(행이 곧 카드인 주문 목록) — 셸은 골격만 주고 본문은 화면이 그린다
+ */
+
+/**
+ * 요소 ON/OFF — 전부 기본 true(오너 확정 규약).
+ * false면 그 요소가 DOM에서 통째로 사라진다(빈 자리·여백·구분선이 남지 않는다).
+ * 열 단위 ON/OFF는 여기가 아니라 AdminTable의 columnPicker가 담당한다.
+ */
+export type AdminListPageShow = {
+  /** 페이지 헤더 — 타이틀 · 설명 · 등록 버튼 */
+  header?: boolean
+  /** 상태 탭(CategoryTabs) */
+  tabs?: boolean
+  /** 흰 카드 툴바(ListToolbar) — 건수·정렬·인라인 검색의 부모다 */
+  toolbar?: boolean
+  /** 검색 — search='panel'이면 SearchPanel, 'inline'이면 툴바 안 검색 입력 */
+  search?: boolean
+  /** 툴바 안 "총 N건" */
+  count?: boolean
+  /** 표 하단 페이지네이션 + 페이지 크기 — false면 rows를 자르지 않고 전부 그린다 */
+  pagination?: boolean
+  /**
+   * 표 하단 '20개씩' 페이지 크기 Select — false면 페이지네이션은 두되 크기 선택만 감춘다.
+   * 크기를 고정해 쓰는 화면(InquiryManageList처럼 원래 이 컨트롤이 없던 목록)을 위한 축이다.
+   */
+  pageSize?: boolean
+  /** 선택 시 표 하단에 뜨는 일괄 처리 버튼들(선택 삭제 포함) */
+  bulk?: boolean
+  /** 행의 관리/케밥 컬럼 — false면 그 컬럼만 표에서 빠진다 */
+  rowActions?: boolean
+  /** 표 우상단 '컬럼' 피커 */
+  columnPicker?: boolean
+  /** 표 우상단 CSV/Excel 내보내기 */
+  export?: boolean
+}
+
+/** 컬럼 선언 안에서 셸의 기능을 부르기 위한 통로 — 지금은 삭제 확인창 하나뿐 */
+export type AdminListRowContext = {
+  /**
+   * 삭제 확인창을 연다(deleteConfirm이 없으면 즉시 onBulkDelete).
+   * 행 케밥의 '삭제'처럼 컬럼 안에서 확인창을 띄워야 할 때 쓴다 — 확인창 상태는 셸이 갖는다.
+   */
+  confirmDelete: (ids: string[]) => void
+}
+
+/** 컬럼 — 배열이거나, 셸 기능이 필요하면 ctx를 받는 함수 */
+export type AdminListColumns<T> =
+  | AdminColumn<T>[]
+  | ((ctx: AdminListRowContext) => AdminColumn<T>[])
+
+/** panel=상단 SearchPanel(다중 조건) / inline=툴바 안 한 줄 검색 / false=검색 없음 */
+export type AdminListSearchMode = 'panel' | 'inline' | false
+
+/**
+ * 화면 골격 —
+ *   page  : AdminPageLayout(헤더·탭·좌측 레일·툴바·본문). 페이지 컨테이너(패딩 40)를 겸한다.
+ *   plain : 골격 없이 조각(검색 패널 · 탭 · 툴바 · 본문)만 세로로 쌓는다.
+ *           바깥이 이미 PageContainer인 '끼워 넣는 목록 프리셋'용 — 패딩이 두 번 먹지 않게.
+ */
+export type AdminListChrome = 'page' | 'plain'
+
+export type AdminListDeleteConfirm = {
+  title: string
+  /** 함수면 삭제 대상 id를 받아 문구를 만든다 — "N건이 제거됩니다" */
+  description?: string | ((ids: string[]) => string)
+  /** 확인 버튼 라벨 (기본 CrudDialog의 '삭제') */
+  confirmLabel?: string
+}
+
+export type AdminListPageProps<T> = {
+  /* ── 데이터 ── */
+  /** 전체 행 — 탭·검색·페이징은 셸이 이 배열에 대해 처리한다 */
+  rows: T[]
+  /** 표 컬럼 — renderBody로 표를 대체하는 화면에서는 비워 둔다 */
+  columns?: AdminListColumns<T>
+  rowKey: (row: T) => string
+  /** 서버 페이징 시 전체 건수 — 없으면 걸러진 rows 길이를 쓴다 */
+  total?: number
+  /**
+   * 서버 페이징 시 전체 페이지 수 — 주면 rows를 자르지 않는다(서버가 이미 잘라 보냈다).
+   * 없으면 걸러진 rows를 pageSize로 셸이 직접 자른다(클라이언트 페이징).
+   */
+  totalPages?: number
+  loading?: boolean
+
+  /* ── 골격 ── */
+  /** 기본 'page'(AdminPageLayout). 'plain'이면 헤더·좌측 레일 없이 조각만 쌓는다 */
+  chrome?: AdminListChrome
+
+  /* ── 헤더 ── */
+  title?: string
+  description?: string
+  /** 등록 버튼 왼쪽에 붙는 추가 액션(엑셀 다운로드 등) */
+  headerActions?: ReactNode
+  /** 있으면 헤더 우측에 등록 버튼 */
+  onCreate?: () => void
+  createLabel?: string
+  /** 등록 버튼 아이콘 (기본 Plus) */
+  createIcon?: ReactNode
+
+  /* ── 탭 ── */
+  /** 탭 목록 — count를 비워 두면 matchTab으로 rows에서 센다 */
+  tabs?: CategoryTabItem[]
+  /** 선택된 탭 — 주지 않으면 셸이 내부 상태로 관리한다(비제어) */
+  tab?: string
+  onTabChange?: (value: string) => void
+  /** 있으면 탭 끝에 '+ 추가'가 생긴다 — 없으면 탭은 고정 목록이다 */
+  onTabAdd?: (label: string) => void
+  /** 탭 필터 — 없으면 탭은 표시만 하고 rows를 좁히지 않는다(서버 필터 전제) */
+  matchTab?: (row: T, tab: string) => boolean
+
+  /* ── 검색 ── */
+  search?: AdminListSearchMode
+  /** panel 모드의 조건 필드 */
+  searchFields?: SearchFieldDef[]
+  /** 검색 조건 값 — 주지 않으면 비제어 */
+  searchValues?: SearchValues
+  onSearchValuesChange?: (values: SearchValues) => void
+  /** 검색 실행 — panel은 현재 조건, inline은 { keyword } 를 넘긴다 */
+  onSearch?: (values: SearchValues) => void
+  /** 초기화 — 셸이 조건을 비우고 onSearch(빈 조건)를 부른 뒤 호출한다 */
+  onReset?: () => void
+  /** inline 모드 검색어 — 주지 않으면 비제어 */
+  keyword?: string
+  onKeywordChange?: (keyword: string) => void
+  searchPlaceholder?: string
+  /** inline 모드의 클라이언트 필터 — 없으면 검색어가 rows를 좁히지 않는다(서버 검색 전제) */
+  matchKeyword?: (row: T, keyword: string) => boolean
+
+  /* ── 툴바 ── */
+  /** 툴바 좌측 필터 Select들(검색 유형·상태 등) — 검색 입력 왼쪽에 붙는다 */
+  toolbarSelects?: ListToolbarSelect[]
+  sortOptions?: SelectOption[]
+  /** 선택된 정렬 — 주지 않으면 비제어(첫 옵션) */
+  sort?: string
+  onSortChange?: (value: string) => void
+  /** 건수 앞 문구 (기본 '총'). null이면 접두사 없이 숫자만 — "135건" */
+  totalLabel?: string | null
+  /** 건수 단위 (기본 '건') */
+  totalUnit?: string
+  /** 툴바 우측 끝 추가 액션 */
+  toolbarActions?: ReactNode
+  /**
+   * 화면 순서 — 탭·검색으로 걸러진 뒤, 페이지로 자르기 전에 부른다.
+   * 정렬 Select(sort)의 현재 값을 함께 받는다(고정 공지 우선처럼 sort와 무관한 정렬도 여기서).
+   */
+  orderRows?: (rows: T[], sort: string | null) => T[]
+
+  /* ── 표 ── */
+  /** 선택된 행 — 주지 않으면 비제어 */
+  selectedIds?: string[]
+  onSelectChange?: (ids: string[]) => void
+  /** 선택 시 표 하단에 뜨는 버튼들 — 실행 후 선택은 셸이 비운다 */
+  bulkActions?: AdminBulkAction[]
+  /**
+   * 일괄 처리 후 선택 해제 (기본 true).
+   * false면 셸이 손대지 않는다 — 버튼이 확인창을 여는 화면(담당자 변경·카테고리 변경)은
+   * 확인/취소가 끝난 뒤에 스스로 정리해야 하므로 여기서 미리 비우면 대상 건수를 잃는다.
+   */
+  clearSelectionOnBulk?: boolean
+  /** 선택 삭제 — deleteConfirm이 있으면 확인 후에만 호출된다 */
+  onBulkDelete?: (ids: string[]) => void
+  /** 제목 클릭 — 컬럼이 onClick을 직접 선언하지 않았으면 첫 제목 컬럼에 물린다 */
+  onRowOpen?: (row: T) => void
+  onEdit?: (row: T) => void
+  onDelete?: (row: T) => void
+  onToggleStatus?: (row: T, next: boolean) => void
+  onReorder?: (rows: T[]) => void
+  onMemoChange?: (row: T, memo: string) => void
+  columnPicker?: boolean
+  /**
+   * 열 표시 상태(제어) — AdminTable의 같은 prop으로 그대로 넘어간다.
+   * 셸이 이걸 막고 있으면 화면이 컬럼 배열을 미리 걸러야 하고, 그러면 표의 '컬럼' 피커로
+   * 다시 켤 수가 없다(피커가 모르는 컬럼이 된다). 그래서 통과시킨다.
+   */
+  columnVisibility?: Record<string, boolean>
+  onColumnVisibilityChange?: (next: Record<string, boolean>) => void
+  exportable?: boolean
+  exportFilename?: string
+  /** 페이지 — 주지 않으면 비제어 */
+  page?: number
+  onPageChange?: (page: number) => void
+  pageSize?: number
+  onPageSizeChange?: (size: number) => void
+  pageSizeOptions?: number[]
+  density?: 'compact' | 'comfortable'
+  emptyText?: string
+
+  /* ── 본문 갈아끼우기 ── */
+  /**
+   * 카드형 렌더러 — 주면 본문이 AdminListView를 지난다(게시물형=AdminTable, 카드형=카드 그리드).
+   * 페이지네이션은 AdminListView 하단 하나로 모이고, 표는 하단 바를 그리지 않는다.
+   */
+  renderCard?: (row: T) => ReactNode
+  /** 카드형/게시물형 — 주지 않으면 셸이 내부 상태로 관리한다(비제어, 기본 게시물형) */
+  view?: ViewSwitchValue
+  onViewChange?: (view: ViewSwitchValue) => void
+  /** AdminListView 상단 바 좌측 슬롯(내보내기·새로고침 등) — renderCard가 있을 때만 쓰인다 */
+  viewToolbar?: ReactNode
+  /**
+   * 표를 통째로 대신하는 본문(행이 곧 카드인 주문 목록처럼).
+   * 이걸 주면 AdminTable/AdminListView를 그리지 않는다 — 선택·페이징·빈 상태는 본문의 몫이다.
+   * 셸은 헤더·탭·툴바·검색만 맡는다.
+   */
+  renderBody?: (rows: T[]) => ReactNode
+
+  /** 있으면 선택 삭제·행 삭제가 확인창을 거친다 */
+  deleteConfirm?: AdminListDeleteConfirm
+  /** 좌측 레일(카테고리 트리 등) */
+  side?: ReactNode
+  /**
+   * 표 아래 슬롯 — '핸들을 드래그하거나 화살표 키로 순번을 바꿉니다' 같은 안내문 자리.
+   * 이런 한 줄 때문에 화면이 셸을 못 쓰고 표를 직접 조립하던 것을 막는다.
+   */
+  footerNote?: ReactNode
+
+  show?: AdminListPageShow
+}
+
+/** 오너 규격 — 한 화면 20행, 페이지 크기 20/50/100 */
+const DEFAULT_PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [20, 50, 100]
+
+/** 제목으로 읽히는 컬럼 — onRowOpen을 물릴 자리 */
+const TITLE_KINDS: AdminColumnKind[] = ['title', 'titleTags', 'thumbTitle']
+
+/** 행 액션 컬럼 — show.rowActions=false면 이것만 빠진다 */
+const ROW_ACTION_KINDS: AdminColumnKind[] = ['actions', 'kebab']
+
+/**
+ * show 기본값 — 전부 true.
+ * 스프레드로 합치면 `show={{ header: undefined }}` 같은 명시적 undefined가 기본값을 덮어써
+ * 헤더가 통째로 사라진다 — 그래서 키마다 ?? true 로 푼다(CustomerList와 같은 규약).
+ */
+function resolveShow(show: AdminListPageShow = {}): Required<AdminListPageShow> {
+  return {
+    header: show.header ?? true,
+    tabs: show.tabs ?? true,
+    toolbar: show.toolbar ?? true,
+    search: show.search ?? true,
+    count: show.count ?? true,
+    pagination: show.pagination ?? true,
+    pageSize: show.pageSize ?? true,
+    bulk: show.bulk ?? true,
+    rowActions: show.rowActions ?? true,
+    columnPicker: show.columnPicker ?? true,
+    export: show.export ?? true,
+  }
+}
+
+/** 필드 선언 → 빈 값 객체 (초기 상태·초기화 공용) */
+function emptyValues(fields: SearchFieldDef[]): SearchValues {
+  const next: SearchValues = {}
+  for (const field of fields) {
+    if (field.kind === 'multiselect') next[field.key] = []
+    else if (field.kind === 'daterange') next[field.key] = { start: null, end: null }
+    else if (field.kind === 'select') next[field.key] = null
+    else next[field.key] = ''
+  }
+  return next
+}
+
+/**
+ * AdminListPage — 어드민 목록 화면의 공용 셸.
+ *
+ *   header  : title · description · headerActions · [등록]           (show.header)
+ *   tabs    : CategoryTabs — count는 matchTab으로 rows에서 센다      (show.tabs)
+ *   toolbar : search='panel' → SearchPanel(레이아웃 툴바 슬롯)
+ *             search='inline'|false → ListToolbar(검색·정렬·건수·액션)
+ *   content : [건수 바(panel 모드에서만 표 위로 내려온다)] + 본문(표 | 카드 뷰 | renderBody)
+ *   dialog  : deleteConfirm이 있으면 CrudDialog(delete)
+ *
+ * 상태(탭·검색어·검색 조건·정렬·페이지·페이지 크기·선택·확인창·카드/게시물 전환)는 셸이 갖는다.
+ * 같은 이름의 prop을 주면 그 값이 이긴다(제어) — 안 주면 내부 상태로 굴러간다(비제어).
+ * 조건이 바뀌면(탭·검색 확정·페이지 크기) 페이지와 선택을 되돌린다 — 보이지 않는 행이 선택된 채 남지 않게.
+ */
+export function AdminListPage<T>({
+  rows,
+  columns = [],
+  rowKey,
+  total,
+  totalPages,
+  loading = false,
+  chrome = 'page',
+  title,
+  description,
+  headerActions,
+  onCreate,
+  createLabel = '등록',
+  createIcon,
+  tabs = [],
+  tab,
+  onTabChange,
+  onTabAdd,
+  matchTab,
+  search = 'panel',
+  searchFields = [],
+  searchValues,
+  onSearchValuesChange,
+  onSearch,
+  onReset,
+  keyword,
+  onKeywordChange,
+  searchPlaceholder,
+  matchKeyword,
+  toolbarSelects,
+  sortOptions = [],
+  sort,
+  onSortChange,
+  totalLabel = '총',
+  totalUnit = '건',
+  toolbarActions,
+  orderRows,
+  selectedIds,
+  onSelectChange,
+  bulkActions = [],
+  clearSelectionOnBulk = true,
+  onBulkDelete,
+  onRowOpen,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  onReorder,
+  onMemoChange,
+  columnPicker = true,
+  columnVisibility,
+  onColumnVisibilityChange,
+  exportable = true,
+  exportFilename,
+  page,
+  onPageChange,
+  pageSize,
+  onPageSizeChange,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
+  density = 'compact',
+  emptyText,
+  renderCard,
+  view,
+  onViewChange,
+  viewToolbar,
+  renderBody,
+  footerNote,
+  deleteConfirm,
+  side,
+  show,
+}: AdminListPageProps<T>) {
+  const on = resolveShow(show)
+
+  // 제어값을 주면 그 값이 이긴다 — 안 주면 셸이 직접 들고 있는다
+  const [innerTab, setInnerTab] = useState(tabs[0]?.value ?? '')
+  const [innerKeyword, setInnerKeyword] = useState('')
+  const [innerValues, setInnerValues] = useState<SearchValues>(() => emptyValues(searchFields))
+  const [innerSort, setInnerSort] = useState(sortOptions[0]?.value ?? '')
+  const [innerPage, setInnerPage] = useState(1)
+  const [innerPageSize, setInnerPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [innerSelected, setInnerSelected] = useState<string[]>([])
+  const [innerView, setInnerView] = useState<ViewSwitchValue>('board')
+  // 삭제 확인 대기 중인 id들 — null이면 확인창이 닫힌 상태
+  const [pendingDelete, setPendingDelete] = useState<string[] | null>(null)
+
+  const tabValue = tab ?? innerTab
+  const keywordValue = keyword ?? innerKeyword
+  const values = searchValues ?? innerValues
+  const sortValue = sort ?? innerSort
+  const size = pageSize ?? innerPageSize
+  const selected = selectedIds ?? innerSelected
+  const viewValue = view ?? innerView
+
+  // ── 상태 변경 ─────────────────────────────────────────────────────────
+  const changeSelection = (ids: string[]) => {
+    if (selectedIds == null) setInnerSelected(ids)
+    onSelectChange?.(ids)
+  }
+
+  const clearSelection = () => changeSelection([])
+
+  /** 조건이 바뀌면 페이지·선택을 되돌린다 */
+  const resetView = () => {
+    if (page == null) setInnerPage(1)
+    onPageChange?.(1)
+    clearSelection()
+  }
+
+  const changeTab = (next: string) => {
+    if (tab == null) setInnerTab(next)
+    onTabChange?.(next)
+    resetView()
+  }
+
+  const changeKeyword = (next: string) => {
+    if (keyword == null) setInnerKeyword(next)
+    onKeywordChange?.(next)
+    // 클라이언트 필터(matchKeyword)가 없으면 타이핑만으로는 rows가 한 줄도 변하지 않는다 —
+    // 그런 화면에서 페이지·선택을 되돌리면 검색을 확정하기도 전에 선택이 사라진다.
+    if (matchKeyword != null) resetView()
+  }
+
+  const changeValues = (next: SearchValues) => {
+    if (searchValues == null) setInnerValues(next)
+    onSearchValuesChange?.(next)
+  }
+
+  const changeSort = (next: string) => {
+    if (sort == null) setInnerSort(next)
+    onSortChange?.(next)
+    resetView()
+  }
+
+  const changePage = (next: number) => {
+    if (page == null) setInnerPage(next)
+    onPageChange?.(next)
+  }
+
+  const changePageSize = (next: number) => {
+    if (pageSize == null) setInnerPageSize(next)
+    onPageSizeChange?.(next)
+    resetView()
+  }
+
+  const changeView = (next: ViewSwitchValue) => {
+    if (view == null) setInnerView(next)
+    onViewChange?.(next)
+  }
+
+  const handleSearch = () => {
+    resetView()
+    onSearch?.(values)
+  }
+
+  const handleReset = () => {
+    // SearchPanel이 values를 비운 직후라 로컬 state는 아직 갱신 전 — 빈 값을 직접 만들어 넘긴다
+    const empty = emptyValues(searchFields)
+    changeValues(empty)
+    resetView()
+    onSearch?.(empty)
+    onReset?.()
+  }
+
+  // 한 줄 검색의 엔터 — 조건 이름은 'keyword' 하나뿐이다. 확정된 순간에만 페이지·선택을 되돌린다
+  const handleInlineSearch = (value: string) => {
+    resetView()
+    onSearch?.({ keyword: value })
+  }
+
+  // ── 행 파이프라인: 탭 → 검색 → 정렬 → 페이지 ──────────────────────────
+  // 보이지 않는 필터는 없다 — 꺼진 요소는 결과를 좁히지 않는다(꺼진 이유가 화면에 보이지 않으므로).
+  const query = keywordValue.trim()
+  const searchable = on.toolbar && on.search && search === 'inline'
+
+  const inTab = (row: T): boolean => !on.tabs || matchTab == null || matchTab(row, tabValue)
+  const inKeyword = (row: T): boolean =>
+    !searchable || matchKeyword == null || query === '' || matchKeyword(row, query)
+
+  const filtered = rows.filter((row) => inTab(row) && inKeyword(row))
+  const ordered = orderRows != null ? orderRows(filtered, sortValue === '' ? null : sortValue) : filtered
+
+  // totalPages를 주면 rows는 이미 서버가 잘라 보낸 한 페이지다 — 여기서 또 자르지 않는다
+  const serverPaged = totalPages != null
+  const pageCount = totalPages ?? Math.max(1, Math.ceil(ordered.length / size))
+  // rows가 줄어 페이지가 범위를 벗어나도 빈 화면이 되지 않게 마지막 페이지로 클램프
+  const current = Math.min(page ?? innerPage, pageCount)
+  const paged =
+    !on.pagination || serverPaged ? ordered : ordered.slice((current - 1) * size, current * size)
+  const totalCount = total ?? ordered.length
+
+  // 탭 건수 — count를 주면 그 값(서버 총계), 아니면 matchTab으로 rows에서 센다
+  const tabItems: CategoryTabItem[] = tabs.map((item) => ({
+    ...item,
+    count:
+      item.count ??
+      (matchTab != null ? rows.filter((row) => matchTab(row, item.value)).length : undefined),
+  }))
+
+  // ── 삭제 · 일괄 처리 ──────────────────────────────────────────────────
+  const confirmDelete = (ids: string[]) => {
+    if (ids.length === 0) return
+    if (deleteConfirm != null) {
+      setPendingDelete(ids)
+      return
+    }
+    onBulkDelete?.(ids)
+    if (clearSelectionOnBulk) clearSelection()
+  }
+
+  const runDelete = () => {
+    if (pendingDelete != null) {
+      onBulkDelete?.(pendingDelete)
+      // 지운 행만 선택에서 뺀다 — 행 케밥으로 한 건만 지웠을 때 나머지 선택까지 잃지 않게
+      const done = new Set(pendingDelete)
+      changeSelection(selected.filter((id) => !done.has(id)))
+    }
+    setPendingDelete(null)
+  }
+
+  // 일괄 처리 후 선택은 비운다 — 화면에서 사라졌거나 상태가 바뀐 행이 선택된 채 남지 않게
+  // (확인창을 여는 버튼은 대상 건수를 잃으므로 clearSelectionOnBulk=false로 끈다)
+  const tableBulkActions: AdminBulkAction[] = on.bulk
+    ? bulkActions.map((action) => ({
+        ...action,
+        onAction: (ids: string[]) => {
+          action.onAction(ids)
+          if (clearSelectionOnBulk) clearSelection()
+        },
+      }))
+    : []
+
+  // ── 컬럼 ──────────────────────────────────────────────────────────────
+  const declared = typeof columns === 'function' ? columns({ confirmDelete }) : columns
+  const shown = on.rowActions
+    ? declared
+    : declared.filter((col) => !ROW_ACTION_KINDS.includes(col.kind))
+
+  // onRowOpen은 제목 컬럼의 onClick으로 내려간다 — 컬럼이 onClick을 직접 선언했으면 그쪽이 이긴다
+  const titleIndex = shown.findIndex(
+    (col) => TITLE_KINDS.includes(col.kind) && col.onClick == null,
+  )
+  const tableColumns =
+    onRowOpen == null || titleIndex < 0
+      ? shown
+      : shown.map((col, i) => (i === titleIndex ? { ...col, onClick: onRowOpen } : col))
+
+  // ── 슬롯 ──────────────────────────────────────────────────────────────
+  const createButton =
+    onCreate != null ? (
+      <Button
+        variant="primary"
+        size="md"
+        label={createLabel}
+        showLeftIcon
+        leftIcon={createIcon ?? <Plus size={16} aria-hidden="true" />}
+        onClick={onCreate}
+      />
+    ) : null
+
+  const actions =
+    on.header && (headerActions != null || createButton != null) ? (
+      <>
+        {headerActions}
+        {createButton}
+      </>
+    ) : undefined
+
+  const panel =
+    search === 'panel' && on.search && searchFields.length > 0 ? (
+      <SearchPanel
+        fields={searchFields}
+        values={values}
+        onChange={changeValues}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        columns={4}
+        loading={loading}
+      />
+    ) : undefined
+
+  const tabsNode =
+    on.tabs && tabItems.length > 0 ? (
+      <CategoryTabs
+        items={tabItems}
+        value={tabValue}
+        onChange={changeTab}
+        onAdd={onTabAdd}
+        addable={onTabAdd != null}
+      />
+    ) : undefined
+
+  // 요소가 하나도 없으면 ListToolbar가 스스로 카드째 사라진다(빈 보더가 남지 않는다)
+  const listToolbar = on.toolbar ? (
+    <ListToolbar
+      selects={toolbarSelects}
+      search={
+        searchable
+          ? {
+              value: keywordValue,
+              onChange: changeKeyword,
+              placeholder: searchPlaceholder,
+              onSearch: handleInlineSearch,
+              disabled: loading,
+            }
+          : undefined
+      }
+      sort={
+        sortOptions.length > 0
+          ? { value: sortValue, options: sortOptions, onChange: changeSort }
+          : undefined
+      }
+      total={on.count ? totalCount : undefined}
+      // null = 접두사 없이 숫자만("135건") — ListToolbar는 undefined일 때 접두사를 생략한다
+      totalLabel={totalLabel ?? undefined}
+      totalUnit={totalUnit}
+      actions={toolbarActions}
+    />
+  ) : undefined
+
+  // ── 본문 ──────────────────────────────────────────────────────────────
+  const cardMode = renderCard != null
+
+  const table = (
+    <AdminTable
+      columns={tableColumns}
+      rows={paged}
+      rowKey={rowKey}
+      selectedIds={selected}
+      onSelectChange={changeSelection}
+      bulkActions={tableBulkActions}
+      onBulkDelete={on.bulk && onBulkDelete != null ? confirmDelete : undefined}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      onToggleStatus={onToggleStatus}
+      onReorder={onReorder}
+      onMemoChange={onMemoChange}
+      // 페이지 관련 prop을 넘기지 않으면 AdminTable이 하단 바를 아예 그리지 않는다
+      // (카드형 화면은 페이지네이션이 AdminListView 하단 하나로 모인다)
+      page={on.pagination && !cardMode ? current : undefined}
+      totalPages={on.pagination && !cardMode ? pageCount : undefined}
+      onPageChange={on.pagination && !cardMode ? changePage : undefined}
+      pageSize={on.pagination && !cardMode ? size : undefined}
+      pageSizeOptions={pageSizeOptions}
+      onPageSizeChange={on.pagination && on.pageSize && !cardMode ? changePageSize : undefined}
+      columnPicker={columnPicker && on.columnPicker}
+      columnVisibility={columnVisibility}
+      onColumnVisibilityChange={onColumnVisibilityChange}
+      exportable={exportable && on.export}
+      exportFilename={exportFilename}
+      loading={loading}
+      emptyText={emptyText}
+      // AdminTable은 레이아웃의 density 변수를 읽지 않는다 — 같은 값을 명시적으로 넘긴다
+      density={density}
+    />
+  )
+
+  /*
+   * 카드형 선택 바 — 일괄 처리 바는 AdminTable 안에만 있다(카드 그리드에는 없다).
+   * 카드형에서도 선택은 되므로 같은 버튼을 공용 Button으로 그리드 위에 얹어 액션을 잃지 않게 한다.
+   */
+  const hasBulk = tableBulkActions.length > 0 || (on.bulk && onBulkDelete != null)
+  const cardBulkBar =
+    cardMode && viewValue === 'card' && hasBulk && selected.length > 0 ? (
+      <div className={styles.cardBulkBar}>
+        <span className={styles.cardBulkCount}>
+          선택 <strong>{selected.length}</strong>건
+        </span>
+        <div className={styles.cardBulkButtons}>
+          {tableBulkActions.map((action) => (
+            <Button
+              key={action.key}
+              variant={action.tone === 'primary' ? 'primary' : 'secondary'}
+              appearance="outline"
+              size="sm"
+              label={action.label}
+              showLeftIcon={action.icon != null}
+              leftIcon={action.icon}
+              onClick={() => action.onAction(selected)}
+            />
+          ))}
+          {on.bulk && onBulkDelete != null && (
+            <Button
+              variant="error"
+              appearance="outline"
+              size="sm"
+              label="선택 삭제"
+              showLeftIcon
+              leftIcon={<Trash2 size={14} aria-hidden="true" />}
+              onClick={() => confirmDelete(selected)}
+            />
+          )}
+        </div>
+      </div>
+    ) : null
+
+  const cardView = (
+    <>
+      {cardBulkBar}
+      {/* 카드형에서도 로딩 오버레이가 보이도록 relative 컨테이너로 감싼다 */}
+      <div className={styles.listWrap}>
+        <AdminListView
+          view={viewValue}
+          onViewChange={changeView}
+          total={on.count ? totalCount : undefined}
+          totalLabel={totalLabel ?? undefined}
+          totalUnit={totalUnit}
+          toolbar={viewToolbar}
+          renderBoard={() => table}
+          renderCards={() =>
+            paged.map((row) => <Fragment key={rowKey(row)}>{renderCard?.(row)}</Fragment>)
+          }
+          page={on.pagination ? current : undefined}
+          totalPages={on.pagination ? pageCount : undefined}
+          onPageChange={on.pagination ? changePage : undefined}
+          empty={!loading && ordered.length === 0}
+          emptyText={emptyText}
+        />
+        {/* 게시물형은 AdminTable이 자체 오버레이를 갖는다 — 카드형만 여기서 덮는다 */}
+        {loading && viewValue === 'card' && <Loading overlay label="불러오는 중" />}
+      </div>
+    </>
+  )
+
+  const bodyMain = renderBody != null ? renderBody(paged) : cardMode ? cardView : table
+
+  // 표 아래 안내문(순서 변경 힌트 등) — 있으면 본문 끝에 붙는다
+  const body = (
+    <>
+      {bodyMain}
+      {footerNote}
+    </>
+  )
+
+  const dialog =
+    pendingDelete != null && deleteConfirm != null ? (
+      <CrudDialog
+        open
+        mode="delete"
+        title={deleteConfirm.title}
+        description={
+          typeof deleteConfirm.description === 'function'
+            ? deleteConfirm.description(pendingDelete)
+            : deleteConfirm.description
+        }
+        confirmLabel={deleteConfirm.confirmLabel}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={runDelete}
+      />
+    ) : null
+
+  /*
+   * 툴바 자리 —
+   *   panel 모드: 레이아웃 툴바 슬롯은 SearchPanel이 갖고, 건수 바는 표 위(본문)로 내려간다.
+   *   그 외      : 검색·건수가 한 카드에 모이므로 ListToolbar가 툴바 슬롯을 갖는다.
+   * 판단은 '선언된 search 값'으로 한다 — show.search로 패널을 꺼도 건수 바 자리는 그대로여야 한다.
+   */
+  const panelLayout = search === 'panel'
+
+  // 골격 없이 쓰는 프리셋 — 바깥(AdminSuite)이 이미 PageContainer라 패딩을 두 번 먹지 않게 한다
+  if (chrome === 'plain') {
+    return (
+      <div className={styles.plain}>
+        {panel}
+        {tabsNode}
+        {listToolbar}
+        {body}
+        {dialog}
+      </div>
+    )
+  }
+
+  return (
+    <AdminPageLayout
+      // show.header=false면 세 값을 모두 비워 헤더 슬롯을 통째로 지운다
+      title={on.header ? title : undefined}
+      description={on.header ? description : undefined}
+      headerActions={actions}
+      tabs={tabsNode}
+      side={side}
+      toolbar={panelLayout ? panel : listToolbar}
+      density={density}
+    >
+      <div className={styles.body}>
+        {panelLayout && listToolbar}
+        {body}
+      </div>
+
+      {dialog}
+    </AdminPageLayout>
+  )
+}

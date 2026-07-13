@@ -4,7 +4,7 @@
 // TDS 문서 스타일(docs/spec/figma-tds-doc-style.md) + 겹침 방지 오토레이아웃(docs/spec/figma-category-layout.md).
 import { hexToRgb, rgbToHex, COLOR_KEYS, PRESETS, type PresetName } from '../presets'
 import { ICON_PATHS } from '../icons-data'
-import { strokeIcon, ICON_COMPONENTS } from './icon-vec'
+import { strokeIcon, ICON_COMPONENTS, publicIconName } from './icon-vec'
 
 // 오너 규칙: 생성되는 모든 페이지는 "순번. System - 이름". 페이지 탭에는 순번명, 내부 헤더엔 깔끔한 제목.
 const PAGE_DS = '1. System - Design System'
@@ -294,12 +294,14 @@ function iconItem(ctx: Ctx, fullKey: string): FrameNode {
   box.counterAxisSizingMode = 'FIXED'
   box.resize(48, 48)
   box.fills = []
-  // 각 아이콘을 실제 컴포넌트(_Icon/*)로 만든다 → 이 페이지가 아이콘의 홈이자 instance-swap 소스.
+  // 각 아이콘을 실제 컴포넌트로 만든다 → 이 페이지가 아이콘의 홈이자 instance-swap 소스.
+  // 표시 이름은 'Icon/*'. Figma는 '_'·'.'로 시작하는 컴포넌트를 비공개로 보고 라이브러리에
+  // 게시하지 않으므로 '_Icon/*'이면 아이콘 전체가 Assets에 안 뜬다. 내부 키(_Icon/*)는 유지.
   const tv = ctx.vars.get('color/text')
   const ic = strokeIcon(fullKey, 24, tv ? boundPaint(tv) : solid(INK))
   if (ic) {
     const comp = figma.createComponent()
-    comp.name = fullKey
+    comp.name = publicIconName(fullKey)
     comp.resize(24, 24)
     comp.fills = []
     ic.x = 0

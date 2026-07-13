@@ -1,8 +1,12 @@
 import { useState } from 'react'
+import { ratioClassName, type MediaRatio } from '../Image/Image'
+import { Placeholder } from '../../shared/placeholders'
 import styles from './ImageSlide.module.css'
 
 export type ImageSlideProps = {
   images?: string[]
+  /** 비율 축 — 단일 출처는 src/ds/Image/Image.tsx의 MediaRatio */
+  ratio?: MediaRatio
 }
 
 const PLACEHOLDER_COUNT = 3
@@ -26,7 +30,7 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
   )
 }
 
-export function ImageSlide({ images }: ImageSlideProps) {
+export function ImageSlide({ images, ratio = '16x9' }: ImageSlideProps) {
   const [index, setIndex] = useState(0)
 
   const list = images ?? []
@@ -37,18 +41,21 @@ export function ImageSlide({ images }: ImageSlideProps) {
     setIndex((next + count) % count)
   }
 
+  const viewportClassName = [styles.viewport, ratioClassName(styles, ratio)]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div className={styles.root}>
-      <div className={styles.viewport}>
+      <div className={viewportClassName}>
         {usePlaceholders ? (
-          <div
+          // images가 없으면 공용 대체 이미지 — label이 SVG 안에 찍혀 슬라이드 전환이 보인다
+          <Placeholder
+            kind="image"
+            size="fill"
             className={styles.placeholder}
-            data-hue={index % PLACEHOLDER_COUNT}
-            role="img"
-            aria-label={`Slide ${index + 1}`}
-          >
-            <span className={styles.placeholderLabel}>{index + 1}</span>
-          </div>
+            label={`Slide ${index + 1}`}
+          />
         ) : (
           <img className={styles.image} src={list[index]} alt={`Slide ${index + 1}`} />
         )}

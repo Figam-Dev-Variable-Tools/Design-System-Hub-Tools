@@ -34,7 +34,57 @@ const SHADE_STEPS: Array<[string, (h: string) => string]> = [
   ['800', (h) => mixHex(h, '#000000', 0.36)],
   ['900', (h) => mixHex(h, '#000000', 0.48)],
 ]
-const PALETTE_KEYS: ColorKey[] = ['primary', 'secondary', 'error', 'success', 'warning']
+const PALETTE_KEYS: ColorKey[] = ['primary', 'secondary', 'error', 'success', 'warning', 'neutral']
+
+// solid 면 + on-color(전경색) — scripts/build-tokens.mjs와 동일 공식·동일 반올림(같은 hex를 양쪽이 생성).
+// 규칙(오너 확정): 브랜드 hue는 유지하되 solid 면 위 글자는 '흰색'이 기본이다.
+//   - solid: base 위에서 흰 글자가 AA를 넘기면 base 그대로. 못 넘기면 같은 hue의 더 진한
+//            셰이드(-600 → -700 → -800) 중 처음으로 통과하는 것을 면 색으로 쓴다.
+//   - on   : 그 면 위에서 AA를 통과하는 색 → 원칙적으로 흰색. 흰 글자가 불가능한 극단적 톤에서만 어두운 글자.
+// base 색은 건드리지 않고 셰이드와 똑같이 base에서 '계산'되는 파생값이다.
+const WCAG_AA = 4.5
+const WHITE = '#FFFFFF'
+/** WCAG 상대휘도 (sRGB 역감마) */
+function relLuminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex) // 0..1
+  const lin = (s: number) => (s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4))
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+/** WCAG 대비비 (1:1 ~ 21:1) */
+function contrastRatio(a: string, b: string): number {
+  const la = relLuminance(a)
+  const lb = relLuminance(b)
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+/** solid 면 후보 — base → -600 → -700 → -800 (셰이드 공식과 동일한 mix 비율). */
+const SOLID_STEPS: Array<(h: string) => string> = [
+  (h) => h.toUpperCase(),
+  (h) => mixHex(h, '#000000', 0.12),
+  (h) => mixHex(h, '#000000', 0.24),
+  (h) => mixHex(h, '#000000', 0.36),
+]
+/** solid 면 색 — 흰 글자가 AA를 통과하는 첫 셰이드. 전부 실패하면 base 유지(브랜드 hue 보존). */
+function solidColorFor(base: string): string {
+  for (const fn of SOLID_STEPS) {
+    const surface = fn(base)
+    if (contrastRatio(WHITE, surface) >= WCAG_AA) return surface
+  }
+  return base.toUpperCase()
+}
+/**
+ * solid 면 위 전경색.
+ * 면이 흰 글자 AA를 통과하면 흰색(대부분의 톤). 통과 못 하는 극단적 톤(노란 warning 등)에서만
+ * 같은 hue의 어두운 글자 — -900(=48%)에서 시작해 AA를 넘길 때까지 1%씩 더 진하게(항상 종료).
+ */
+function onColorFor(base: string): string {
+  const surface = solidColorFor(base)
+  if (contrastRatio(WHITE, surface) >= WCAG_AA) return WHITE
+  for (let i = 48; i <= 100; i++) {
+    const darker = mixHex(base, '#000000', i / 100)
+    if (contrastRatio(darker, surface) >= WCAG_AA) return darker
+  }
+  return '#000000'
+}
 
 export type GenerateTokensPayload = {
   preset: PresetName
@@ -110,6 +160,28 @@ export async function generateTokens(payload: GenerateTokensPayload): Promise<To
         const base = fromUi ?? PRESETS[preset].color[key]
         v.setValueForMode(modeIds[preset], hexToRgb(fn(base)))
       }
+    }
+  }
+
+  // 1c. solid 면 — color/solid-<key> (모드별 base에서 계산). 흰 글자가 AA를 통과하는 톤 면.
+  //     Storybook --ds-color-solid-<key>와 1:1 (scripts/verify-parity.mjs가 검증).
+  for (const key of PALETTE_KEYS) {
+    const v = figma.variables.createVariable(`color/solid-${key}`, colorCol, 'COLOR')
+    for (const preset of PRESET_NAMES) {
+      const fromUi = preset === payload.preset ? payload.colors[key] : undefined
+      const base = fromUi ?? PRESETS[preset].color[key]
+      v.setValueForMode(modeIds[preset], hexToRgb(solidColorFor(base)))
+    }
+  }
+
+  // 1d. on-color — color/on-<key> (모드별 base에서 계산). solid 면의 전경색, WCAG AA(4.5:1) 보장.
+  //     Storybook --ds-color-on-<key>와 1:1 (scripts/verify-parity.mjs가 검증).
+  for (const key of PALETTE_KEYS) {
+    const v = figma.variables.createVariable(`color/on-${key}`, colorCol, 'COLOR')
+    for (const preset of PRESET_NAMES) {
+      const fromUi = preset === payload.preset ? payload.colors[key] : undefined
+      const base = fromUi ?? PRESETS[preset].color[key]
+      v.setValueForMode(modeIds[preset], hexToRgb(onColorFor(base)))
     }
   }
 

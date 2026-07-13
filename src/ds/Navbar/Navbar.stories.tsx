@@ -69,3 +69,21 @@ export const States: Story = {
     )
   },
 }
+
+/** 긴 브랜드·메뉴 라벨 — 좁은 폭에서 항목 라벨이 말줄임되고 액션은 유지된다 */
+export const LongLabels: Story = {
+  render: () => (
+    <div style={{ width: 520, border: '1px dashed var(--ds-color-border)' }}>
+      <NavbarDemo
+        brand="아주 긴 서비스 브랜드 이름"
+        value="home"
+        items={[
+          { label: '아주 긴 메뉴 라벨 하나', value: 'home' },
+          { label: '두 번째 긴 메뉴 라벨', value: 'components' },
+          { label: 'VeryLongUnbrokenMenuLabel', value: 'docs' },
+        ]}
+        actions={<Button variant="primary" size="sm" label="로그인" />}
+      />
+    </div>
+  ),
+}

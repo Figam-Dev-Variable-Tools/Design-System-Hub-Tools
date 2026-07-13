@@ -55,3 +55,16 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 제목·설명 — 제목은 1줄 말줄임, 설명은 2줄 클램프. 액션 버튼은 밀리지 않는다 */
+export const LongTitle: Story = {
+  render: () => (
+    <div style={{ width: 420, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <Header
+        title="아주 긴 페이지 제목이 들어가도 헤더 밖으로 넘치지 않아야 합니다"
+        description="설명 문구도 마찬가지로 길어지면 두 줄까지만 보이고 말줄임 처리되어야 하며, 끊기지 않는 문자열(ExtremelyLongUnbrokenToken1234567890)도 박스를 뚫지 않아야 합니다."
+        actions={<Button variant="primary" size="sm" label="저장" />}
+      />
+    </div>
+  ),
+}

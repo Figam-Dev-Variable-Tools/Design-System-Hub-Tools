@@ -48,8 +48,18 @@ export function strokeIcon(key: string, size: number, paint: Paint): FrameNode |
 }
 
 // ── 아이콘 컴포넌트 공유 맵 ─────────────────────────────────────────────
-// Icon System 페이지가 _Icon/* 컴포넌트를 만들면서 여기에 등록 → 카테고리가 findAll 없이 직접 참조.
+// Icon System 페이지가 아이콘 컴포넌트를 만들면서 여기에 등록 → 카테고리가 findAll 없이 직접 참조.
+// 맵의 키는 내부 키(_Icon/*) 그대로. 컴포넌트에 붙는 '표시 이름'만 publicIconName()을 쓴다.
 export const ICON_COMPONENTS = new Map<string, ComponentNode>()
+
+/**
+ * 라이브러리에 게시되는 아이콘 컴포넌트 이름.
+ * Figma는 '_'·'.'로 시작하는 컴포넌트를 비공개로 보고 라이브러리에 게시하지 않는다
+ * → '_Icon/Star'로 두면 아이콘 전체가 Assets 패널에 뜨지 않는다.
+ */
+export function publicIconName(key: string): string {
+  return key.replace(/^_Icon\//, 'Icon/')
+}
 
 /** 아이콘 인스턴스(instance-swap 소스). 컴포넌트 없으면 인라인 stroke 폴백. */
 export function iconInstance(key: string, name: string, size: number): SceneNode {

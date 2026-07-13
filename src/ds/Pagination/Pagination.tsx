@@ -5,6 +5,13 @@ export type PaginationProps = {
   totalPages: number
   onChange?: (page: number) => void
   siblingCount?: number
+  /** 버튼 모양 — square=라운드 사각(어드민 목록·기본값) / circle=원형(사이트 목록 하단) */
+  shape?: 'square' | 'circle'
+  /**
+   * 정렬 — start=좌측(기본) / center=가운데 / end=우측.
+   * 목록 페이지마다 감싸는 div로 가운데 정렬하던 것을 컴포넌트 축으로 흡수한다.
+   */
+  align?: 'start' | 'center' | 'end'
 }
 
 function ChevronLeft() {
@@ -60,11 +67,26 @@ function buildPages(page: number, totalPages: number, siblingCount: number) {
   return pages
 }
 
-export function Pagination({ page, totalPages, onChange, siblingCount = 1 }: PaginationProps) {
+export function Pagination({
+  page,
+  totalPages,
+  onChange,
+  siblingCount = 1,
+  shape = 'square',
+  align = 'start',
+}: PaginationProps) {
   const pages = buildPages(page, totalPages, siblingCount)
 
+  const className = [
+    styles.pagination,
+    shape === 'circle' ? styles.circle : '',
+    align === 'center' ? styles.alignCenter : align === 'end' ? styles.alignEnd : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <nav className={styles.pagination} aria-label="페이지네이션">
+    <nav className={className} aria-label="페이지네이션">
       <button
         type="button"
         className={styles.item}

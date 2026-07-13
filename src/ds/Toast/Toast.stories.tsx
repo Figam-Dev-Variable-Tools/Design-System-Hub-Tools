@@ -51,3 +51,25 @@ export const Default: Story = {
 export const Dismissible: Story = {
   render: () => <DismissibleDemo />,
 }
+
+/** 긴 메시지 — 2줄까지 표시 후 말줄임. 아이콘·닫기 버튼 자리를 침범하지 않는다 */
+export const LongMessage: Story = {
+  render: () => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        width: 320,
+        border: '1px dashed var(--ds-color-border)',
+        padding: 12,
+      }}
+    >
+      <Toast
+        tone="error"
+        message="아주 긴 토스트 메시지가 들어와도 토스트 박스를 뚫지 않고 두 줄까지만 보인 뒤 말줄임 처리됩니다. 나머지 문장은 잘립니다."
+      />
+      <Toast tone="success" message="ExtremelyLongUnbrokenTokenWithoutAnySpaceCharacters1234567890" />
+    </div>
+  ),
+}

@@ -8,58 +8,64 @@
   border-radius: var(--ds-radius-md);
   padding: var(--ds-spacing-3) var(--ds-spacing-4);
   max-width: 480px;
+  /* --tone: 틴트 배경용 base hue / --solid: 좌측 강조 바 / --tone-text: 틴트 위 아이콘 색(AA) */
+  --tone: var(--ds-color-primary);
+  --solid: var(--ds-color-solid-primary);
+  --tone-text: var(--ds-color-primary-800);
+  background: color-mix(in srgb, var(--tone) 8%, transparent);
+  border-left-color: var(--solid);
 }
 
-/* tone → 옅은 틴트 배경 + 톤색 좌측 3px 보더 + 톤색 아이콘 */
+/* tone → 옅은 틴트 배경 + 면 색(solid) 좌측 3px 보더 + AA 셰이드 아이콘 */
 .info {
-  background: color-mix(in srgb, var(--ds-color-primary) 8%, transparent);
-  border-left-color: var(--ds-color-primary);
-}
-.info .icon {
-  color: var(--ds-color-primary);
+  --tone: var(--ds-color-primary);
+  --solid: var(--ds-color-solid-primary);
+  --tone-text: var(--ds-color-primary-800);
 }
 
 .success {
-  background: color-mix(in srgb, var(--ds-color-success) 8%, transparent);
-  border-left-color: var(--ds-color-success);
-}
-.success .icon {
-  color: var(--ds-color-success);
+  --tone: var(--ds-color-success);
+  --solid: var(--ds-color-solid-success);
+  --tone-text: var(--ds-color-success-900);
 }
 
 .warning {
-  background: color-mix(in srgb, var(--ds-color-warning) 8%, transparent);
-  border-left-color: var(--ds-color-warning);
-}
-.warning .icon {
-  color: var(--ds-color-warning);
+  --tone: var(--ds-color-warning);
+  --solid: var(--ds-color-solid-warning);
+  --tone-text: var(--ds-color-warning-900);
 }
 
 .error {
-  background: color-mix(in srgb, var(--ds-color-error) 8%, transparent);
-  border-left-color: var(--ds-color-error);
-}
-.error .icon {
-  color: var(--ds-color-error);
+  --tone: var(--ds-color-error);
+  --solid: var(--ds-color-solid-error);
+  --tone-text: var(--ds-color-error-700);
 }
 
 .icon {
   display: inline-flex;
   flex-shrink: 0;
   margin-top: 1px;
+  color: var(--tone-text);
 }
 
 .content {
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-1);
+  flex: 1;
+  min-width: 0;
 }
 
 .title {
   font-weight: var(--ds-font-weight-bold);
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .body {
   color: var(--ds-color-text);
   line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }

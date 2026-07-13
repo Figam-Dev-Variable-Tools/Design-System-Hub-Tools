@@ -35,3 +35,30 @@ export const AllVariants: Story = {
     </div>
   ),
 }
+
+/** 긴 메시지 — 좁은 컨테이너에서도 줄바꿈되어 박스를 뚫지 않는다(끊기지 않는 문자열 포함) */
+export const LongLabel: Story = {
+  render: () => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        width: 280,
+        border: '1px dashed var(--ds-color-border)',
+        padding: 12,
+      }}
+    >
+      <Alert
+        variant="error"
+        showIcon
+        label="결제에 실패했습니다. 카드사 승인이 거절되었으니 다른 결제 수단을 사용하거나 잠시 후 다시 시도해 주세요."
+      />
+      <Alert
+        variant="info"
+        showIcon
+        label="https://example.com/very/long/unbreakable/path/that/should/not/overflow/the/alert/box"
+      />
+    </div>
+  ),
+}

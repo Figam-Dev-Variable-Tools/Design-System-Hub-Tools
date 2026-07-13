@@ -71,8 +71,10 @@
   right: 0;
 }
 
+/* 포커스 링은 base warning(부트스트랩 #FFC107 = 흰 배경 1.63:1)으로는 보이지 않는다.
+   DS 공통 포커스 색(solid-primary)으로 통일해 3:1을 확보. */
 .hit:focus-visible {
-  outline: 2px solid var(--ds-color-warning);
+  outline: 2px solid var(--ds-color-solid-primary);
   outline-offset: 2px;
 }
 

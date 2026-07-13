@@ -3,13 +3,15 @@
 // 또는 원격 URL로 받은 동일 스키마 매니페스트를 입력으로 같은 생성 로직을 실행한다.
 import { firstFontFamily, hexToRgb, type PresetName, PRESETS } from '../presets'
 import { ICON_PATHS } from '../icons-data'
-import { strokeIcon } from './icon-vec'
+import { strokeIcon, publicIconName } from './icon-vec'
 import { brandLogo } from './brand-logos'
 
 export type VariantAxis = { name: string; values: string[] }
 export type TextProp = { name: string; default: string }
 export type BooleanProp = { name: string; default: boolean }
-export type SwapProp = { name: string; default: string; preferred: string[] }
+// default/preferred는 선택 — scripts/lib SWAP_RULES에 규칙이 없는 스왑 prop(leftIcon/rightIcon 등)은
+// 소스 파생 매니페스트에서 { name }만 나온다. 생성 시에는 ICON_FALLBACK로 대체한다.
+export type SwapProp = { name: string; default?: string; preferred?: string[] }
 
 export type ComponentSpec = {
   name: string
@@ -46,14 +48,28 @@ export const COMPONENT_MANIFEST: ComponentManifest = {
       name: 'DS/Button',
       kind: 'button',
       variants: [
-        { name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning'] },
+        { name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] },
         { name: 'appearance', values: ['solid', 'outline', 'ghost'] },
         { name: 'size', values: ['sm', 'md', 'lg'] },
         { name: 'disabled', values: ['false', 'true'] },
+        // fullWidth/iconOnly는 D1(Button.tsx)에서 "show"로 시작하지 않는 boolean이라
+        // §3 매핑 규약(classifyProps)상 축(variant)이 된다 — verify-mapping.mjs 대조 대상.
+        { name: 'fullWidth', values: ['false', 'true'] },
+        { name: 'iconOnly', values: ['false', 'true'] },
       ],
       text: [{ name: 'label', default: 'Button' }],
-      booleans: [{ name: 'showIcon', default: false }],
-      swaps: [{ name: 'icon', default: '_Icon/Star', preferred: ['_Icon/Star', '_Icon/Heart', '_Icon/Bell'] }],
+      // showIcon = 레거시 좌측 슬롯. showLeftIcon/showRightIcon = 좌·우 슬롯(D1 ButtonProps와 1:1).
+      booleans: [
+        { name: 'showIcon', default: false },
+        { name: 'showLeftIcon', default: false },
+        { name: 'showRightIcon', default: false },
+      ],
+      // leftIcon/rightIcon은 SWAP_RULES에 규칙이 없어 소스 파생 매니페스트가 { name }만 낸다 — 동일하게 유지.
+      swaps: [
+        { name: 'icon', default: '_Icon/Star', preferred: ['_Icon/Star', '_Icon/Heart', '_Icon/Bell'] },
+        { name: 'leftIcon' },
+        { name: 'rightIcon' },
+      ],
     },
     {
       name: 'DS/TextField',
@@ -98,7 +114,7 @@ export const COMPONENT_MANIFEST: ComponentManifest = {
       name: 'DS/Badge',
       kind: 'badge',
       variants: [
-        { name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning'] },
+        { name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] },
         { name: 'appearance', values: ['solid', 'soft', 'outline'] },
         { name: 'size', values: ['sm', 'md'] },
       ],
@@ -169,6 +185,9 @@ const SOCIAL_BRAND: Record<string, { bg: string; label: string; border?: string;
   microsoft: { bg: '#FFFFFF', label: '#1F1F1F', border: '#8C8C8C', text: 'Microsoft 계정으로 로그인' },
   x: { bg: '#000000', label: '#FFFFFF', text: 'X로 계속하기' },
 }
+
+// 스왑 기본 아이콘 폴백 — 매니페스트에 default가 없는 스왑 prop(leftIcon/rightIcon)에 쓰인다
+const ICON_FALLBACK = '_Icon/Star'
 
 const CHART_SAMPLE = {
   revenue: [12, 19, 8, 15, 22, 17],
@@ -283,7 +302,7 @@ function makeIconComponents(ctx: Ctx) {
       return
     }
     const c = figma.createComponent()
-    c.name = name
+    c.name = publicIconName(name) // '_' 접두사면 Figma가 비공개 처리 → 라이브러리 미게시
     c.resize(24, 24)
     c.fills = []
     icon.x = 0
@@ -334,6 +353,8 @@ function makeButtonSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     const variant = combo.variant ?? 'primary'
     const appearance = combo.appearance ?? 'solid'
     const size = combo.size ?? 'md'
+    const fullWidth = combo.fullWidth === 'true'
+    const iconOnly = combo.iconOnly === 'true'
     const pad = sizePad[size] ?? sizePad.md
     const c = figma.createComponent()
     c.name = comboName(spec, combo)
@@ -344,8 +365,14 @@ function makeButtonSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     c.setBoundVariable('itemSpacing', getVar(ctx, 'spacing/2'))
     c.paddingTop = pad.v
     c.paddingBottom = pad.v
-    c.setBoundVariable('paddingLeft', getVar(ctx, pad.hVar))
-    c.setBoundVariable('paddingRight', getVar(ctx, pad.hVar))
+    // iconOnly = 라벨 없이 아이콘만 보이는 정사각 버튼 → 좌우 패딩도 상하와 같은 값으로 squarify.
+    if (iconOnly) {
+      c.paddingLeft = pad.v
+      c.paddingRight = pad.v
+    } else {
+      c.setBoundVariable('paddingLeft', getVar(ctx, pad.hVar))
+      c.setBoundVariable('paddingRight', getVar(ctx, pad.hVar))
+    }
     bindRadius(c, getVar(ctx, 'radius/md'))
     // appearance: solid=톤 채움+흰 글자 / outline=투명+톤 보더+톤 글자 / ghost=투명+톤 글자
     let fgVar = 'color/bg'
@@ -362,14 +389,36 @@ function makeButtonSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     }
     if (combo.disabled === 'true') c.opacity = 0.45
 
-    const icon = ctx.iconComponents.get('_Icon/Star')!.createInstance()
-    icon.name = 'icon'
-    icon.visible = false
-    c.appendChild(icon)
+    // 레이어 순서: icon(레거시 좌측) → leftIcon → label → rightIcon
+    // (boolean show<X> → <x> 레이어 규약으로 addSharedProps가 표시/숨김을 바인딩한다)
+    for (const layer of ['icon', 'leftIcon']) {
+      const inst = ctx.iconComponents.get(ICON_FALLBACK)!.createInstance()
+      inst.name = layer
+      // iconOnly 변형은 leftIcon을 기본으로 보여준다(Storybook IconOnly 스토리와 동일하게
+      // iconOnly=true는 showLeftIcon=true와 함께 쓰인다) — 이 visible은 show<X> 바인딩과
+      // 무관한 '이 변형만의' 기본값이라 addSharedProps가 나중에 씌워도 유지된다.
+      inst.visible = iconOnly && layer === 'leftIcon'
+      c.appendChild(inst)
+    }
 
     const label = makeText(ctx, 'label', 'Button', getVar(ctx, pad.fontVar))
     bindFill(label, getVar(ctx, fgVar))
+    // iconOnly = 라벨을 화면에서 감춘다(접근성 이름으로는 characters에 계속 남는다).
+    label.visible = !iconOnly
     c.appendChild(label)
+
+    const rightIcon = (ctx.iconComponents.get('_Icon/ChevronRight') ?? ctx.iconComponents.get(ICON_FALLBACK)!).createInstance()
+    rightIcon.name = 'rightIcon'
+    rightIcon.visible = false
+    c.appendChild(rightIcon)
+
+    // fullWidth = 폼 하단 제출 CTA처럼 부모 폭을 꽉 채운다 — 격리된 컴포넌트에서는
+    // 상한 폭을 푸는 대신 넉넉한 고정 폭(400)으로 펼치고 라벨을 가운데로 둔다.
+    if (fullWidth) {
+      c.primaryAxisSizingMode = 'FIXED'
+      c.primaryAxisAlignItems = 'CENTER'
+      c.resize(400, c.height)
+    }
 
     ctx.page.appendChild(c)
     variants.push(c)
@@ -878,16 +927,18 @@ function addSharedProps(ctx: Ctx, set: ComponentSetNode, spec: ComponentSpec) {
     }
   }
   for (const sp of spec.swaps) {
-    const defaultComp = ctx.iconComponents.get(sp.default)
+    // 규칙 없는 스왑(leftIcon/rightIcon)은 기본 아이콘으로 폴백
+    const defKey = sp.default ?? ICON_FALLBACK
+    const defaultComp = ctx.iconComponents.get(defKey)
     if (!defaultComp) {
-      ctx.warnings.push(`스왑 기본 컴포넌트 '${sp.default}' 없음 — '${sp.name}' 속성 생략`)
+      ctx.warnings.push(`스왑 기본 컴포넌트 '${defKey}' 없음 — '${sp.name}' 속성 생략`)
       continue
     }
     // 보정 #6: 로컬 컴포넌트는 node.id 사용. preferredValues는 실패해도 무시(1회 경고).
     let propId: string
     try {
       propId = set.addComponentProperty(sp.name, 'INSTANCE_SWAP', defaultComp.id, {
-        preferredValues: sp.preferred
+        preferredValues: (sp.preferred ?? [defKey])
           .map((n) => ctx.iconComponents.get(n))
           .filter((c): c is ComponentNode => !!c)
           .map((c) => ({ type: 'COMPONENT' as const, key: c.key })),

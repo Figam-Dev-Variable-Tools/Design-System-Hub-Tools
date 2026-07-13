@@ -3,17 +3,23 @@
   display: inline-flex;
 }
 
+/* 짧은 문구는 한 줄, 긴 문구는 240px에서 줄바꿈 — 화면 밖으로 뻗지 않는다 */
 .bubble {
   position: absolute;
   z-index: 30;
+  width: max-content;
+  max-width: 240px;
   font-family: var(--ds-font-family);
   font-size: var(--ds-font-size-xs);
   font-weight: var(--ds-font-weight-medium);
+  line-height: 1.4;
   padding: 4px 8px;
   border-radius: var(--ds-radius-sm);
   background: var(--ds-color-text);
   color: var(--ds-color-bg);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .top {

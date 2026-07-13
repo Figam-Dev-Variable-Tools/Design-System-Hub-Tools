@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-1);
+  min-width: 0;
   font-family: var(--ds-font-family);
   max-width: 320px;
 }
@@ -49,6 +50,14 @@
   background: var(--ds-color-bgSubtle);
   color: var(--ds-color-secondary);
   pointer-events: none;
+}
+
+/* 선택값·플레이스홀더는 1줄 말줄임 — 셰브런은 항상 보인다 */
+.value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .placeholder {
@@ -104,6 +113,13 @@
   text-align: left;
 }
 
+.optionLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .option:hover,
 .optionActive {
   background: var(--ds-color-bgSubtle);
@@ -127,6 +143,9 @@
 }
 
 .helper {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
   font-size: var(--ds-font-size-xs);
   color: var(--ds-color-secondary);
 }
@@ -140,4 +159,10 @@
   color: var(--ds-color-secondary);
   padding: var(--ds-spacing-3);
   text-align: center;
+}
+
+/* 폼 그리드에서는 열이 폭을 정한다 — 기본 상한(320/480px)을 푼다 */
+.fullWidth {
+  max-width: none;
+  width: 100%;
 }

@@ -5,6 +5,42 @@
   font-family: var(--ds-font-family);
 }
 
+/* 정렬 — inline-flex라 스스로는 가운데로 갈 수 없다. flex 컨테이너로 바꿔 자리를 잡는다. */
+.alignCenter,
+.alignEnd {
+  display: flex;
+  width: 100%;
+}
+
+.alignCenter {
+  justify-content: center;
+}
+
+.alignEnd {
+  justify-content: flex-end;
+}
+
+/* ── circle — 원형 버튼 ──
+   보더가 있는 흰 원, 현재 페이지만 solid 면. 사이트 목록(포트폴리오·쇼핑) 하단 룩이다. */
+.circle {
+  gap: var(--ds-spacing-2);
+}
+
+.circle .item {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-full, 999px);
+  background: var(--ds-color-bg);
+}
+
+.circle .item:hover:not(:disabled) {
+  border-color: var(--site-accent, var(--ds-color-solid-primary));
+  background: var(--ds-color-bg);
+}
+
 .item {
   display: inline-flex;
   align-items: center;
@@ -18,7 +54,7 @@
   font-family: inherit;
   font-size: var(--ds-font-size-sm);
   font-weight: var(--ds-font-weight-medium);
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
   border-radius: var(--ds-radius-md);
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -29,7 +65,7 @@
 }
 
 .item:focus-visible {
-  outline: 2px solid var(--ds-color-primary);
+  outline: 2px solid var(--ds-color-solid-primary);
   outline-offset: 1px;
 }
 
@@ -38,11 +74,14 @@
   pointer-events: none;
 }
 
-/* 현재 페이지: primary 채움 사각 버튼 */
-.active,
-.active:hover:not(:disabled) {
-  background: var(--ds-color-primary);
-  color: var(--ds-color-bg);
+/* 현재 페이지: solid 면 + 그 위 on-tone 글자.
+   SiteSection 안이면 그 섹션의 강조색(그린), 밖(어드민)이면 primary — 값의 정의는 SiteSection이 소유한다.
+   .circle .item(0,2,0)보다 선택자가 강해야 하므로 .pagination을 앞에 세운다. */
+.pagination .active,
+.pagination .active:hover:not(:disabled) {
+  border-color: var(--site-accent-solid, var(--ds-color-solid-primary));
+  background: var(--site-accent-solid, var(--ds-color-solid-primary));
+  color: var(--site-accent-on, var(--ds-color-on-primary));
 }
 
 .ellipsis {
@@ -52,5 +91,5 @@
   min-width: 32px;
   height: 32px;
   font-size: var(--ds-font-size-sm);
-  color: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-600);
 }

@@ -5,6 +5,7 @@
   justify-content: center;
   width: 100%;
   max-width: 320px;
+  box-sizing: border-box; /* 패딩 포함 폭 — 없으면 카드 밖으로 삐져나온다 */
   border: none;
   cursor: pointer;
   font-family: var(--ds-font-family);
@@ -68,12 +69,22 @@
   color: var(--brand-x-label);
 }
 
+/* 라벨은 로고 자리(좌측 절대배치)를 침범하지 않도록 폭을 제한하고 말줄임 */
+.label {
+  min-width: 0;
+  max-width: calc(100% - 64px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .logo {
   position: absolute;
   left: var(--ds-spacing-3);
   display: inline-flex;
   width: 24px;
   height: 24px;
+  flex-shrink: 0;
 }
 
 .logo svg {

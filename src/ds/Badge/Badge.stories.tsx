@@ -13,7 +13,10 @@ const meta = {
     size: 'md',
   },
   argTypes: {
-    variant: { control: 'select', options: ['primary', 'secondary', 'error', 'success', 'warning'] },
+    variant: {
+      control: 'select',
+      options: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'],
+    },
     appearance: { control: 'inline-radio', options: ['solid', 'soft', 'outline'] },
     size: { control: 'inline-radio', options: ['sm', 'md'] },
   },
@@ -50,6 +53,31 @@ export const Appearances: Story = {
           ))}
         </div>
       ))}
+    </div>
+  ),
+}
+
+/** 긴 라벨 — 좁은 컨테이너·표 셀에서도 배지 밖으로 넘치지 않고 말줄임된다 */
+export const LongLabel: Story = {
+  render: () => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 10,
+        width: 180,
+        border: '1px dashed var(--ds-color-border)',
+        padding: 12,
+      }}
+    >
+      <Badge variant="success" label="아주 긴 한글 상태 라벨이 들어가도 넘치지 않습니다" size="md" />
+      <Badge
+        variant="error"
+        appearance="outline"
+        label="ExtremelyLongUnbrokenStatusLabelValue"
+        size="sm"
+      />
     </div>
   ),
 }

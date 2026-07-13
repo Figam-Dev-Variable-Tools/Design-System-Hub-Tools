@@ -4,7 +4,8 @@ import styles from './Table.module.css'
 
 export type TableColumn<T> = {
   key: string
-  header: string
+  /** 문자열이 기본이지만 헤더 체크박스 등 커스텀 노드도 허용 */
+  header: ReactNode
   width?: number | string
   align?: 'left' | 'center' | 'right'
   sortable?: boolean
@@ -104,57 +105,60 @@ export function Table<T>({
     .join(' ')
 
   return (
-    <table className={tableClass}>
-      <thead>
-        <tr>
-          {columns.map((col) => {
-            const dir = sort != null && sort.key === col.key ? sort.dir : null
-            return (
-              <th
-                key={col.key}
-                scope="col"
-                className={styles.th}
-                style={cellStyle(col)}
-                aria-sort={dir == null ? undefined : dir === 'asc' ? 'ascending' : 'descending'}
-              >
-                {col.sortable ? (
-                  <button type="button" className={styles.sortButton} onClick={() => cycleSort(col.key)}>
-                    {col.header}
-                    <span className={dir == null ? styles.sortIcon : styles.sortIconActive}>
-                      <SortIcon dir={dir} />
-                    </span>
-                  </button>
-                ) : (
-                  col.header
-                )}
-              </th>
-            )
-          })}
-        </tr>
-      </thead>
-      <tbody>
-        {sorted.length === 0 ? (
+    // 좁아지면 셀이 줄바꿈으로 짜부라지는 대신 래퍼가 가로 스크롤된다
+    <div className={styles.scroll}>
+      <table className={tableClass}>
+        <thead>
           <tr>
-            <td className={[styles.td, styles.empty].join(' ')} colSpan={columns.length}>
-              {emptyText}
-            </td>
+            {columns.map((col) => {
+              const dir = sort != null && sort.key === col.key ? sort.dir : null
+              return (
+                <th
+                  key={col.key}
+                  scope="col"
+                  className={styles.th}
+                  style={cellStyle(col)}
+                  aria-sort={dir == null ? undefined : dir === 'asc' ? 'ascending' : 'descending'}
+                >
+                  {col.sortable ? (
+                    <button type="button" className={styles.sortButton} onClick={() => cycleSort(col.key)}>
+                      {col.header}
+                      <span className={dir == null ? styles.sortIcon : styles.sortIconActive}>
+                        <SortIcon dir={dir} />
+                      </span>
+                    </button>
+                  ) : (
+                    col.header
+                  )}
+                </th>
+              )
+            })}
           </tr>
-        ) : (
-          sorted.map((row) => (
-            <tr
-              key={rowKey(row)}
-              className={[styles.row, onRowClick ? styles.clickable : ''].filter(Boolean).join(' ')}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-            >
-              {columns.map((col) => (
-                <td key={col.key} className={styles.td} style={cellStyle(col)}>
-                  {cellValue(row, col)}
-                </td>
-              ))}
+        </thead>
+        <tbody>
+          {sorted.length === 0 ? (
+            <tr>
+              <td className={[styles.td, styles.empty].join(' ')} colSpan={columns.length}>
+                {emptyText}
+              </td>
             </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+          ) : (
+            sorted.map((row) => (
+              <tr
+                key={rowKey(row)}
+                className={[styles.row, onRowClick ? styles.clickable : ''].filter(Boolean).join(' ')}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+              >
+                {columns.map((col) => (
+                  <td key={col.key} className={styles.td} style={cellStyle(col)}>
+                    {cellValue(row, col)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }

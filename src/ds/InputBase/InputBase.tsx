@@ -21,6 +21,11 @@ export type InputBaseProps = {
   /** 인풋 좌/우 액세서리 — 아이콘, 토글 버튼, 스텝퍼 등 */
   leading?: ReactNode
   trailing?: ReactNode
+  /**
+   * true면 필드가 부모(폼 그리드의 열)를 꽉 채운다 — 기본 320px 상한을 푼다.
+   * 세로로 쌓는 단독 폼은 상한이 있어야 줄이 길어지지 않지만, 2열 폼 그리드에서는 열이 폭을 정한다.
+   */
+  fullWidth?: boolean
   onBlur?: () => void
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
 }
@@ -42,11 +47,17 @@ export function InputBase({
   showCounter = false,
   leading,
   trailing,
+  fullWidth = false,
   onBlur,
   onKeyDown,
 }: InputBaseProps) {
   const id = useId()
-  const fieldClass = [styles.field, error ? styles.error : '', success ? styles.success : '']
+  const fieldClass = [
+    styles.field,
+    error ? styles.error : '',
+    success ? styles.success : '',
+    fullWidth ? styles.fullWidth : '',
+  ]
     .filter(Boolean)
     .join(' ')
   const wrapClass = [

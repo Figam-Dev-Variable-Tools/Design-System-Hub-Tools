@@ -54,3 +54,34 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 메시지 — 2줄 말줄임. 액션/닫기 버튼은 항상 자리를 지킨다 */
+export const LongMessage: Story = {
+  render: () => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        width: 480,
+        border: '1px dashed var(--ds-color-border)',
+        padding: 12,
+      }}
+    >
+      <Snackbar
+        open
+        inline
+        message="아주 긴 스낵바 메시지가 들어와도 액션 버튼과 닫기 버튼을 밀어내지 않고 두 줄까지만 표시된 뒤 말줄임됩니다."
+        actionLabel="실행 취소"
+        showClose
+      />
+      <Snackbar
+        open
+        inline
+        variant="error"
+        message="ExtremelyLongUnbrokenErrorTokenWithoutSpaces0123456789ABCDEF"
+        showClose
+      />
+    </div>
+  ),
+}

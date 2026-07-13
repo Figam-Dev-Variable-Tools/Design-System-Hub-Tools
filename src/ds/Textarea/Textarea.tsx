@@ -16,6 +16,8 @@ export type TextareaProps = {
   readOnly?: boolean
   required?: boolean
   helperText?: string
+  /** true면 필드가 부모(폼 그리드의 열)를 꽉 채운다 — 기본 480px 상한을 푼다(InputBase와 같은 축) */
+  fullWidth?: boolean
 }
 
 export function Textarea({
@@ -32,6 +34,7 @@ export function Textarea({
   readOnly = false,
   required = false,
   helperText,
+  fullWidth = false,
 }: TextareaProps) {
   const id = useId()
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -44,7 +47,11 @@ export function Textarea({
   }
 
   return (
-    <div className={[styles.field, error ? styles.error : ''].filter(Boolean).join(' ')}>
+    <div
+      className={[styles.field, error ? styles.error : '', fullWidth ? styles.fullWidth : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
       {label != null && (
         <label className={styles.label} htmlFor={id}>
           {label}

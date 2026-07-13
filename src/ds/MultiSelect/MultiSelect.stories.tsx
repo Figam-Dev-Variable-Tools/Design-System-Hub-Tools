@@ -54,3 +54,18 @@ export const States: Story = {
     </div>
   ),
 }
+
+const LONG_OPTIONS = [
+  { value: 'long1', label: '아주 긴 옵션 라벨이 들어간 첫 번째 항목입니다' },
+  { value: 'long2', label: 'VeryLongUnbrokenOptionLabelWithoutSpaces1234567890' },
+  { value: 'short', label: '짧은 옵션' },
+]
+
+/** 긴 옵션 라벨 — 선택 칩과 패널 항목이 모두 말줄임된다(× 버튼은 유지) */
+export const LongOptions: Story = {
+  render: () => (
+    <div style={{ width: 260, paddingBottom: 240, border: '1px dashed var(--ds-color-border)', padding: 12 }}>
+      <Demo label="긴 옵션" values={['long1', 'long2']} options={LONG_OPTIONS} />
+    </div>
+  ),
+}

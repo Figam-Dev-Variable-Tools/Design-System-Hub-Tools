@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import styles from './FilterBar.module.css'
 import { SearchField } from '../SearchField/SearchField'
 import { Select, type SelectOption } from '../Select/Select'
@@ -27,6 +28,8 @@ export type FilterBarProps = {
   onRemoveChip?: (key: string) => void
   /** 있으면 우측에 '초기화' 버튼 표시 */
   onReset?: () => void
+  /** 우측 액션 슬롯 — 등록 버튼, 엑셀 다운로드 등 (초기화 버튼 오른쪽에 배치) */
+  actions?: ReactNode
 }
 
 export function FilterBar({
@@ -39,6 +42,7 @@ export function FilterBar({
   activeChips = [],
   onRemoveChip,
   onReset,
+  actions,
 }: FilterBarProps) {
   return (
     <div className={styles.filterBar}>
@@ -56,9 +60,12 @@ export function FilterBar({
             />
           </div>
         ))}
-        {onReset != null && (
-          <div className={styles.reset}>
-            <Button variant="secondary" size="sm" label="초기화" onClick={onReset} />
+        {(onReset != null || actions != null) && (
+          <div className={styles.actions}>
+            {onReset != null && (
+              <Button variant="secondary" size="sm" label="초기화" onClick={onReset} />
+            )}
+            {actions}
           </div>
         )}
       </div>

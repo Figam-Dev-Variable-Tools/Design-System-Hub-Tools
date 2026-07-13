@@ -71,8 +71,15 @@
   border-radius: inherit;
 }
 
+/* 이니셜이 길어도 원 밖으로 새지 않는다(아바타 자체는 status 점 때문에 overflow를 열어둔다) */
 .initials {
   line-height: 1;
+  max-width: 100%;
+  padding: 0 2px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 /* 우하단 상태 점 */

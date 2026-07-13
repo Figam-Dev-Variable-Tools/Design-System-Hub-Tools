@@ -26,6 +26,7 @@ const meta = {
     helperText: '최대 500자까지 입력할 수 있습니다.',
   },
   argTypes: {
+    fullWidth: { control: 'boolean', description: '폼 그리드에서 열을 채운다 — 기본 480px 상한을 푼다' },
     onChange: { control: false },
   },
   parameters: {

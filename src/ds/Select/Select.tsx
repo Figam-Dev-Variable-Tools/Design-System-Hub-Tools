@@ -16,6 +16,8 @@ export type SelectProps = {
   disabled?: boolean
   error?: boolean
   helperText?: string
+  /** true면 필드가 부모(폼 그리드의 열)를 꽉 채운다 — 기본 320px 상한을 푼다(InputBase와 같은 축) */
+  fullWidth?: boolean
 }
 
 export function Chevron() {
@@ -61,6 +63,7 @@ export function Select({
   disabled = false,
   error = false,
   helperText,
+  fullWidth = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -71,6 +74,7 @@ export function Select({
     styles.field,
     open ? styles.open : '',
     error ? styles.error : '',
+    fullWidth ? styles.fullWidth : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -88,9 +92,9 @@ export function Select({
           onClick={() => setOpen((o) => !o)}
         >
           {selected ? (
-            <span>{selected.label}</span>
+            <span className={styles.value}>{selected.label}</span>
           ) : (
-            <span className={styles.placeholder}>{placeholder}</span>
+            <span className={[styles.value, styles.placeholder].join(' ')}>{placeholder}</span>
           )}
           <span className={styles.chevron}>
             <Chevron />
@@ -120,7 +124,7 @@ export function Select({
                   setOpen(false)
                 }}
               >
-                  <span>{option.label}</span>
+                  <span className={styles.optionLabel}>{option.label}</span>
                   {isSelected && (
                     <span className={styles.check}>
                       <CheckIcon />

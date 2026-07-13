@@ -22,7 +22,11 @@
   flex-shrink: 0;
 }
 
-.reset {
+/* 초기화 버튼 + actions 슬롯 — 우측 정렬 */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-spacing-2);
   margin-left: auto;
 }
 

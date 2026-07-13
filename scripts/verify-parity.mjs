@@ -12,7 +12,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const tokensDir = join(root, 'tokens')
 const genDir = join(root, 'src', 'tokens', 'generated')
 const PRESET_ORDER = ['bootstrap', 'tailwind', 'toss']
-const PALETTE_KEYS = ['primary', 'secondary', 'error', 'success', 'warning']
+const PALETTE_KEYS = ['primary', 'secondary', 'error', 'success', 'warning', 'neutral']
 const SHADE_STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900']
 
 const fail = []
@@ -34,6 +34,9 @@ function tokenMap(t) {
   const add = (figma, ss) => rows.push({ figma, ss })
   for (const k of Object.keys(t.color)) add(`color/${k}`, `--ds-color-${k}`)
   for (const key of PALETTE_KEYS) for (const s of SHADE_STEPS) add(`color/${key}/${s}`, `--ds-color-${key}-${s}`)
+  // solid 면 + on-color(전경색) — 셰이드와 같이 base에서 계산되는 파생 토큰.
+  for (const key of PALETTE_KEYS) add(`color/solid-${key}`, `--ds-color-solid-${key}`)
+  for (const key of PALETTE_KEYS) add(`color/on-${key}`, `--ds-color-on-${key}`)
   add('font/family', '--ds-font-family')
   for (const k of Object.keys(t.typography.sizes)) add(`font/size/${k}`, `--ds-font-size-${k}`)
   for (const k of Object.keys(t.typography.weights)) add(`font/weight/${k}`, `--ds-font-weight-${k}`)
@@ -81,6 +84,8 @@ try {
   const needTemplates = [
     'color/${key}',
     'color/${key}/${step}',
+    'color/solid-${key}',
+    'color/on-${key}',
     'font/family',
     'font/size/${key}',
     'font/weight/${key}',

@@ -9,6 +9,12 @@ import { generateDocs, type DocsContent } from './generators/docs'
 import { generateSnapshots } from './generators/snapshots'
 import { generateFoundations } from './generators/foundations'
 import { generateCategories } from './generators/categories'
+import { generateAdmin } from './generators/admin'
+import { generateAdminForms } from './generators/admin2'
+import { generateLayoutGuide } from './generators/layout-guide'
+import { generateScreens } from './generators/screens'
+import { generateSite } from './generators/site'
+import { generateSiteScreens } from './generators/site-screens'
 import { resetGenerated } from './generators/reset'
 import { DOCS_CONTENT } from './docs-content-data'
 import { importTokens, validateTokens } from './generators/sync'
@@ -17,7 +23,7 @@ import type { PresetName, TokensJson, ColorKey } from './presets'
 figma.showUI(__html__, { width: 420, height: 680 })
 
 // 실행 중인 빌드 식별자 — 옛 dist가 실행되는 사고를 눈으로 잡기 위해 시작 시 상태창에 찍는다.
-const BUILD_TAG = 'build 2026-07-13 · fontvar-fix'
+const BUILD_TAG = 'build 2026-07-13 · site'
 
 // 스냅샷(스토리북 복사) 기본 소스 — jsdelivr @gh (repo scripts/capture-snapshots.mjs 산출물).
 const SNAPSHOT_BASE =
@@ -36,6 +42,14 @@ type GenerateMsg = {
     designSystem: boolean
     icons: boolean
     categories: boolean
+    // 어드민 4종 — 옛 UI(체크박스 없는 dist)가 보낸 메시지도 undefined=false로 안전히 흘러가도록 optional.
+    admin?: boolean
+    adminForms?: boolean
+    screens?: boolean
+    layout?: boolean
+    // 프론트(사이트) 2종 — 위와 같은 이유로 optional.
+    site?: boolean
+    siteScreens?: boolean
     components: boolean
     snapshots: boolean
     docs?: boolean
@@ -116,6 +130,85 @@ async function handleGenerate(msg: GenerateMsg) {
       status('info', '카테고리 페이지 생성 완료 (Input~Date & Time · Korea Templates · Media · Templates · ETC(소셜/OAuth)).')
     } catch (e) {
       status('error', `카테고리 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // ── 생성 순서 계약 ────────────────────────────────────────────────
+  // 화면(17 Admin Screens · 19 Site Screens)은 컴포넌트 세트(15 Admin · 18 Site)의 **인스턴스로 조립**된다.
+  // 따라서 반드시 컴포넌트 → 화면 순으로 돌려야 한다(아래 블록 순서 = 15 → 16 → 17 → 18 → 19).
+  // 순서를 바꾸면 세트가 아직 없어 화면이 직접 그리기로 내려가고, 컴포넌트 수정이 화면에 전파되지 않는다.
+  // 화면 스코프만 켠 경우엔 기존 페이지에서 세트를 입양하지만, 그것도 없으면 직접 그리므로 미리 알린다.
+  if (msg.scope.screens && !msg.scope.admin) {
+    status(
+      'warn',
+      "'어드민 화면'만 선택됐습니다 — '어드민 컴포넌트'를 함께 켜면 화면이 컴포넌트 인스턴스로 조립됩니다(세트가 없으면 직접 그립니다).",
+    )
+  }
+  if (msg.scope.siteScreens && !msg.scope.site) {
+    status(
+      'warn',
+      "'프론트 화면'만 선택됐습니다 — '프론트 컴포넌트'를 함께 켜면 화면이 컴포넌트 인스턴스로 조립됩니다(세트가 없으면 직접 그립니다).",
+    )
+  }
+
+  // 어드민 3종. 페이지 번호 순(Admin 15 → Layout 16 → Admin Screens 17)으로 돌려 탭이 순번대로 쌓이게 한다.
+  // 각각 독립 try/catch — 하나가 죽어도 나머지 스코프는 계속 생성한다.
+  if (msg.scope.admin) {
+    try {
+      status('info', '어드민 컴포넌트 — 컴포넌트 세트(베리언트) + 문서 생성 중…')
+      const warnings = await generateAdmin(msg.typography.fontFamily, msg.colors, msg.preset)
+      warnings.forEach((w) => status('warn', w))
+      status('info', "'15. System - Admin' 페이지 생성 완료.")
+    } catch (e) {
+      status('error', `어드민 컴포넌트 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  if (msg.scope.layout) {
+    try {
+      status('info', '레이아웃 가이드 — 화면 골격 치수 가이드 생성 중…')
+      const warnings = await generateLayoutGuide(msg.typography.fontFamily, msg.colors, msg.preset)
+      warnings.forEach((w) => status('warn', w))
+      status('info', "'16. System - Layout' 페이지 생성 완료.")
+    } catch (e) {
+      status('error', `레이아웃 가이드 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // 17은 15의 세트를 인스턴스로 조립한다 → 위 admin 블록 뒤에 와야 한다.
+  if (msg.scope.screens) {
+    try {
+      status('info', '어드민 화면 14종 — 컴포넌트 인스턴스로 조립 중… 시간이 걸립니다.')
+      const warnings = await generateScreens(msg.typography.fontFamily, msg.colors, msg.preset)
+      warnings.forEach((w) => status('warn', w))
+      status('info', "'17. System - Admin Screens' 페이지 생성 완료 (14화면).")
+    } catch (e) {
+      status('error', `어드민 화면 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // 프론트(사이트) 2종. 어드민과 마찬가지로 페이지 번호 순(Site 18 → Site Screens 19)으로 돌린다.
+  // 각각 독립 try/catch — 하나가 죽어도 나머지 스코프는 계속 생성한다.
+  if (msg.scope.site) {
+    try {
+      status('info', '프론트 컴포넌트 — 컴포넌트 세트(베리언트) + 문서 생성 중…')
+      const warnings = await generateSite(msg.typography.fontFamily, msg.colors, msg.preset)
+      warnings.forEach((w) => status('warn', w))
+      status('info', "'18. System - Site' 페이지 생성 완료.")
+    } catch (e) {
+      status('error', `프론트 컴포넌트 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // 19는 18의 세트를 인스턴스로 조립한다 → 위 site 블록 뒤에 와야 한다.
+  if (msg.scope.siteScreens) {
+    try {
+      status('info', '프론트 화면 5종 — 컴포넌트 인스턴스로 조립 중… 시간이 걸립니다.')
+      const warnings = await generateSiteScreens(msg.typography.fontFamily, msg.colors, msg.preset)
+      warnings.forEach((w) => status('warn', w))
+      status('info', "'19. System - Site Screens' 페이지 생성 완료 (5화면).")
+    } catch (e) {
+      status('error', `프론트 화면 실패: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
 

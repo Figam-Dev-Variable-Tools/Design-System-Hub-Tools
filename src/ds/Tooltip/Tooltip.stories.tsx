@@ -54,3 +54,25 @@ export const States: Story = {
     </div>
   ),
 }
+
+/** 긴 내용 — 240px에서 줄바꿈된다(예전에는 한 줄로 화면 밖까지 뻗었다) */
+export const LongContent: Story = {
+  render: () => (
+    <div style={{ display: 'flex', gap: 80, padding: 96, flexWrap: 'wrap' }}>
+      <Tooltip
+        content="아주 긴 툴팁 문구도 최대 240px 폭에서 줄바꿈되어 화면 밖으로 뻗지 않고 안전하게 표시됩니다."
+        placement="top"
+        alwaysVisible
+      >
+        <Button variant="secondary" size="md" label="긴 툴팁" />
+      </Tooltip>
+      <Tooltip
+        content="ExtremelyLongUnbrokenTooltipToken1234567890ABCDEFGHIJK"
+        placement="bottom"
+        alwaysVisible
+      >
+        <Button variant="secondary" size="md" label="끊기지 않는 문자열" />
+      </Tooltip>
+    </div>
+  ),
+}

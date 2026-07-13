@@ -20,6 +20,7 @@ const pageStyle: CSSProperties = {
 const cardStyle: CSSProperties = {
   width: '100%',
   maxWidth: 400,
+  minWidth: 0,
   background: 'var(--ds-color-bg)',
   border: '1px solid var(--ds-color-border)',
   borderRadius: 'var(--ds-radius-lg)',
@@ -29,10 +30,15 @@ const cardStyle: CSSProperties = {
   gap: 'var(--ds-spacing-4)',
 }
 
+// 링크는 줄바꿈 없이 말줄임 — 카드 밖으로 나가지 않는다
 const linkStyle: CSSProperties = {
   fontSize: 'var(--ds-font-size-sm)',
   color: 'var(--ds-color-secondary)',
   textDecoration: 'none',
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
 
 const PROVIDERS = ['kakao', 'google', 'facebook', 'naver'] as const
@@ -49,13 +55,16 @@ export function LoginPage() {
   return (
     <div style={pageStyle}>
       <div style={cardStyle}>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', minWidth: 0 }}>
           <h1
             style={{
               margin: 0,
               fontSize: 'var(--ds-font-size-xl)',
               fontWeight: 'var(--ds-font-weight-bold)' as CSSProperties['fontWeight'],
               color: 'var(--ds-color-text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
             DS 서비스
@@ -65,6 +74,8 @@ export function LoginPage() {
               margin: 'var(--ds-spacing-1) 0 0',
               fontSize: 'var(--ds-font-size-sm)',
               color: 'var(--ds-color-secondary)',
+              overflowWrap: 'anywhere',
+              wordBreak: 'keep-all',
             }}
           >
             계정에 로그인하세요.
@@ -103,12 +114,13 @@ export function LoginPage() {
             justifyContent: 'center',
             alignItems: 'center',
             gap: 'var(--ds-spacing-3)',
+            minWidth: 0,
           }}
         >
           <a href="#" style={linkStyle} onClick={(e) => e.preventDefault()}>
             회원가입
           </a>
-          <span aria-hidden="true" style={{ color: 'var(--ds-color-border)' }}>
+          <span aria-hidden="true" style={{ color: 'var(--ds-color-border)', flexShrink: 0 }}>
             |
           </span>
           <a href="#" style={linkStyle} onClick={(e) => e.preventDefault()}>

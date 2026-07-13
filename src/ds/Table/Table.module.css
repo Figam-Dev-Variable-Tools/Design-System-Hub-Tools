@@ -1,5 +1,13 @@
+/* 래퍼가 가로 스크롤 — 표가 좁은 컨테이너를 뚫지 않는다 */
+.scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
+  min-width: max-content; /* 셀이 줄바꿈으로 짜부라지지 않게 */
   border-collapse: collapse;
   font-family: var(--ds-font-family);
   font-size: var(--ds-font-size-md);

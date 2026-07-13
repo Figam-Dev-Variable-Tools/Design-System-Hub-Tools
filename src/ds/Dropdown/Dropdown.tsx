@@ -34,7 +34,7 @@ export function Dropdown({ label, items, disabled = false, align = 'start' }: Dr
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {label}
+        <span className={styles.triggerLabel}>{label}</span>
         <span className={styles.chevron}>
           <Chevron />
         </span>
@@ -56,7 +56,7 @@ export function Dropdown({ label, items, disabled = false, align = 'start' }: Dr
                   setOpen(false)
                 }}
               >
-                {item.label}
+                <span className={styles.itemLabel}>{item.label}</span>
               </button>
             </Fragment>
           ))}

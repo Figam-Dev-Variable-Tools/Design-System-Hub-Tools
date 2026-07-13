@@ -25,6 +25,11 @@ git reset --hard git restore .     git clean            git rebase / merge
 **기준선이 필요하면**: 파일을 복사해 두거나(`cp`), `git show HEAD:<path>` 로 원본을 읽어라. 워크트리를 건드리지 마라.
 **커밋/푸시는 오케스트레이터(메인)만 한다.**
 
+> 🔒 **이 규칙은 이제 문서가 아니라 물리적 차단이다.**
+> `.claude/settings.json` 의 PreToolUse 훅(`.claude/hooks/guard-git.mjs`)이 위 명령을 **셸에 닿기 전에 exit 2로 막는다.**
+> `cd x && git stash` 같은 합성 명령도, PowerShell 경유도 막힌다. 우회하려 하지 마라 — 우회로를 찾았다면 그건 훅의 버그이니 **보고하라.**
+> (문서에만 적어둔 금지는 이미 한 번 뚫렸다. 그래서 기계로 막는다.)
+
 ### 0-1. 하드코딩 금지
 - **색·크기·간격·라운드·폰트를 리터럴로 쓰지 마라.** `#3D6BFF`, `16px`, `font-weight: 700` 전부 금지.
   → `var(--ds-color-primary)`, `var(--ds-spacing-4)`, `var(--ds-font-weight-bold)`.

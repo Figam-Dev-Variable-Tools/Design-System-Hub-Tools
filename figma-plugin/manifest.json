@@ -1,6 +1,6 @@
 {
-  "name": "Design-System-Hub-Tools",
-  "id": "ds-generator-local",
+  "name": "DS Hub Tools (fixed)",
+  "id": "ds-generator-hub",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",

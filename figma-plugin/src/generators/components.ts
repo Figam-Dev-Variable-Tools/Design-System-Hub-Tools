@@ -296,6 +296,32 @@ function makeIconComponents(ctx: Ctx) {
   })
 }
 
+// ── 변형 축 헬퍼 ────────────────────────────────────────────────────
+// 매니페스트 축은 반드시 이름으로 읽는다. 위치(spec.variants[0])로 읽으면 축이 하나만
+// 추가돼도 값이 밀려 다른 축 값이 들어온다(예: size 자리에 'solid').
+function expandCombos(spec: ComponentSpec): Record<string, string>[] {
+  let combos: Record<string, string>[] = [{}]
+  for (const axis of spec.variants) {
+    const next: Record<string, string>[] = []
+    for (const combo of combos) for (const v of axis.values) next.push({ ...combo, [axis.name]: v })
+    combos = next
+  }
+  return combos
+}
+// 변형 이름은 매니페스트 축 순서를 그대로 따른다 → Figma가 축을 그대로 인식한다.
+function comboName(spec: ComponentSpec, combo: Record<string, string>): string {
+  return spec.variants.map((a) => `${a.name}=${combo[a.name]}`).join(', ')
+}
+// 원하는 축만으로 변형을 찾는다(전체 이름 일치 금지 — 축이 늘면 이름이 바뀐다).
+function findVariant(set: ComponentSetNode, props: Record<string, string>): ComponentNode | null {
+  const want = Object.keys(props).map((k) => `${k}=${props[k]}`)
+  const hit = set.children.find((n) => {
+    const parts = n.name.split(', ')
+    return want.every((w) => parts.indexOf(w) >= 0)
+  })
+  return (hit as ComponentNode) ?? null
+}
+
 // ── DS/Button ───────────────────────────────────────────────────────
 function makeButtonSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
   const sizePad: Record<string, { v: number; hVar: string; fontVar: string }> = {
@@ -304,38 +330,49 @@ function makeButtonSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     lg: { v: 14, hVar: 'spacing/5', fontVar: 'font/size/lg' },
   }
   const variants: ComponentNode[] = []
-  const axes = spec.variants
-  for (const variant of axes[0].values) {
-    for (const size of axes[1].values) {
-      for (const disabled of axes[2].values) {
-        const c = figma.createComponent()
-        c.name = `variant=${variant}, size=${size}, disabled=${disabled}`
-        c.layoutMode = 'HORIZONTAL'
-        c.primaryAxisSizingMode = 'AUTO'
-        c.counterAxisSizingMode = 'AUTO'
-        c.counterAxisAlignItems = 'CENTER'
-        c.setBoundVariable('itemSpacing', getVar(ctx, 'spacing/2'))
-        c.paddingTop = sizePad[size].v
-        c.paddingBottom = sizePad[size].v
-        c.setBoundVariable('paddingLeft', getVar(ctx, sizePad[size].hVar))
-        c.setBoundVariable('paddingRight', getVar(ctx, sizePad[size].hVar))
-        bindRadius(c, getVar(ctx, 'radius/md'))
-        bindFill(c, getVar(ctx, `color/${variant}`))
-        if (disabled === 'true') c.opacity = 0.45
-
-        const icon = ctx.iconComponents.get('_Icon/Star')!.createInstance()
-        icon.name = 'icon'
-        icon.visible = false
-        c.appendChild(icon)
-
-        const label = makeText(ctx, 'label', 'Button', getVar(ctx, sizePad[size].fontVar))
-        bindFill(label, getVar(ctx, 'color/bg'))
-        c.appendChild(label)
-
-        ctx.page.appendChild(c)
-        variants.push(c)
+  for (const combo of expandCombos(spec)) {
+    const variant = combo.variant ?? 'primary'
+    const appearance = combo.appearance ?? 'solid'
+    const size = combo.size ?? 'md'
+    const pad = sizePad[size] ?? sizePad.md
+    const c = figma.createComponent()
+    c.name = comboName(spec, combo)
+    c.layoutMode = 'HORIZONTAL'
+    c.primaryAxisSizingMode = 'AUTO'
+    c.counterAxisSizingMode = 'AUTO'
+    c.counterAxisAlignItems = 'CENTER'
+    c.setBoundVariable('itemSpacing', getVar(ctx, 'spacing/2'))
+    c.paddingTop = pad.v
+    c.paddingBottom = pad.v
+    c.setBoundVariable('paddingLeft', getVar(ctx, pad.hVar))
+    c.setBoundVariable('paddingRight', getVar(ctx, pad.hVar))
+    bindRadius(c, getVar(ctx, 'radius/md'))
+    // appearance: solid=톤 채움+흰 글자 / outline=투명+톤 보더+톤 글자 / ghost=투명+톤 글자
+    let fgVar = 'color/bg'
+    if (appearance === 'solid') {
+      bindFill(c, getVar(ctx, `color/${variant}`))
+    } else {
+      c.fills = []
+      fgVar = `color/${variant}`
+      if (appearance === 'outline') {
+        bindStroke(c, getVar(ctx, `color/${variant}`))
+        c.strokeWeight = 1
+        c.strokeAlign = 'INSIDE'
       }
     }
+    if (combo.disabled === 'true') c.opacity = 0.45
+
+    const icon = ctx.iconComponents.get('_Icon/Star')!.createInstance()
+    icon.name = 'icon'
+    icon.visible = false
+    c.appendChild(icon)
+
+    const label = makeText(ctx, 'label', 'Button', getVar(ctx, pad.fontVar))
+    bindFill(label, getVar(ctx, fgVar))
+    c.appendChild(label)
+
+    ctx.page.appendChild(c)
+    variants.push(c)
   }
   const set = figma.combineAsVariants(variants, ctx.page)
   set.name = spec.name
@@ -350,25 +387,23 @@ function makeButtonSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
 
 // ── DS/TextField ────────────────────────────────────────────────────
 function makeTextFieldSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
-  // 축 조합 전개 (error/success/disabled/readOnly 불리언 축의 카르테시안 곱)
-  let combos: Record<string, string>[] = [{}]
-  for (const axis of spec.variants) {
-    const next: Record<string, string>[] = []
-    for (const combo of combos) {
-      for (const v of axis.values) next.push({ ...combo, [axis.name]: v })
-    }
-    combos = next
+  // 입력 크기 축(sm/md/lg) — 패딩·글자 크기 스케일. size 축이 없으면 md 고정.
+  const sz: Record<string, { pv: number; fontVar: string }> = {
+    sm: { pv: 7, fontVar: 'font/size/sm' },
+    md: { pv: 10, fontVar: 'font/size/md' },
+    lg: { pv: 13, fontVar: 'font/size/lg' },
   }
   const variants: ComponentNode[] = []
-  for (const combo of combos) {
+  for (const combo of expandCombos(spec)) {
     const error = combo.error === 'true'
     const success = combo.success === 'true'
     const disabled = combo.disabled === 'true'
     const readOnly = combo.readOnly === 'true'
+    const size = sz[combo.size ?? 'md'] ?? sz.md
     const toneVar = error ? 'color/error' : success ? 'color/success' : null
 
     const c = figma.createComponent()
-    c.name = spec.variants.map((a) => `${a.name}=${combo[a.name]}`).join(', ')
+    c.name = comboName(spec, combo)
     c.layoutMode = 'VERTICAL'
     c.primaryAxisSizingMode = 'AUTO'
     c.counterAxisSizingMode = 'FIXED'
@@ -384,7 +419,7 @@ function makeTextFieldSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     input.counterAxisAlignItems = 'CENTER'
     input.layoutAlign = 'STRETCH'
     input.primaryAxisSizingMode = 'FIXED'
-    input.paddingTop = input.paddingBottom = 10
+    input.paddingTop = input.paddingBottom = size.pv
     input.setBoundVariable('paddingLeft', getVar(ctx, 'spacing/3'))
     input.setBoundVariable('paddingRight', getVar(ctx, 'spacing/3'))
     bindRadius(input, getVar(ctx, 'radius/md'))
@@ -392,7 +427,7 @@ function makeTextFieldSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     bindStroke(input, getVar(ctx, toneVar ?? 'color/border'))
     input.strokeWeight = 1
 
-    const placeholder = makeText(ctx, 'placeholder', 'name@example.com', getVar(ctx, 'font/size/md'))
+    const placeholder = makeText(ctx, 'placeholder', 'name@example.com', getVar(ctx, size.fontVar))
     bindFill(placeholder, getVar(ctx, 'color/secondary'))
     input.appendChild(placeholder)
     c.appendChild(input)
@@ -481,9 +516,9 @@ function makeCard(ctx: Ctx, spec: ComponentSpec): ComponentNode {
   footer.setBoundVariable('paddingBottom', getVar(ctx, 'spacing/3'))
   footer.visible = false
   if (ctx.buttonSet) {
-    const btnVariant = ctx.buttonSet.children.find(
-      (n) => n.name === 'variant=primary, size=sm, disabled=false',
-    ) as ComponentNode | undefined
+    const btnVariant =
+      findVariant(ctx.buttonSet, { variant: 'primary', size: 'sm', disabled: 'false' }) ??
+      (ctx.buttonSet.defaultVariant as ComponentNode | null)
     if (btnVariant) footer.appendChild(btnVariant.createInstance())
   }
   c.appendChild(footer)
@@ -554,23 +589,38 @@ function makeBadgeSet(ctx: Ctx, spec: ComponentSpec): ComponentSetNode {
     md: { v: 4, h: 10, fontVar: 'font/size/sm' },
   }
   const variants: ComponentNode[] = []
-  for (const variant of spec.variants[0].values) {
-    for (const size of spec.variants[1].values) {
-      const c = figma.createComponent()
-      c.name = `variant=${variant}, size=${size}`
-      c.layoutMode = 'HORIZONTAL'
-      c.primaryAxisSizingMode = 'AUTO'
-      c.counterAxisSizingMode = 'AUTO'
-      c.paddingTop = c.paddingBottom = pad[size].v
-      c.paddingLeft = c.paddingRight = pad[size].h
-      bindRadius(c, getVar(ctx, 'radius/sm'))
+  for (const combo of expandCombos(spec)) {
+    const variant = combo.variant ?? 'primary'
+    const appearance = combo.appearance ?? 'soft'
+    const p = pad[combo.size ?? 'md'] ?? pad.md
+    const c = figma.createComponent()
+    c.name = comboName(spec, combo)
+    c.layoutMode = 'HORIZONTAL'
+    c.primaryAxisSizingMode = 'AUTO'
+    c.counterAxisSizingMode = 'AUTO'
+    c.paddingTop = c.paddingBottom = p.v
+    c.paddingLeft = c.paddingRight = p.h
+    bindRadius(c, getVar(ctx, 'radius/sm'))
+    // appearance: solid=톤 채움+흰 글자 / soft=톤 100(연한) 배경+톤 글자 / outline=투명+톤 보더+톤 글자
+    let fgVar = 'color/bg'
+    if (appearance === 'solid') {
       bindFill(c, getVar(ctx, `color/${variant}`))
-      const label = makeText(ctx, 'label', 'Badge', getVar(ctx, pad[size].fontVar))
-      bindFill(label, getVar(ctx, 'color/bg'))
-      c.appendChild(label)
-      ctx.page.appendChild(c)
-      variants.push(c)
+    } else {
+      fgVar = `color/${variant}`
+      if (appearance === 'soft') {
+        bindFill(c, getVar(ctx, `color/${variant}/100`))
+      } else {
+        c.fills = []
+        bindStroke(c, getVar(ctx, `color/${variant}`))
+        c.strokeWeight = 1
+        c.strokeAlign = 'INSIDE'
+      }
     }
+    const label = makeText(ctx, 'label', 'Badge', getVar(ctx, p.fontVar))
+    bindFill(label, getVar(ctx, fgVar))
+    c.appendChild(label)
+    ctx.page.appendChild(c)
+    variants.push(c)
   }
   const set = figma.combineAsVariants(variants, ctx.page)
   set.name = spec.name

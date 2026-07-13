@@ -7,6 +7,7 @@ import {
   SPACING_KEYS,
   WEIGHT_KEYS,
   computeSizes,
+  firstFontFamily,
   hexToRgb,
   rgbToHex,
   type PresetName,
@@ -156,7 +157,8 @@ export async function importTokens(json: TokensJson): Promise<string[]> {
     vars.get(`color/${k}`)?.setValueForMode(mode.modeId, hexToRgb(json.color[k]))
   }
   const typoMode = typography.modes[0].modeId
-  vars.get('font/family')?.setValueForMode(typoMode, json.typography.fontFamily)
+  // 변수엔 패밀리명 1개만 — CSS 스택을 넣으면 바인딩된 텍스트가 unloaded font로 깨진다.
+  vars.get('font/family')?.setValueForMode(typoMode, firstFontFamily(json.typography.fontFamily))
   for (const k of SIZE_KEYS) {
     vars.get(`font/size/${k}`)?.setValueForMode(typoMode, json.typography.sizes[k])
   }

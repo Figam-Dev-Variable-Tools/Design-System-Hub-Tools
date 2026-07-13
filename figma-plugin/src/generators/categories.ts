@@ -114,10 +114,9 @@ function boundText(ctx: Ctx, chars: string, size: number, varName: string, hex: 
       /* skip */
     }
   }
-  const fv = ctx.vars.get('font/family')
-  if (fv) {
+  if (ctx.fontFamilyVar) {
     try {
-      bind.setBoundVariable('fontFamily', fv)
+      bind.setBoundVariable('fontFamily', ctx.fontFamilyVar)
     } catch {
       /* skip */
     }

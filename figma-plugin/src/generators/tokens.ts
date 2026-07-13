@@ -117,8 +117,11 @@ export async function generateTokens(payload: GenerateTokensPayload): Promise<To
   const typoCol = figma.variables.createVariableCollection('DS Typography')
   const typoMode = typoCol.modes[0].modeId
 
+  // 값은 Figma 폰트 패밀리명 1개("Pretendard") — CSS 스택 전체를 넣으면 이 변수에 바인딩된
+  // 텍스트의 폰트가 스택 문자열이 되어 unloaded font로 노드 생성이 실패한다.
+  // (CSS 쪽 폴백 스택은 tokens/*.json → Storybook --ds-font-family가 그대로 갖는다.)
   const family = figma.variables.createVariable('font/family', typoCol, 'STRING')
-  family.setValueForMode(typoMode, payload.typography.fontFamily)
+  family.setValueForMode(typoMode, firstFontFamily(payload.typography.fontFamily))
 
   const sizes = computeSizes(payload.typography.baseSize, payload.typography.scale)
   const sizeVars: Partial<Record<(typeof SIZE_KEYS)[number], Variable>> = {}

@@ -25,6 +25,10 @@ type Ctx = {
   font: FontName
   fontBold: FontName
   vars: Map<string, Variable>
+  // font/family 변수 — 값이 '실제로 로드된 패밀리'와 같을 때만 채워진다(그때만 바인딩 안전).
+  // 값이 CSS 스택("'Pretendard', -apple-system, …")이거나 미설치 폰트면 null → 바인딩 금지.
+  // 바인딩하면 텍스트 노드의 폰트가 그 값이 되고, 로드되지 않은 폰트라 appendChild가 실패한다.
+  fontFamilyVar: Variable | null
   warnings: string[]
   // 플러그인에서 고른 색(변수 미존재 시 폴백에 사용) — 'color/primary' → hex
   userColors: Record<string, string>
@@ -401,7 +405,24 @@ async function setup(fontFamily: string, colors?: Record<string, string>, preset
     await figma.loadFontAsync({ family, style: 'Regular' })
     await figma.loadFontAsync({ family, style: 'Bold' })
   }
-  return { font: { family, style: 'Regular' }, fontBold: { family, style: 'Bold' }, vars, warnings, userColors, colorCollection, colorModeId }
+
+  const fv = vars.get('font/family')
+  const fvValue = fv ? fv.valuesByMode[Object.keys(fv.valuesByMode)[0]] : null
+  const fontFamilyVar = fv && fvValue === family ? fv : null
+  if (fv && !fontFamilyVar) {
+    warnings.push(`font/family 변수값이 로드된 폰트('${family}')와 달라 글씨체 변수 바인딩을 건너뜁니다.`)
+  }
+
+  return {
+    font: { family, style: 'Regular' },
+    fontBold: { family, style: 'Bold' },
+    vars,
+    fontFamilyVar,
+    warnings,
+    userColors,
+    colorCollection,
+    colorModeId,
+  }
 }
 
 /** 생성 페이지에 선택 프리셋의 DS Color 모드를 명시로 지정 → 바인딩이 선택 색으로 해석된다. */

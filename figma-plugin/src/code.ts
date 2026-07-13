@@ -16,6 +16,9 @@ import type { PresetName, TokensJson, ColorKey } from './presets'
 
 figma.showUI(__html__, { width: 420, height: 680 })
 
+// 실행 중인 빌드 식별자 — 옛 dist가 실행되는 사고를 눈으로 잡기 위해 시작 시 상태창에 찍는다.
+const BUILD_TAG = 'build 2026-07-13 · fontvar-fix'
+
 // 스냅샷(스토리북 복사) 기본 소스 — jsdelivr @gh (repo scripts/capture-snapshots.mjs 산출물).
 const SNAPSHOT_BASE =
   'https://cdn.jsdelivr.net/gh/Figam-Dev-Variable-Tools/Design-System-Hub-Tools@main/packages/figma-story-tools/snapshots/'
@@ -52,6 +55,7 @@ const status = (level: 'info' | 'warn' | 'error', message: string) =>
 async function handleGenerate(msg: GenerateMsg) {
   // P1 완료 조건: 페이로드 콘솔 출력
   console.log('generate payload:', msg)
+  status('info', BUILD_TAG)
 
   // 재생성: 기존 DS 결과(컬렉션·스타일·페이지)를 먼저 삭제해 §0-15 가드 충돌 없이 덮어쓴다.
   if (msg.reset) {

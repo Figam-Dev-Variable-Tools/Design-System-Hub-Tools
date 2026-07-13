@@ -1,10 +1,5 @@
 // Design-System-Hub-Tools — 메인 스레드. UI 메시지 프로토콜(P1): generate / import-remote
 import { guardExisting, generateTokens, type GenerateTokensPayload } from './generators/tokens'
-import {
-  generateComponents,
-  COMPONENT_MANIFEST,
-  type ComponentManifest,
-} from './generators/components'
 import { generateDocs, type DocsContent } from './generators/docs'
 import { generateSnapshots } from './generators/snapshots'
 import { generateFoundations } from './generators/foundations'
@@ -33,8 +28,6 @@ type GenerateMsg = {
   preset: PresetName
   colors: Record<ColorKey, string>
   typography: { fontFamily: string; baseSize: number; scale: number }
-  social: string[]
-  charts: boolean
   reset: boolean
   scope: {
     tokens: boolean
@@ -48,7 +41,6 @@ type GenerateMsg = {
     // 프론트(사이트) 2종 — 위와 같은 이유로 optional.
     site?: boolean
     siteScreens?: boolean
-    components: boolean
     snapshots: boolean
     docs?: boolean
   }
@@ -59,7 +51,6 @@ type UiMsg = GenerateMsg | { type: 'import-remote'; url: string }
 // 문서 선언은 소스에 임베드된 기본값(DOCS_CONTENT)을 쓴다 → 원격 로드 없이도 문서 페이지 생성.
 // 원격 URL 로드 시 아래 값이 교체된다.
 let loadedDocsContent: DocsContent = DOCS_CONTENT
-let loadedManifest: ComponentManifest | null = null
 
 const status = (level: 'info' | 'warn' | 'error', message: string) =>
   figma.ui.postMessage({ type: 'status', level, message })
@@ -210,21 +201,6 @@ async function handleGenerate(msg: GenerateMsg) {
     }
   }
 
-  if (msg.scope.components) {
-    try {
-      const warnings = await generateComponents({
-        preset: msg.preset,
-        social: msg.social,
-        charts: msg.charts,
-        manifest: loadedManifest ?? COMPONENT_MANIFEST,
-      })
-      warnings.forEach((w) => status('warn', w))
-      status('info', "'2. 컴포넌트' 페이지에 DS 컴포넌트 생성 완료.")
-    } catch (e) {
-      status('error', e instanceof Error ? e.message : String(e))
-    }
-  }
-
   if (msg.scope.snapshots) {
     try {
       status('info', '스냅샷(스토리북 복사) 가져오는 중… 이미지 수십 개 다운로드로 시간이 걸립니다.')
@@ -257,9 +233,10 @@ function handleLoadedJson(parsed: unknown, sourceLabel: string) {
     status('info', `${sourceLabel}: docs-content.json 로드 완료 (문서 페이지 생성에 사용).`)
     return
   }
+  // 컴포넌트 매니페스트(components[])는 더 이상 받지 않는다 — 그 매니페스트로 그리던 생성기가 삭제됐다.
+  // 예전엔 로드해 두고 "생성에 사용"이라 알렸지만 실제로는 아무 데도 쓰이지 않는 거짓 안내였다.
   if (obj && Array.isArray(obj.components)) {
-    loadedManifest = parsed as ComponentManifest
-    status('info', `${sourceLabel}: 컴포넌트 매니페스트 로드 완료 (컴포넌트 생성에 사용).`)
+    status('warn', `${sourceLabel}: 컴포넌트 매니페스트는 더 이상 쓰이지 않습니다 — Figma 컴포넌트의 정본은 '컴포넌트' 스코프(카테고리 페이지)입니다.`)
     return
   }
   const errors = validateTokens(parsed)

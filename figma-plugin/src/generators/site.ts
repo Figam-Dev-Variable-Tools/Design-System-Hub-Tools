@@ -41,9 +41,8 @@ import {
   ACCENT,
   WHITE,
 } from './foundations'
-import { iconInstance, ICON_COMPONENTS } from './icon-vec'
-import { buildSet, addTextProp, addBoolProp, addSwapProp, type Axis, type PropSpec } from './lib/build-set'
-import { propKeys } from './lib/build-set'
+import { iconInstance } from './icon-vec'
+import { buildSet, addTextProp, addBoolProp, addSwapProp, propKeys, variantItem, type Axis, type PropSpec, type State } from './lib/build-set'
 // site-screens.ts가 './site'에서 propKeys를 가져간다 — 정본은 lib/build-set.ts, 여기선 경로만 유지한다.
 export { propKeys }
 import type { PresetName } from '../presets'
@@ -354,17 +353,8 @@ function topBorder(ctx: Ctx, node: FrameNode | ComponentNode, varName: string) {
 }
 
 
-// 베리언트 세트 빌더 + 속성 헬퍼는 lib/build-set.ts가 정본이다(사본 금지).
-type State = {
-  caption: string
-  props: Record<string, string>
-  /** TEXT 속성 오버라이드(표시 이름 기준) */
-  texts?: Record<string, string>
-  /** INSTANCE_SWAP 오버라이드(표시 이름 → 아이콘 키) */
-  swaps?: Record<string, string>
-  /** 문서에서 인스턴스를 얹을 면 — 투명 헤더처럼 배경이 없는 변형용 */
-  backdrop?: 'subtle'
-}
+// 베리언트 세트 빌더 + 속성 헬퍼 + variantItem은 lib/build-set.ts가 정본이다(사본 금지).
+// State의 texts/swaps/backdrop 축도 그쪽으로 올라갔다 — 예전엔 이 파일만 갖고 있던 확장이었다.
 type ComponentDoc = {
   key: string
   setName: string
@@ -375,54 +365,6 @@ type ComponentDoc = {
 }
 type CategoryDef = { pageName: string; title: string; subtitle: string; docs: ComponentDoc[] }
 
-
-// ── 문서 안 변형 아이템(인스턴스 + 캡션). 출처: categories.ts variantItem ──
-// 확장점 두 가지(이 파일 소유):
-//   1) texts/swaps — 같은 단일 컴포넌트를 문서에서 4장(Address/Phone/Email/Hours)으로 보여주기 위해.
-//   2) backdrop — 투명 헤더는 스스로 배경이 없어 흰 문서 면 위에서는 "투명함"이 보이지 않는다.
-//      옅은 회색 면(color/bgSubtle)을 깔아 배경이 비치는 것을 드러낸다(컴포넌트는 투명 그대로).
-function variantItem(ctx: Ctx, set: ComponentSetNode, state: State): FrameNode {
-  const item = autoFrame('Variant / ' + state.caption, 'VERTICAL')
-  item.counterAxisAlignItems = 'MIN'
-  item.itemSpacing = 8
-  const inst = set.defaultVariant.createInstance()
-  inst.layoutAlign = 'INHERIT'
-  inst.layoutGrow = 0
-
-  const props: Record<string, string> = { ...state.props }
-  const keys = propKeys(set)
-  if (state.texts) {
-    for (const name of Object.keys(state.texts)) {
-      const key = keys[name]
-      if (key) props[key] = state.texts[name]
-    }
-  }
-  if (state.swaps) {
-    for (const name of Object.keys(state.swaps)) {
-      const key = keys[name]
-      const comp = ICON_COMPONENTS.get(state.swaps[name])
-      if (key && comp) props[key] = comp.id
-    }
-  }
-  try {
-    inst.setProperties(props)
-  } catch {
-    ctx.warnings.push(`${set.name} setProperties 실패: ${JSON.stringify(props)}`)
-  }
-
-  if (state.backdrop === 'subtle') {
-    const stage = autoFrame('Stage', 'HORIZONTAL')
-    stage.paddingTop = stage.paddingBottom = stage.paddingLeft = stage.paddingRight = 16
-    stage.cornerRadius = 12
-    fillV(ctx, stage, V_SUBTLE) // 히어로(옅은 회색) 면 — 투명 헤더가 비쳐 보이도록
-    stage.appendChild(inst)
-    item.appendChild(stage)
-  } else {
-    item.appendChild(inst)
-  }
-  item.appendChild(txt(ctx, state.caption, 12, SUB))
-  return item
-}
 
 // ══ 사이트 공용 조각(atoms) ══════════════════════════════════════════
 // GNB 메뉴 — 출처: templates/SiteSuite/SiteSuite.tsx MENU.

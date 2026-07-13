@@ -291,8 +291,12 @@ function renderDropdown(ctx: Ctx, _combo: Record<string, string>): ComponentNode
 }
 
 // ══ LAYOUT (Card / List / Accordion / Divider) ═══════════════════════
-function renderCard(ctx: Ctx, combo: Record<string, string>): ComponentNode {
-  const footer = combo.footer === 'true'
+// React Card의 축은 없다(title·showFooter·children뿐) → VARIANT 축은 자리표시자 state 하나.
+// 푸터는 항상 그리고 showFooter BOOLEAN으로 껐다 켠다 — 예전엔 footer 축이었지만 그건 boolean prop을
+// 축으로 승격한 규약 위반이었다(verify-naming N2e). 구분선과 버튼 줄을 **한 레이어('footer') 아래**로
+// 묶는 이유: addBoolProp은 이름이 같은 노드의 visible에 바인딩하므로, 둘이 형제로 흩어져 있으면
+// 불리언 하나로 함께 껐다 켤 수 없다.
+function renderCard(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
   const c = figma.createComponent()
   c.layoutMode = 'VERTICAL'
   c.primaryAxisSizingMode = 'AUTO'
@@ -314,25 +318,29 @@ function renderCard(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   body.layoutAlign = 'STRETCH'
   body.textAutoResize = 'HEIGHT'
   c.appendChild(body)
-  if (footer) {
-    const div = figma.createRectangle()
-    div.resize(240, 1)
-    div.layoutAlign = 'STRETCH'
-    bindFillVar(ctx, div, 'color/border', BORDER)
-    c.appendChild(div)
-    const f = autoFrame('footer', 'HORIZONTAL')
-    f.layoutAlign = 'STRETCH'
-    f.primaryAxisSizingMode = 'FIXED'
-    f.primaryAxisAlignItems = 'MAX'
-    const btn = autoFrame('btn', 'HORIZONTAL')
-    btn.paddingTop = btn.paddingBottom = 7
-    btn.paddingLeft = btn.paddingRight = 14
-    btn.cornerRadius = 8
-    bindSolidFill(ctx, btn, 'primary')
-    btn.appendChild(boundText(ctx, '확인', 13, onVarName('primary'), onHex(ctx, 'primary'), true))
-    f.appendChild(btn)
-    c.appendChild(f)
-  }
+
+  const f = autoFrame('footer', 'VERTICAL')
+  f.layoutAlign = 'STRETCH'
+  f.counterAxisSizingMode = 'FIXED'
+  f.itemSpacing = 12 // 카드 본문 간격과 같게 — 예전 형제 배치의 간격을 그대로 보존한다
+  const div = figma.createRectangle()
+  div.resize(240, 1)
+  div.layoutAlign = 'STRETCH'
+  bindFillVar(ctx, div, 'color/border', BORDER)
+  f.appendChild(div)
+  const actions = autoFrame('footerActions', 'HORIZONTAL')
+  actions.layoutAlign = 'STRETCH'
+  actions.primaryAxisSizingMode = 'FIXED'
+  actions.primaryAxisAlignItems = 'MAX'
+  const btn = autoFrame('btn', 'HORIZONTAL')
+  btn.paddingTop = btn.paddingBottom = 7
+  btn.paddingLeft = btn.paddingRight = 14
+  btn.cornerRadius = 8
+  bindSolidFill(ctx, btn, 'primary')
+  btn.appendChild(boundText(ctx, '확인', 13, onVarName('primary'), onHex(ctx, 'primary'), true))
+  actions.appendChild(btn)
+  f.appendChild(actions)
+  c.appendChild(f)
   return c
 }
 function renderList(ctx: Ctx, combo: Record<string, string>): ComponentNode {
@@ -451,8 +459,10 @@ function renderAccordion(ctx: Ctx, combo: Record<string, string>): ComponentNode
   }
   return c
 }
-function renderDivider(ctx: Ctx, combo: Record<string, string>): ComponentNode {
-  const withLabel = combo.label === 'true'
+// React Divider의 축은 없다(label?: string 하나) → VARIANT 축은 자리표시자 state 하나.
+// 라벨은 TEXT 속성 'label'이다 — 예전엔 label 축이었지만 그건 string prop을 축으로 승격한
+// 규약 위반이었다(verify-naming N2f). 라벨을 비우면(빈 문자열) React의 label 미지정과 같은 뜻이다.
+function renderDivider(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
   const c = figma.createComponent()
   c.layoutMode = 'HORIZONTAL'
   c.primaryAxisSizingMode = 'FIXED'
@@ -469,12 +479,10 @@ function renderDivider(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     return l
   }
   c.appendChild(line())
-  if (withLabel) {
-    const t = boundText(ctx, '또는', 12, 'color/secondary', MUTED)
-    t.name = 'label'
-    c.appendChild(t)
-    c.appendChild(line())
-  }
+  const t = boundText(ctx, '또는', 12, 'color/secondary', MUTED)
+  t.name = 'label'
+  c.appendChild(t)
+  c.appendChild(line())
   return c
 }
 
@@ -1153,8 +1161,9 @@ export const LAYOUT_CATEGORY: CategoryDef = {
       setName: 'DS/Card',
       eyebrow: 'MOLECULE · LAYOUT',
       desc: '제목·본문(children)·(선택)푸터를 담는 카드.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Card', [{ name: 'footer', values: ['false', 'true'] }], (c) => renderCard(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '카드 제목' }, { prop: 'content', layer: 'content', def: '카드 본문 텍스트가 들어갑니다.' }] }),
-      states: [{ caption: 'Default', props: {} }, { caption: 'With Footer', props: { footer: 'true' } }],
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Card', [{ name: 'state', values: ['default'] }], (c) => renderCard(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '카드 제목' }, { prop: 'content', layer: 'content', def: '카드 본문 텍스트가 들어갑니다.' }], bools: [{ prop: 'showFooter', layer: 'footer', def: false }] }),
+      // showFooter 기본값 false — React Card의 기본값과 같다(푸터 없는 카드).
+      states: [{ caption: 'Default', props: {} }, { caption: 'With Footer', props: { showFooter: 'true' } }],
     },
     {
       key: 'List',
@@ -1202,8 +1211,9 @@ export const LAYOUT_CATEGORY: CategoryDef = {
       setName: 'DS/Divider',
       eyebrow: 'ATOM · LAYOUT',
       desc: '콘텐츠를 나누는 구분선(라벨 옵션).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Divider', [{ name: 'label', values: ['false', 'true'] }], (c) => renderDivider(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '또는' }] }),
-      states: [{ caption: 'Plain', props: {} }, { caption: 'With Label', props: { label: 'true' } }],
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Divider', [{ name: 'state', values: ['default'] }], (c) => renderDivider(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '또는' }] }),
+      // 라벨을 비우면 React의 label 미지정(단순 선)과 같다 — TEXT 속성엔 '없음'이 없으므로 빈 문자열이 그 표현이다.
+      states: [{ caption: 'With Label', props: {} }, { caption: 'Plain (label 비움)', props: { label: '' } }],
     },
     {
       key: 'Form',

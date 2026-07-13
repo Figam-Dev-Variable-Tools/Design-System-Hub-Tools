@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Download, Upload } from 'lucide-react'
 import { mockImage } from '../../shared/mediaMock'
 import styles from './ProductListScreen.module.css'
-import { AdminListPage } from '../AdminListPage/AdminListPage'
+import { AdminListPage, type AdminListPageLabels } from '../AdminListPage/AdminListPage'
 import { type AdminColumn, type AdminCellTag } from '../AdminTable/AdminTable'
 import { Button } from '../Button/Button'
 import { type CategoryTabItem } from '../CategoryTabs/CategoryTabs'
@@ -116,6 +116,12 @@ export type ProductListScreenProps = {
   emptyText?: string
   /** 툴바 우측 총 건수 단위 */
   countUnit?: string
+  /**
+   * 표 크롬 문구(선택 바 · 행 케밥 접근성 이름 · 컬럼 피커 · 페이지 크기 · 순서 이동 안내 …) —
+   * 셸(AdminListPage)을 지나 AdminTable로 그대로 흘러간다. 타입은 셸의 것을 그대로 쓴다(재정의 금지).
+   * 이 화면의 나머지 카피는 아직 개별 prop(title·createLabel·emptyText …)이 통로라 여기엔 table만 있다.
+   */
+  labels?: Pick<AdminListPageLabels, 'table'>
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -641,6 +647,7 @@ export function ProductListScreen({
   searchPlaceholder = '상품명 · 재고번호 · 자체코드',
   emptyText = '조건에 맞는 상품이 없습니다.',
   countUnit = '건',
+  labels,
 }: ProductListScreenProps) {
   const [sideTab, setSideTab] = useState<ProductScreenSideTab>('category')
   const [categoryKey, setCategoryKey] = useState('all')
@@ -920,6 +927,8 @@ export function ProductListScreen({
       // 내보내기는 표 우상단이 아니라 툴바의 [엑셀 다운로드] 버튼이 갖는다
       exportable={false}
       emptyText={emptyText}
+      // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+      labels={labels}
       show={{ tabs: showTabs, toolbar: showToolbar }}
     />
   )

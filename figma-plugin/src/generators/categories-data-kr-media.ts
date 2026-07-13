@@ -1262,9 +1262,25 @@ function renderTplLogin(ctx: Ctx, _combo: Record<string, string>): ComponentNode
   return c
 }
 // compact — EmptyState.tsx의 `compact ? styles.compact : ''` + Placeholder size(compact 32 / 48).
+// kind — EmptyState.tsx `kind = 'empty'` (PlaceholderKind 8값, src/shared/placeholders.tsx).
+//   React는 kind마다 전용 SVG 심볼(Placeholder)을 그리지만 Figma의 icon 레이어는 **INSTANCE**여야 한다
+//   (icon INSTANCE_SWAP 속성이 붙는 자리다 — 벡터로 바꿔 그리면 addSwapProp의 findAll(type==='INSTANCE')이
+//   빈손으로 돌아와 스왑 속성이 조용히 죽는다). 그래서 kind별로 뜻이 같은 lucide 아이콘을 인스턴스로 꽂는다.
+//   React에서도 icon prop이 kind 그림을 이긴다(`icon ?? <Placeholder kind=…>`) — 스왑 우선순위가 그대로다.
 // 레이어는 전부 CSS 클래스 그대로(icon·title·description·action).
+const EMPTY_STATE_KIND_ICON: Record<string, string> = {
+  empty: '_Icon/Package', // 작성된 내용 없음 — 기존 세트가 쓰던 기본 아이콘
+  image: '_Icon/Image',
+  video: '_Icon/Video',
+  file: '_Icon/File',
+  search: '_Icon/Search',
+  error: '_Icon/CircleAlert',
+  delete: '_Icon/Trash2',
+  success: '_Icon/CircleCheck',
+}
 function renderTplEmptyState(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   const compact = combo.compact === 'true'
+  const kind = combo.kind || 'empty'
   const c = figma.createComponent()
   c.layoutMode = 'VERTICAL'
   c.primaryAxisSizingMode = 'AUTO'
@@ -1275,7 +1291,8 @@ function renderTplEmptyState(ctx: Ctx, combo: Record<string, string>): Component
   c.paddingTop = c.paddingBottom = compact ? 24 : 44
   c.paddingLeft = c.paddingRight = 24
   bindFillVar(ctx, c, 'color/bg', WHITE)
-  const icon = iconInstance('_Icon/Package', 'icon', compact ? 32 : 40)
+  // 크기는 EmptyState.tsx의 `size={compact ? 32 : 48}` 그대로(옛 세트는 48을 40으로 그렸다).
+  const icon = iconInstance(EMPTY_STATE_KIND_ICON[kind] ?? EMPTY_STATE_KIND_ICON.empty, 'icon', compact ? 32 : 48)
   recolorIcon(icon, MUTED)
   c.appendChild(icon)
   const t = boundText(ctx, '데이터가 없습니다', compact ? 15 : 17, 'color/text', INK, true)
@@ -1758,17 +1775,25 @@ function renderRating(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   }
   return c
 }
-// size — AvatarGroup.module.css: sm 24px(겹침 -8) / md 32px(겹침 -10).
-// md의 기존 그림(36px)은 건드리지 않는다("모양 불변") — sm만 CSS 값 그대로 새로 그린다.
+// AvatarGroup.module.css가 단일 출처다(코드 → Figma). 이 표 밖의 숫자를 쓰지 마라.
+//   .sm .avatar { width/height 24px; font-size --ds-font-size-xs }  .sm .avatar+.avatar { margin-left -8px }
+//   .md .avatar { width/height 32px; font-size --ds-font-size-sm }  .md .avatar+.avatar { margin-left -10px }
+//   .avatar     { border: 2px solid var(--ds-color-bg) }
+// 폰트 px(11/13)는 프리셋의 xs/sm 실값 — boundText가 font/size/<px> 변수에 바인딩한다.
+// 이전 세트는 md를 36px로 그렸다("모양 불변" 제약). React가 정본이므로 32px로 되돌린다.
+const AVATAR_GROUP_CSS = {
+  sm: { px: 24, overlap: -8, fontPx: 11 },
+  md: { px: 32, overlap: -10, fontPx: 13 },
+} as const
 function renderAvatarGroup(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   const sm = combo.size === 'sm'
-  const px = sm ? 24 : 36
+  const { px, overlap, fontPx } = AVATAR_GROUP_CSS[sm ? 'sm' : 'md']
   const c = figma.createComponent()
   c.layoutMode = 'HORIZONTAL'
   c.primaryAxisSizingMode = 'AUTO'
   c.counterAxisSizingMode = 'AUTO'
   c.counterAxisAlignItems = 'CENTER'
-  c.itemSpacing = sm ? -8 : -10 // 겹침
+  c.itemSpacing = overlap // 겹침(음수 margin-left)
   c.fills = []
   const chip = (text: string, muted: boolean) => {
     const a = figma.createFrame()
@@ -1783,9 +1808,10 @@ function renderAvatarGroup(ctx: Ctx, combo: Record<string, string>): ComponentNo
     // 아바타 칩 = solid 면 + on-color 이니셜(+N만 옅은 배경 + 보조 글자색)
     if (muted) bindFillVar(ctx, a, 'color/bgSubtle', SURFACE)
     else bindSolidFill(ctx, a, 'primary')
-    a.strokes = [solid(WHITE)]
-    a.strokeWeight = 2
-    const t = boundText(ctx, text, sm ? 11 : 13, muted ? 'color/secondary' : onVarName('primary'), muted ? SUB : onHex(ctx, 'primary'), true)
+    // 테두리 색은 페이지 배경(--ds-color-bg) — 리터럴 흰색이 아니라 변수에 바인딩해야 다크/프리셋을 따라간다.
+    bindStrokeVar(ctx, a, 'color/bg', WHITE)
+    a.strokeWeight = 2 // bindTokens 후처리가 border/2 변수에 바인딩한다
+    const t = boundText(ctx, text, fontPx, muted ? 'color/secondary' : onVarName('primary'), muted ? SUB : onHex(ctx, 'primary'), true)
     if (!muted) t.name = 'initial'
     a.appendChild(t)
     return a
@@ -2191,9 +2217,14 @@ export const TEMPLATES_CATEGORY: CategoryDef = {
     krBespokeDoc(
       'EmptyState',
       'EmptyState',
-      '아이콘 + 제목 + 설명 + 액션 빈 상태. icon은 INSTANCE_SWAP으로 갈아끼운다.',
+      '아이콘 + 제목 + 설명 + 액션 빈 상태. kind가 기본 그림을 고르고, icon INSTANCE_SWAP이 그것을 덮어쓴다(React의 `icon ?? Placeholder(kind)`와 같은 우선순위).',
       renderTplEmptyState,
-      [{ name: 'compact', values: ['false', 'true'] }],
+      // kind × compact = 8 × 2 = 16변형(권장 상한 40 이내). kind 값·순서는 PlaceholderKind 8종,
+      // 첫 값은 React 기본값(kind='empty', compact=false) — buildSet의 첫 조합이 기본 베리언트가 된다.
+      [
+        { name: 'kind', values: ['empty', 'image', 'video', 'file', 'search', 'error', 'delete', 'success'] },
+        { name: 'compact', values: ['false', 'true'] },
+      ],
       {
         texts: [
           { prop: 'title', layer: 'title', def: '데이터가 없습니다' },
@@ -2202,7 +2233,13 @@ export const TEMPLATES_CATEGORY: CategoryDef = {
         ],
         swaps: [{ prop: 'icon', layer: 'icon', defKey: '_Icon/Package' }],
       },
-      [{ caption: 'Default', props: {} }, { caption: 'Compact', props: { compact: 'true' } }],
+      [
+        { caption: 'Default (empty)', props: {} },
+        { caption: 'Compact', props: { compact: 'true' } },
+        { caption: 'Search', props: { kind: 'search' } },
+        { caption: 'Error', props: { kind: 'error' } },
+        { caption: 'Success', props: { kind: 'success' } },
+      ],
     ),
     krBespokeDoc(
       'FilterBar',

@@ -266,6 +266,9 @@ export const CustomCopy: Story = {
 /**
  * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
  * 컬럼 머리글과 [필터] 버튼이 labels로 열렸다. 금액의 '원'은 문구가 아니라 포맷이라 formatters로 연다.
+ *
+ * labels.table은 화면이 그리지 않는 '표 크롬'(메모 편집창 · [컬럼] 피커 · 페이지 크기 · 빈 표 설명)이다 —
+ * 셸(AdminListPage)을 지나 AdminTable까지 그대로 흘러간다. 넘기지 않은 키는 AdminTable 기본값을 지킨다.
  */
 export const Labels: Story = {
   args: {
@@ -285,6 +288,21 @@ export const Labels: Story = {
       toolbar: { export: 'Export to Excel', filter: 'Filter' },
       search: { searchPlaceholder: 'Search by name, email or phone' },
       empty: { title: 'No customers found.' },
+      table: {
+        toolbar: { columnPicker: 'Columns', columnPickerTitle: 'Show columns' },
+        memo: {
+          empty: 'Note',
+          emptyTitle: 'No note',
+          edit: (row) => `Edit note — ${row}`,
+          create: (row) => `Add note — ${row}`,
+          dialogTitle: (row) => `Note — ${row}`,
+          placeholder: 'Leave a note about this customer',
+          cancel: 'Cancel',
+          save: 'Save',
+        },
+        pageSizeOption: (size) => `${size} per page`,
+        empty: { description: 'Try a different keyword or filter.' },
+      },
     },
     // 통화는 labels가 아니라 formatters의 몫이다 — '1,284,000원' → '$1,284,000'
     formatters: { price: (value) => `$${Math.round(value).toLocaleString('en-US')}` },

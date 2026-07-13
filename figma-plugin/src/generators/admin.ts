@@ -1,6 +1,6 @@
 // 어드민(관리자 화면) 컴포넌트 문서 — 스토리북 src/ds의 어드민 계열을 Figma 베리언트 세트로.
-// categories.ts와 같은 machinery(setup/buildSet/makeRoot/makeHeader/makeSection/variantItem)를 쓰되
-// categories.ts는 건드리지 않는다 → 비-export 헬퍼는 이 파일에 그대로 복제하고 출처를 표기했다.
+// 공용 machinery(setup/makeRoot/makeHeader/makeSection)는 foundations, 세트 빌더와 variantItem은
+// lib/build-set.ts가 정본이다 — 예전엔 이 파일에 복제해 뒀지만 사본은 전부 지웠다(CLAUDE.md §0-2).
 // 대상: AdminSidebar · AdminTopbar · AdminTable · AdminCard · ViewSwitch · SearchPanel ·
 //       CrudDialog · DropZone · StatusTimeline · TodoSummary · ActivityLog · MemoBox · DefinitionList
 import {
@@ -24,7 +24,7 @@ import {
   WHITE,
 } from './foundations'
 import { iconInstance, ICON_COMPONENTS } from './icon-vec'
-import { buildSet, addTextProp, addBoolProp, addSwapProp, type Axis, type TextProp, type PropSpec, type State } from './lib/build-set'
+import { buildSet, addTextProp, addBoolProp, addSwapProp, variantItem, type Axis, type TextProp, type PropSpec, type State } from './lib/build-set'
 // screens.ts가 './admin'에서 propKeys를 가져간다 — 정본은 lib/build-set.ts, 여기선 경로만 유지한다.
 export { propKeys } from './lib/build-set'
 import { solidToneHex, onToneHex, solidVarName, onVarName } from './tone'
@@ -279,24 +279,6 @@ type ComponentDoc = {
 }
 type CategoryDef = { pageName: string; title: string; subtitle: string; docs: ComponentDoc[] }
 
-
-// ── 문서 안 변형 아이템(인스턴스 + 캡션). 출처: categories.ts variantItem ──
-function variantItem(ctx: Ctx, set: ComponentSetNode, state: State): FrameNode {
-  const item = autoFrame('Variant / ' + state.caption, 'VERTICAL')
-  item.counterAxisAlignItems = 'MIN'
-  item.itemSpacing = 8
-  const inst = set.defaultVariant.createInstance()
-  inst.layoutAlign = 'INHERIT'
-  inst.layoutGrow = 0
-  try {
-    inst.setProperties(state.props)
-  } catch {
-    ctx.warnings.push(`${set.name} setProperties 실패: ${JSON.stringify(state.props)}`)
-  }
-  item.appendChild(inst)
-  item.appendChild(txt(ctx, state.caption, 12, SUB))
-  return item
-}
 
 // ══ 어드민 공용 조각(atoms) ══════════════════════════════════════════
 /** soft 톤 배지(pill). tone = primary|secondary|error|success|warning */

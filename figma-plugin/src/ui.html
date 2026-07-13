@@ -213,8 +213,6 @@
           preset,
           colors,
           typography: { fontFamily: $('t-family').value, baseSize: Number($('t-base').value), scale: Number($('t-scale').value) },
-          social: [],
-          charts: false,
           reset: $('opt-reset').checked,
           scope: {
             tokens: $('scope-tokens').checked,
@@ -226,7 +224,7 @@
             screens: $('scope-screens').checked,
             site: $('scope-site').checked,
             siteScreens: $('scope-siteScreens').checked,
-            components: false,
+            // 스냅샷(스토리북 이미지 복사)은 UI 스위치가 없다 — 켜면 이미지 수십 개를 내려받아 생성이 느려진다.
             snapshots: false,
           },
         },

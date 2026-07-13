@@ -6,8 +6,8 @@ import { ACTION_CATEGORY, FEEDBACK_CATEGORY, INPUT_CATEGORY, SELECTION_CATEGORY 
 import { DATA_CATEGORY, DATETIME_CATEGORY, ETC_CATEGORY, KR_CATEGORY, MEDIA_CATEGORY, TEMPLATES_CATEGORY } from './categories-data-kr-media'
 import { LAYOUT_CATEGORY, NAVIGATION_CATEGORY, OVERLAY_CATEGORY, STRUCTURE_CATEGORY } from './categories-nav-overlay'
 import { PAGE_ACTION, PAGE_DATA, PAGE_DATETIME, PAGE_ETC, PAGE_FEEDBACK, PAGE_INPUT, PAGE_KR, PAGE_LAYOUT, PAGE_MEDIA, PAGE_NAV, PAGE_OVERLAY, PAGE_SELECTION, PAGE_STRUCTURE, PAGE_TEMPLATES } from './categories-shared'
-import { applyPageColorMode, autoFrame, type Ctx, makeHeader, makeRoot, makeSection, placeRoot, setup, SUB, txt } from './foundations'
-import { type State } from './lib/build-set'
+import { applyPageColorMode, type Ctx, makeHeader, makeRoot, makeSection, placeRoot, setup } from './foundations'
+import { variantItem } from './lib/build-set'
 
 // 오너 규칙: 페이지 탭은 "순번. System - 이름". 절취선은 하이픈 라인.
 const DIVIDER_PAGE = '---------------------------'
@@ -183,22 +183,4 @@ export async function generateCategories(fontFamily: string, colors?: Record<str
     }
   }
   return ctx.warnings
-}
-
-// ── 문서 안 변형 아이템(인스턴스 + 캡션) ─────────────────────────────
-function variantItem(ctx: Ctx, set: ComponentSetNode, state: State): FrameNode {
-  const item = autoFrame('Variant / ' + state.caption, 'VERTICAL')
-  item.counterAxisAlignItems = 'MIN'
-  item.itemSpacing = 8
-  const inst = set.defaultVariant.createInstance()
-  inst.layoutAlign = 'INHERIT'
-  inst.layoutGrow = 0
-  try {
-    inst.setProperties(state.props)
-  } catch {
-    ctx.warnings.push(`${set.name} setProperties 실패: ${JSON.stringify(state.props)}`)
-  }
-  item.appendChild(inst)
-  item.appendChild(txt(ctx, state.caption, 12, SUB))
-  return item
 }

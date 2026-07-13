@@ -10,7 +10,7 @@ import {
   type SearchLabels,
 } from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
-import type { AdminColumn, AdminColumnTone } from '../AdminTable/AdminTable'
+import type { AdminColumn, AdminColumnTone, AdminTableLabels } from '../AdminTable/AdminTable'
 import { Button } from '../Button/Button'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
 import styles from './CustomerList.module.css'
@@ -65,6 +65,12 @@ type CustomerListLabelsResolved = {
   toolbar: { export: string; filter: string }
   search: SearchLabels
   empty: EmptyLabels
+  /**
+   * 표 크롬 문구(선택 바 · 메모 편집창 · 컬럼 피커 · 내보내기 · 페이지 크기 …) —
+   * 셸(AdminListPage)을 지나 AdminTable로 그대로 흘러간다. 기본값은 AdminTable이 단일 출처라
+   * 여기서 다시 적지 않는다(적는 순간 두 값이 갈라진다).
+   */
+  table?: AdminTableLabels
 }
 
 export const DEFAULT_CUSTOMER_LIST_LABELS: CustomerListLabelsResolved = {
@@ -416,6 +422,8 @@ export function CustomerList({
       pageSizeOptions={pageSizeOptions}
       loading={loading}
       emptyText={resolveLabel(emptyText, L.empty.title)}
+      // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+      labels={{ table: L.table }}
       density={density}
       show={{
         header: show?.header,

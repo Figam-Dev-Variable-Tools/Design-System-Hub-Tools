@@ -17,6 +17,7 @@ import {
   type AdminColumn,
   type AdminColumnTone,
   type AdminRowMenuItem,
+  type AdminTableLabels,
 } from '../AdminTable/AdminTable'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
 import type { SearchFieldDef, SearchValues } from '../SearchPanel/SearchPanel'
@@ -92,6 +93,12 @@ type InquiryBoardLabelsResolved = {
   empty: EmptyLabels
   /** 값이 없는 칸(수정일)에 찍히는 문자 */
   emptyCell: string
+  /**
+   * 표 크롬 문구(선택 바 · 행 케밥 접근성 이름 · 컬럼 피커 · 내보내기 · 페이지 크기 …) —
+   * 셸(AdminListPage)을 지나 AdminTable로 그대로 흘러간다. 기본값은 AdminTable이 단일 출처라
+   * 여기서 다시 적지 않는다(적는 순간 두 값이 갈라진다).
+   */
+  table?: AdminTableLabels
 }
 
 export const DEFAULT_INQUIRY_BOARD_LABELS: InquiryBoardLabelsResolved = {
@@ -484,6 +491,8 @@ export function InquiryBoard({
       exportable={exportable}
       exportFilename={exportFilename}
       emptyText={resolveLabel(emptyText, L.empty.title)}
+      // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+      labels={{ table: L.table }}
       density={density}
       show={{ tabs: showTabs, search: showSearch, count: showCount }}
     />

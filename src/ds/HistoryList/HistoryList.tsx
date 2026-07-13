@@ -13,7 +13,7 @@ import {
   type TabLabels,
 } from '../../shared/labels'
 import { AdminListPage, type AdminListRowContext } from '../AdminListPage/AdminListPage'
-import type { AdminColumn } from '../AdminTable/AdminTable'
+import type { AdminColumn, AdminTableLabels } from '../AdminTable/AdminTable'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
 import { RowActions } from '../RowActions/RowActions'
 import type { SelectOption } from '../Select/Select'
@@ -89,6 +89,12 @@ type HistoryListLabelsResolved = {
    */
   deleteDialog: Required<Pick<ConfirmDialogLabels<string[]>, 'title' | 'description'>> &
     Pick<ConfirmDialogLabels<string[]>, 'confirmLabel'>
+  /**
+   * 표 크롬 문구(선택 바 · 순서 이동 안내 · 썸네일 대체 문구 · 내보내기 · 페이지 크기 …) —
+   * 셸(AdminListPage)을 지나 AdminTable로 그대로 흘러간다. 기본값은 AdminTable이 단일 출처라
+   * 여기서 다시 적지 않는다(적는 순간 두 값이 갈라진다).
+   */
+  table?: AdminTableLabels
 }
 
 export const DEFAULT_HISTORY_LIST_LABELS: HistoryListLabelsResolved = {
@@ -403,6 +409,8 @@ export function HistoryList({
         confirmLabel: L.deleteDialog.confirmLabel,
       }}
       emptyText={resolveLabel(emptyText, L.empty.title)}
+      // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+      labels={{ table: L.table }}
       exportFilename={exportFilename}
       pageSize={pageSize}
       onPageSizeChange={onPageSizeChange}

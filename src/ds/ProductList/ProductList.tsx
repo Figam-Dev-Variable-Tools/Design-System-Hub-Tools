@@ -19,7 +19,11 @@ import {
 } from '../../shared/labels'
 import styles from './ProductList.module.css'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
-import { type AdminBulkAction, type AdminColumn } from '../AdminTable/AdminTable'
+import {
+  type AdminBulkAction,
+  type AdminColumn,
+  type AdminTableLabels,
+} from '../AdminTable/AdminTable'
 import { AdminCard, type AdminCardBadge } from '../AdminCard/AdminCard'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
 import type { SearchFieldDef, SearchValues } from '../SearchPanel/SearchPanel'
@@ -108,6 +112,12 @@ type ProductListLabelsResolved = {
   categoryDialog: ConfirmDialogLabels<number> & { fieldLabel: string; placeholder: string }
   /** 삭제 확인창 */
   deleteDialog: ConfirmDialogLabels<number>
+  /**
+   * 표 크롬 문구(선택 바 · 행 액션 접근성 이름 · 썸네일 대체 문구 · 컬럼 피커 · 페이지 크기 …) —
+   * 셸(AdminListPage)을 지나 AdminTable로 그대로 흘러간다(게시물형 본문이 AdminTable이다).
+   * 기본값은 AdminTable이 단일 출처라 여기서 다시 적지 않는다(적는 순간 두 값이 갈라진다).
+   */
+  table?: AdminTableLabels
 }
 
 export const DEFAULT_PRODUCT_LIST_LABELS: ProductListLabelsResolved = {
@@ -666,6 +676,8 @@ export function ProductList({
         exportable={false}
         pageSize={pageSize}
         emptyText={resolveLabel(emptyText, L.empty.title)}
+        // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+        labels={{ table: L.table }}
         density={density}
         show={{ tabs: showTabs, search: showSearch, toolbar: false }}
       />

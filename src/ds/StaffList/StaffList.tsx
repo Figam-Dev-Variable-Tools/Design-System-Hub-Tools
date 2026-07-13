@@ -10,7 +10,12 @@ import {
   type SearchLabels,
 } from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
-import type { AdminBulkAction, AdminColumn, AdminRowMenuItem } from '../AdminTable/AdminTable'
+import type {
+  AdminBulkAction,
+  AdminColumn,
+  AdminRowMenuItem,
+  AdminTableLabels,
+} from '../AdminTable/AdminTable'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
 import { GroupPanel, type GroupPanelItem } from '../GroupPanel/GroupPanel'
 
@@ -56,6 +61,12 @@ type StaffListLabelsResolved = {
   empty: EmptyLabels
   /** 값이 없는 칸(부서·직급·연락처)에 찍히는 문자 */
   emptyCell: string
+  /**
+   * 표 크롬 문구(선택 바 · 메모 편집창 · 컬럼 피커 · 내보내기 · 페이지 크기 …) —
+   * 셸(AdminListPage)을 지나 AdminTable로 그대로 흘러간다. 기본값은 AdminTable이 단일 출처라
+   * 여기서 다시 적지 않는다(적는 순간 두 값이 갈라진다).
+   */
+  table?: AdminTableLabels
 }
 
 export const DEFAULT_STAFF_LIST_LABELS: StaffListLabelsResolved = {
@@ -359,6 +370,8 @@ export function StaffList({
       exportable={exportable}
       exportFilename={exportFilename}
       emptyText={resolveLabel(emptyText, L.empty.title)}
+      // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+      labels={{ table: L.table }}
       density={density}
       show={{
         tabs: showTabs,

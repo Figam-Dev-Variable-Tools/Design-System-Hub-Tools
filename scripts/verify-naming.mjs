@@ -133,7 +133,10 @@ const ALLOWLIST = [
   })),
 
   // (4) 축이 될 prop이 하나도 없는 단일 컴포넌트 — Figma 세트는 베리언트 속성이 최소 1개 있어야 성립한다.
-  ...['SortBar', 'SiteFooter'].map((component) => ({
+  //     Card·Divider가 2026-07에 합류했다: showFooter를 BOOLEAN으로, label을 TEXT로 내리고 나니
+  //     (아래 (13) 참고) 축으로 쓸 prop이 하나도 남지 않았다. 규약 위반이던 면제가 플랫폼 요구 면제로
+  //     바뀐 것이고, 이름 규약 자체(showFooter BOOLEAN · label TEXT)는 이제 실제로 지켜진다.
+  ...['SortBar', 'SiteFooter', 'Card', 'Divider'].map((component) => ({
     component,
     kind: 'axis-extra',
     figma: 'state',
@@ -831,26 +834,13 @@ const ALLOWLIST = [
     owner: 'sb.hong',
   },
 
-  // (13) 축 → BOOLEAN/TEXT 전환이 **도구에 막혀 있는** 2건.
-  //      게이트가 시키는 고침(축을 지우고 BOOLEAN·TEXT로 선언)을 그대로 하면 문서에서 그 변형 그림이 사라진다:
-  //      categories.ts의 variantItem이 `inst.setProperties(state.props)`를 표시 이름 그대로 호출하는데,
-  //      VARIANT 축만 이름으로 먹고 TEXT·BOOLEAN·INSTANCE_SWAP은 전체 키('showFooter#12:3')를 요구한다
-  //      (lib/build-set.ts의 propKeys 주석 참조). 즉 문서 상태(states)로 BOOLEAN을 켤 수단이 아예 없다.
-  //      카드의 푸터·구분선의 라벨은 그 세트 문서의 핵심 그림이라 지울 수 없다.
-  //      → 해결: variantItem이 propKeys로 이름을 풀게 고치면 자동 해소된다(categories.ts — 이 배치의 소관 밖이라 보고).
-  ...[
-    ['Card', 'bool-promoted-to-axis', 'footer', 'showFooter'],
-    ['Card', 'bool-missing', null, 'showFooter'],
-    ['Divider', 'text-promoted-to-axis', 'label', 'label'],
-  ].map(([component, kind, figma, code]) => ({
-    component,
-    kind,
-    figma,
-    code,
-    reason:
-      'BOOLEAN/TEXT 속성으로 전환하면 문서 상태(states)에서 그 변형을 켤 수 없어 그림이 통째로 사라진다 — categories.ts의 variantItem이 setProperties를 표시 이름 그대로 호출해 VARIANT 축만 먹고, TEXT·BOOLEAN은 전체 키(propKeys)가 필요하기 때문이다. Card의 푸터·Divider의 라벨은 그 세트 문서의 핵심 그림이다. variantItem이 propKeys를 쓰도록 고치면(categories.ts — 이 배치의 소관 밖) 자동으로 해소된다.',
-    owner: 'sb.hong',
-  })),
+  // (13) Card.showFooter · Divider.label의 축 승격 면제 3건은 **제거됐다**(2026-07).
+  //      면제의 근거는 도구 결함이었다: variantItem이 setProperties를 표시 이름 그대로 호출해
+  //      VARIANT 축만 먹었고, TEXT·BOOLEAN은 전체 키('showFooter#12:3')를 요구하므로 문서 상태(states)로
+  //      켤 수단이 없었다. 그래서 규약 위반(boolean·string prop을 축으로 승격)을 도구가 강제하고 있었다.
+  //      이제 variantItem이 lib/build-set.ts 한 벌로 합쳐지고 componentPropertyDefinitions에서
+  //      이름 → 전체 키를 역해석하므로, 두 세트를 규약대로(showFooter BOOLEAN · label TEXT) 고쳤다.
+  //      교훈: 면제의 사유가 "도구가 못 한다"면 그건 면제가 아니라 **고쳐야 할 결함**이다.
 
   // ══ Data · Date&Time · KR · Media · Templates 세트 ══════════════════════════════════
   //    figma-plugin/src/generators/categories-data-kr-media.ts
@@ -1058,16 +1048,11 @@ const ALLOWLIST = [
     ],
   ].map(([component, kind, figma, code, reason]) => ({ component, kind, figma, code, reason, owner: 'sb.hong' })),
 
-  // (11) 공용 플레이스홀더 SVG 언어의 벡터 사본이 필요한 축.
-  {
-    component: 'EmptyState',
-    kind: 'axis-missing',
-    figma: null,
-    code: 'kind',
-    reason:
-      'kind 8종(image·video·file·empty·search·error·delete·success)은 각각 src/shared/placeholders.tsx의 SYMBOL — 64 캔버스 위의 전용 SVG 심볼 — 을 그린다. Figma 세트가 지금 그리는 아이콘은 lucide 인스턴스라, 축을 세우려면 8종 벡터를 이 생성기에 옮겨 심볼 자체를 다시 그려야 한다("기존 세트의 모양은 바꾸지 마라" 제약을 벗어난다 — 플레이스홀더 이식 배치로 분리). 그 사이 아이콘 교체는 icon INSTANCE_SWAP으로 열려 있다.',
-    owner: 'sb.hong',
-  },
+  // (11) EmptyState.kind(axis-missing) 면제는 **제거됐다**(2026-07).
+  //      "8종 플레이스홀더 SVG 심볼을 생성기로 옮겨야 축을 세울 수 있다"가 면제 사유였는데,
+  //      kind별로 뜻이 같은 lucide 아이콘을 인스턴스로 꽂는 방식으로 축이 실제로 세워졌다
+  //      (categories-data-kr-media.ts: kind 8값 × compact = 16변형, icon INSTANCE_SWAP이 여전히 그림을 덮어쓴다 —
+  //       React의 `icon ?? <Placeholder kind=…>`와 같은 우선순위).
 ]
 
 // ── CLI ──────────────────────────────────────────────────────────────

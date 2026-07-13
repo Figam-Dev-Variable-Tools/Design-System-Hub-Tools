@@ -139,6 +139,9 @@ export const Minimal: Story = {
  * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
  * 컬럼 머리글 · 탭 · 정렬 · 행 액션 접근성 이름 · 빈 칸 문자 · 삭제 확인창까지 전부 labels가 소유한다.
  * 넘기지 않은 키는 기본 문구를 지킨다(mergeLabels — 부분 오버라이드).
+ *
+ * labels.table은 화면이 그리지 않는 '표 크롬'(선택 바 · 내보내기 · [컬럼] 피커 · 페이지 크기 · 썸네일 대체 문구)이다 —
+ * 셸(AdminListPage)을 지나 AdminTable까지 그대로 흘러간다. toolbar처럼 일부 키만 넘기면 나머지는 기본값이 남는다.
  */
 export const Labels: Story = {
   args: {
@@ -170,6 +173,13 @@ export const Labels: Story = {
         title: 'Delete the selected milestones?',
         description: (ids) => `${ids.length} milestone(s) will be removed from the list.`,
         confirmLabel: 'Delete',
+      },
+      table: {
+        bulk: { selectedCount: (count) => `${count} selected`, delete: 'Delete selected' },
+        // toolbar는 columnPicker만 넘긴다 — csv·excel은 AdminTable 기본값이 그대로 남는다
+        toolbar: { columnPicker: 'Columns' },
+        row: { thumbnailAlt: (title) => `${title} cover`, thumbnailEmpty: 'No image' },
+        pageSizeOption: (size) => `${size} per page`,
       },
     },
   },

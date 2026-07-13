@@ -69,12 +69,18 @@ git reset --hard git restore .     git clean            git rebase / merge
 ## 1. 검증 게이트 (전부 통과해야 "완료")
 
 ```bash
-npx tsc -p tsconfig.app.json --noEmit      # 앱 타입체크 (noUnusedLocals 켜져 있음)
-cd figma-plugin && npx tsc --noEmit         # 플러그인 타입체크
-node scripts/verify-parity.mjs              # 토큰·아이콘·로고·컴포넌트 커버리지
-node scripts/verify-mapping.mjs             # Storybook props ↔ Figma 매니페스트
-node scripts/verify-naming.mjs              # 코드 이름 ↔ Figma 속성/레이어 이름
-node scripts/verify-screen-props.mjs        # 화면의 inst() 오버라이드 ↔ 세트 속성 이름
+pnpm verify:all      # ← 아래 전부를 한 번에. 이것만 초록이면 "완료"라고 말해도 된다.
+```
+
+개별로 돌릴 때:
+```bash
+pnpm typecheck            # 앱 타입체크 (noUnusedLocals 켜져 있음)
+pnpm typecheck:figma      # 플러그인 타입체크
+pnpm verify:parity        # 토큰·아이콘·로고·컴포넌트 커버리지
+pnpm verify:mapping       # Storybook props ↔ Figma 매니페스트
+pnpm verify:naming        # 코드 이름 ↔ Figma 속성/레이어 이름
+pnpm verify:screens       # 화면의 inst() 오버라이드 ↔ 세트 속성 이름
+pnpm verify:guard         # git 가드 훅이 실제로 무는지 (결함 주입 33건)
 ```
 
 **`verify-screen-props`를 빼먹지 마라.** 화면(`screens.ts`·`site-screens.ts`)은 `inst(세트, { props })`로

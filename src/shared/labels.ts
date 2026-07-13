@@ -195,6 +195,19 @@ export function resolveLabel<T>(...candidates: (T | undefined)[]): T | undefined
   return undefined
 }
 
+/**
+ * 값을 끼우는 문구 해석기 — 문자열이면 그대로, 함수면 인자를 끼워 넣는다.
+ *
+ * `ConfirmDialogLabels.description`처럼 `string | LabelFn<A>`인 자리를 실제 문자열로 펴는 일은
+ * 확인창을 띄우는 모든 화면이 똑같이 한다. 그 3줄짜리 헬퍼가 화면마다 한 벌씩 복제돼 있었다
+ * (CustomerDetail·InquiryDetail·ProductDetail·InquiryList·ProductList) — 해석기는 여기 하나뿐이어야 한다.
+ */
+export function resolveText<A>(value: string | LabelFn<A>, arg: A): string
+export function resolveText<A>(value: string | LabelFn<A> | undefined, arg: A): string | undefined
+export function resolveText<A>(value: string | LabelFn<A> | undefined, arg: A): string | undefined {
+  return typeof value === 'function' ? value(arg) : value
+}
+
 /** 함수·배열·null이 아닌 순수 객체(= 문구 그룹)인지 */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

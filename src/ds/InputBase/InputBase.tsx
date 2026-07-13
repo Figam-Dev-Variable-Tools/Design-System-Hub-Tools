@@ -5,6 +5,11 @@ import styles from './InputBase.module.css'
 // Default/Hover/Focus/Disabled/Readonly/Required/Success/Error/Empty를 담당한다.
 export type InputBaseProps = {
   label?: string
+  /**
+   * 눈에 보이는 라벨이 없을 때의 접근성 이름(placeholder는 이름이 아니다).
+   * 툴바 안 검색 입력처럼 라벨을 그릴 자리가 없는 자리를 위해 연다 — 주지 않으면 붙지 않는다.
+   */
+  ariaLabel?: string
   value: string
   onChange?: (value: string) => void
   placeholder?: string
@@ -32,6 +37,7 @@ export type InputBaseProps = {
 
 export function InputBase({
   label,
+  ariaLabel,
   value,
   onChange,
   placeholder,
@@ -93,6 +99,7 @@ export function InputBase({
           readOnly={readOnly}
           required={required}
           maxLength={maxLength}
+          aria-label={ariaLabel}
           aria-invalid={error || undefined}
           onChange={(e) => onChange?.(e.target.value)}
           onBlur={onBlur}

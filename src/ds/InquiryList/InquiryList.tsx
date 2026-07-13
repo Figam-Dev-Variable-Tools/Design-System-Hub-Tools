@@ -5,11 +5,11 @@ import styles from './InquiryList.module.css'
 import {
   mergeLabels,
   resolveLabel,
+  resolveText,
   type ColumnLabels,
   type ConfirmDialogLabels,
   type DeepPartialOneLevel,
   type EmptyLabels,
-  type LabelFn,
   type RowScopedActionLabels,
   type StatusLabels,
   type TabLabels,
@@ -351,11 +351,6 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 /** 값을 골라야 하는 일괄 처리 — 삭제 확인창은 셸(deleteConfirm)이 갖는다 */
 type DialogKind = 'assign' | 'status'
-
-/** 확인창 설명 — 문자열이면 그대로, 함수면 대상 건수를 끼워 넣는다 */
-function dialogText(description: string | LabelFn<number> | undefined, count: number): string | undefined {
-  return typeof description === 'function' ? description(count) : description
-}
 
 /**
  * InquiryList — 문의 목록 화면 프리셋.
@@ -702,7 +697,7 @@ export function InquiryList({
           open
           mode="edit"
           title={L.assignDialog.title}
-          description={dialogText(L.assignDialog.description, selectedIds.length)}
+          description={resolveText(L.assignDialog.description, selectedIds.length)}
           confirmLabel={L.assignDialog.confirmLabel}
           cancelLabel={L.assignDialog.cancelLabel}
           onCancel={closeDialog}
@@ -728,7 +723,7 @@ export function InquiryList({
           open
           mode="edit"
           title={L.statusDialog.title}
-          description={dialogText(L.statusDialog.description, selectedIds.length)}
+          description={resolveText(L.statusDialog.description, selectedIds.length)}
           confirmLabel={L.statusDialog.confirmLabel}
           cancelLabel={L.statusDialog.cancelLabel}
           onCancel={closeDialog}

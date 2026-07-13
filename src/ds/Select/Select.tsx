@@ -9,6 +9,12 @@ export type SelectOption = {
 
 export type SelectProps = {
   label?: string
+  /**
+   * 트리거의 접근성 이름 — 라벨을 그릴 자리가 없는 툴바·필터바에서 쓴다.
+   * (선택된 값만 읽히면 그 값이 '무엇의' 값인지 스크린리더가 알 수 없다.)
+   * 라벨을 함께 주면 그 라벨이 이름이 되므로, 라벨이 없는 자리에만 쓴다.
+   */
+  ariaLabel?: string
   value: string | null
   onChange?: (value: string) => void
   options: SelectOption[]
@@ -56,6 +62,7 @@ export function useDismiss(ref: React.RefObject<HTMLElement | null>, onDismiss: 
 
 export function Select({
   label,
+  ariaLabel,
   value,
   onChange,
   options,
@@ -87,6 +94,7 @@ export function Select({
           type="button"
           className={styles.trigger}
           disabled={disabled}
+          aria-label={ariaLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}

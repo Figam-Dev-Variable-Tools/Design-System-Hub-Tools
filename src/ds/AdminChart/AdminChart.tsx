@@ -80,21 +80,20 @@ export type AdminChartSeries = {
 /** 차트 종류 — line/area는 기간 추세용(막대로 그리던 매출 추이를 제 모양으로 그린다) */
 export type AdminChartKind = 'bar' | 'donut' | 'line' | 'area'
 
-/* ── 문구(copy) ─────────────────────────────────────────────────────────────
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
    화면 문구(title·centerLabel)는 이미 열려 있었지만 <canvas>에는 접근성 이름도, 빈 상태 문구도
    없었다(스크린리더에 아무것도 읽히지 않고, 데이터가 없으면 빈 격자만 남았다). 그 둘을 연다.
 
-   NOTE: 이 컴포넌트만 통로 이름이 `labels`가 아니라 `copy`다 — `labels`는 이미 x축 카테고리
-   **데이터**(string[])가 쓰고 있고, 그건 DashboardScreen·ProductDetail·AdminSuite가 호출하는
-   공개 API라 개명하면 호출부가 깨진다. 이름을 통일하려면 데이터 쪽을 `categories`로 옮겨야 하는데
-   그건 이 폴더 밖의 결정이라 보고만 한다.
-   우선순위: 개별 prop(title·centerLabel) > copy.* > 기본값. */
+   이 컴포넌트는 한때 통로 이름이 `copy`였다 — `labels`를 x축 카테고리 **데이터**가 선점하고 있었기
+   때문이다. 규약에서 유일하게 벗어난 지점이라, 데이터 쪽을 `categories`로 개명해 통로 이름을
+   `labels`로 되돌렸다(구 `labels: string[]`은 배열로 들어오면 카테고리로 해석해 하위호환을 지킨다).
+   우선순위: 개별 prop(title·centerLabel) > labels.* > 기본값. */
 type AdminChartLabelsResolved = {
   /** <canvas>의 접근성 이름 — 없으면 title을 쓰고, 그것도 없으면 이름을 붙이지 않는다 */
   ariaLabel?: string
   /** 차트 요약(대체 텍스트) — 시각장애 사용자에게 데이터를 서술한다 */
   ariaDescription?: string
-  /** series/labels가 비었을 때 */
+  /** series/categories가 비었을 때 */
   empty: string
   /** 차트 제목 — title prop의 상위호환 자리 */
   title?: string
@@ -110,8 +109,16 @@ export type AdminChartLabels = DeepPartialOneLevel<AdminChartLabelsResolved>
 
 export type AdminChartProps = {
   kind: AdminChartKind
-  labels: string[]
+  /** x축(도넛은 조각) 카테고리 — 데이터다. 문구 통로는 labels가 갖는다 */
+  categories?: string[]
   series: AdminChartSeries[]
+  /**
+   * 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop(title·centerLabel)이 우선한다.
+   *
+   * 배열을 주면 구 API(카테고리 데이터)로 해석한다 — categories로 옮기기 전 호출부가 깨지지 않게.
+   * @deprecated 배열 형태(카테고리 데이터)는 categories를 쓴다. 문구는 객체로 준다.
+   */
+  labels?: string[] | AdminChartLabels
   /** @deprecated labels.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   title?: string
   showLegend?: boolean
@@ -133,11 +140,6 @@ export type AdminChartProps = {
   orientation?: 'vertical' | 'horizontal'
   /** 범례 위치 — 좁은 카드에 도넛을 넣을 때 right로 옮겨 세로 공간을 아낀다. 기본 'bottom' */
   legendPosition?: 'top' | 'right' | 'bottom'
-  /**
-   * 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop(title·centerLabel)이 우선한다.
-   * 다른 컴포넌트의 `labels`와 같은 역할이다(이름이 다른 이유는 위 NOTE 참고).
-   */
-  copy?: AdminChartLabels
 }
 
 /** 계열 tone → 실제 색. tone이 없으면 인덱스 순서대로 팔레트를 돌려쓴다. */
@@ -183,6 +185,7 @@ function centerTextPlugin(total: string, caption: string | undefined, chrome: Ch
 
 export function AdminChart({
   kind,
+  categories,
   labels,
   series,
   title,
@@ -196,9 +199,12 @@ export function AdminChart({
   showCenterTotal = true,
   orientation = 'vertical',
   legendPosition = 'bottom',
-  copy,
 }: AdminChartProps) {
-  const C = mergeLabels(DEFAULT_ADMIN_CHART_LABELS, copy)
+  // labels가 배열이면 구 API(카테고리 데이터)다 — 그때는 문구 통로가 비어 있는 것으로 본다
+  const legacyCategories = Array.isArray(labels) ? labels : undefined
+  const axis = categories ?? legacyCategories ?? []
+
+  const L = mergeLabels(DEFAULT_ADMIN_CHART_LABELS, Array.isArray(labels) ? undefined : labels)
   const scopeRef = useRef<HTMLDivElement>(null)
   const palette = useTokenColors(scopeRef)
   const chrome = useChromeColors(scopeRef)
@@ -206,10 +212,10 @@ export function AdminChart({
   const format = (n: number) => (valueFormat ? valueFormat(n) : n.toLocaleString('ko-KR'))
   const ready = palette.length > 0 && chrome != null
 
-  const heading = resolveLabel(title, C.title)
-  const centerCaption = resolveLabel(centerLabel, C.centerCaption)
+  const heading = resolveLabel(title, L.title)
+  const centerCaption = resolveLabel(centerLabel, L.centerCaption)
   // 캔버스는 스스로 이름을 갖지 못한다 — 이름을 안 주면 제목이라도 읽히게 한다
-  const canvasLabel = resolveLabel(C.ariaLabel, heading)
+  const canvasLabel = resolveLabel(L.ariaLabel, heading)
   // 계열이 없거나 모든 계열이 빈 배열이면 격자만 남는다 — 그건 빈 상태다
   const isEmpty = series.length === 0 || series.every((s) => s.data.length === 0)
 
@@ -252,7 +258,7 @@ export function AdminChart({
     if (kind === 'donut') {
       // 도넛 — 단일 계열의 각 구간을 팔레트 색으로 칠한다
       const values = series[0]?.data ?? []
-      const sliceLabels = series.length > 1 ? series.map((s) => s.label) : labels
+      const sliceLabels = series.length > 1 ? series.map((s) => s.label) : axis
       const sliceValues = series.length > 1 ? series.map((s) => s.data[0] ?? 0) : values
       const colors = sliceValues.map((_, i) =>
         toneColor(series.length > 1 ? series[i]?.tone : undefined, i, palette, chrome),
@@ -320,7 +326,7 @@ export function AdminChart({
       return (
         <Line
           data={{
-            labels,
+            labels: axis,
             datasets: series.map((s, i) => {
               const color = toneColor(s.tone, i, palette, chrome)
               return {
@@ -384,7 +390,7 @@ export function AdminChart({
     return (
       <Bar
         data={{
-          labels,
+          labels: axis,
           datasets: series.map((s, i) => ({
             label: s.label,
             data: s.data,
@@ -408,9 +414,9 @@ export function AdminChart({
         // 캔버스는 그림이라 스크린리더가 읽을 것이 없다 — 이름과 요약을 여기서 준다
         role={isEmpty ? undefined : 'img'}
         aria-label={isEmpty ? undefined : canvasLabel}
-        aria-description={isEmpty ? undefined : C.ariaDescription}
+        aria-description={isEmpty ? undefined : L.ariaDescription}
       >
-        {isEmpty ? <EmptyState kind="empty" title={C.empty} compact /> : renderChart()}
+        {isEmpty ? <EmptyState kind="empty" title={L.empty} compact /> : renderChart()}
       </div>
     </div>
   )

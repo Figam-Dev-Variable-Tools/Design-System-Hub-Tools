@@ -21,6 +21,7 @@ import { Tag } from '../Tag/Tag'
 import { Toggle } from '../Toggle/Toggle'
 import {
   mergeLabels,
+  resolveText,
   type ConfirmDialogLabels,
   type DeepPartialOneLevel,
   type Formatters,
@@ -462,11 +463,6 @@ export const PRODUCT_STATUS_LABEL: Record<ProductSaleStatus, string> =
 /** 문의 상태 문구 — DEFAULT_PRODUCT_DETAIL_LABELS.inquiryStatus의 별칭 */
 export const PRODUCT_INQUIRY_STATUS_LABEL: Record<ProductInquiryStatus, string> =
   DEFAULT_PRODUCT_DETAIL_LABELS.inquiryStatus
-
-/** ConfirmDialogLabels.description은 문자열이거나 인자 1개짜리 함수다 */
-function dialogDescription<A>(description: string | LabelFn<A>, arg: A): string {
-  return typeof description === 'function' ? description(arg) : description
-}
 
 export type ProductDetailProps = {
   value: ProductDetailValue
@@ -1003,7 +999,7 @@ export function ProductDetail({
                 (sales.length > 0 ? (
                   <AdminChart
                     kind="bar"
-                    labels={sales.map((point) => point.month)}
+                    categories={sales.map((point) => point.month)}
                     series={[
                       {
                         label: L.chart.series,
@@ -1254,7 +1250,7 @@ export function ProductDetail({
         open={duplicateOpen}
         mode="create"
         title={L.duplicateDialog.title}
-        description={dialogDescription(L.duplicateDialog.description, value)}
+        description={resolveText(L.duplicateDialog.description, value)}
         confirmLabel={L.duplicateDialog.confirmLabel}
         onConfirm={() => {
           onDuplicate?.()
@@ -1268,7 +1264,7 @@ export function ProductDetail({
         open={deleteOpen}
         mode="delete"
         title={L.deleteDialog.title}
-        description={dialogDescription(L.deleteDialog.description, value)}
+        description={resolveText(L.deleteDialog.description, value)}
         onConfirm={() => {
           onDelete?.()
           setDeleteOpen(false)

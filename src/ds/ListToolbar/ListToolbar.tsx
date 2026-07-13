@@ -26,6 +26,8 @@ export type ListToolbarSelect = {
   onChange: (value: string) => void
   /** 트리거 폭(px) — 옵션 라벨이 길면 넓힌다. 기본 140 */
   width?: number
+  /** 트리거의 접근성 이름 — 라벨이 없는 툴바 Select라 필터마다 이름이 다르다(항목이 들고 있는다) */
+  ariaLabel?: string
 }
 
 export type ListToolbarSearch = {
@@ -47,22 +49,24 @@ export type ListToolbarSort = {
   onChange: (value: string) => void
   /** 트리거 폭(px) — 정렬 라벨이 길면 넓힌다. 기본 140(필터 Select와 같은 축) */
   width?: number
+  /** 트리거의 접근성 이름 — 기본은 없다(선택된 옵션 라벨이 곧 이름이다) */
+  ariaLabel?: string
 }
 
 /**
  * 툴바 문구.
  *
- * search는 SearchLabels 전체가 아니라 searchPlaceholder만 받는다 —
- * 이 툴바에는 초기화·검색 버튼이 없고(그건 SearchPanel·FilterBar다),
- * 검색 입력의 접근성 이름(SearchLabels.search)은 SearchField에 aria 이름 축이 없어 아직 줄 수 없다.
+ * search는 SearchLabels 전체가 아니라 이 툴바가 실제로 그리는 것만 받는다 —
+ * 초기화·검색 버튼은 여기 없다(그건 SearchPanel·FilterBar다).
+ * search.search는 검색 입력의 접근성 이름으로 SearchField.ariaLabel까지 그대로 내려간다.
  */
 export type ListToolbarLabels = {
-  search?: Pick<SearchLabels, 'searchPlaceholder'>
+  search?: Pick<SearchLabels, 'search' | 'searchPlaceholder'>
   total?: TotalLabels
 }
 
 type ListToolbarLabelsResolved = {
-  search: Required<Pick<SearchLabels, 'searchPlaceholder'>>
+  search: Required<Pick<SearchLabels, 'searchPlaceholder'>> & Pick<SearchLabels, 'search'>
   total: Required<Pick<TotalLabels, 'prefix' | 'unit'>> & Pick<TotalLabels, 'count'>
 }
 
@@ -171,7 +175,12 @@ export function ListToolbar({
               className={styles.select}
               style={{ width: select.width ?? DEFAULT_SELECT_WIDTH }}
             >
-              <Select value={select.value} options={select.options} onChange={select.onChange} />
+              <Select
+                value={select.value}
+                options={select.options}
+                onChange={select.onChange}
+                ariaLabel={select.ariaLabel}
+              />
             </div>
           ))}
 
@@ -180,6 +189,8 @@ export function ListToolbar({
               <SearchField
                 value={search.value}
                 onChange={search.onChange}
+                // 라벨을 그릴 자리가 없는 툴바다 — 이름은 labels.search.search가 준다(없으면 붙지 않는다)
+                ariaLabel={L.search.search}
                 placeholder={search.placeholder ?? resolvedPlaceholder}
                 onSearch={search.onSearch}
                 disabled={search.disabled}
@@ -193,7 +204,12 @@ export function ListToolbar({
         <div className={styles.right}>
           {sort != null && (
             <div className={styles.select} style={{ width: sort.width ?? DEFAULT_SELECT_WIDTH }}>
-              <Select value={sort.value} options={sort.options} onChange={sort.onChange} />
+              <Select
+                value={sort.value}
+                options={sort.options}
+                onChange={sort.onChange}
+                ariaLabel={sort.ariaLabel}
+              />
             </div>
           )}
 

@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
-import { mergeLabels, resolveLabel, type SearchLabels } from '../../shared/labels'
+import {
+  mergeLabels,
+  resolveLabel,
+  type LabelFn,
+  type SearchLabels,
+} from '../../shared/labels'
 import styles from './FilterBar.module.css'
 import { SearchField } from '../SearchField/SearchField'
 import { Select, type SelectOption } from '../Select/Select'
@@ -12,6 +17,8 @@ export type FilterBarFilter = {
   options: SelectOption[]
   /** 트리거 폭(px) — 옵션 라벨이 길면 넓힌다. 기본 160 */
   width?: number
+  /** 트리거의 접근성 이름 — 기본은 없다(선택된 옵션·placeholder가 곧 이름이다) */
+  ariaLabel?: string
 }
 
 export type FilterBarChip = {
@@ -20,15 +27,22 @@ export type FilterBarChip = {
 }
 
 /**
- * 검색 줄 문구 — 공용 SearchLabels에서 이 바가 실제로 그리는 것만 받는다.
- * (검색 입력의 접근성 이름 SearchLabels.search는 SearchField에 aria 이름 축이 없어 아직 줄 수 없다.
- *  칩 제거 버튼의 이름도 Chip이 자체 기본값으로 갖고 있다.)
+ * 검색 줄 문구 — 공용 SearchLabels에서 이 바가 실제로 그리는 것만 받고,
+ * 이 바에만 있는 표면(필터 칩)의 문구를 얹는다.
+ * search는 검색 입력의 접근성 이름으로 SearchField.ariaLabel까지 그대로 내려간다.
  */
-export type FilterBarLabels = Pick<SearchLabels, 'searchPlaceholder' | 'reset'>
+export type FilterBarLabels = Pick<SearchLabels, 'search' | 'searchPlaceholder' | 'reset'> & {
+  /** 필터 칩 제거 버튼 — 기본은 Chip이 갖는다(`{label} 제거`) */
+  removeChip?: LabelFn<string>
+}
 
-export const DEFAULT_FILTER_BAR_LABELS: Required<FilterBarLabels> = {
+type FilterBarLabelsResolved = Required<Pick<SearchLabels, 'searchPlaceholder' | 'reset'>> &
+  Pick<SearchLabels, 'search'> & { removeChip?: LabelFn<string> }
+
+export const DEFAULT_FILTER_BAR_LABELS: FilterBarLabelsResolved = {
   searchPlaceholder: '검색어를 입력하세요',
   reset: '초기화',
+  // search·removeChip은 비워 둔다 — 넘기지 않으면 SearchField·Chip의 기본 동작 그대로다
 }
 
 /** Select 트리거 기본 폭 — 필터 라벨('전체 카테고리')이 말줄임 없이 들어가는 최소 폭 */
@@ -87,6 +101,8 @@ export function FilterBar({
           <SearchField
             value={searchValue}
             onChange={onSearchChange}
+            // 라벨을 그릴 자리가 없는 바다 — 이름은 labels.search가 준다(없으면 붙지 않는다)
+            ariaLabel={L.search}
             placeholder={resolvedPlaceholder}
           />
         </div>
@@ -101,6 +117,7 @@ export function FilterBar({
               onChange={(value) => onFilterChange?.(filter.key, value)}
               options={filter.options}
               placeholder={filter.label}
+              ariaLabel={filter.ariaLabel}
             />
           </div>
         ))}
@@ -116,7 +133,13 @@ export function FilterBar({
       {activeChips.length > 0 && (
         <div className={styles.chips}>
           {activeChips.map((chip) => (
-            <Chip key={chip.key} label={chip.label} size="sm" onRemove={() => onRemoveChip?.(chip.key)} />
+            <Chip
+              key={chip.key}
+              label={chip.label}
+              size="sm"
+              removeLabel={L.removeChip?.(chip.label)}
+              onRemove={() => onRemoveChip?.(chip.key)}
+            />
           ))}
         </div>
       )}

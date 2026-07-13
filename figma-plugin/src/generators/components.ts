@@ -162,7 +162,12 @@ export const COMPONENT_MANIFEST: ComponentManifest = {
         { name: 'disabled', values: ['false', 'true'] },
         { name: 'size', values: ['sm', 'md'] },
       ],
-      text: [{ name: 'label', default: '식비' }],
+      // removeLabel은 x 버튼의 접근성 이름이다 — 화면에 글자로 그려지지 않으므로 레이어가 없다.
+      // 그래도 코드의 string prop이므로 스키마에는 그대로 실린다(코드가 이름을 정한다 — CLAUDE.md §2).
+      text: [
+        { name: 'label', default: '식비' },
+        { name: 'removeLabel', default: '식비 제거' },
+      ],
       booleans: [],
       swaps: [{ name: 'leading', default: '_Icon/Star', preferred: ['_Icon/Star', '_Icon/Heart', '_Icon/Bell'] }],
     },

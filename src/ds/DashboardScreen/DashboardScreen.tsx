@@ -418,7 +418,7 @@ export function DashboardScreen({
                     <AdminChart
                       kind={chartKind}
                       title={chartTitle}
-                      labels={chart.labels}
+                      categories={chart.labels}
                       series={chart.series}
                       height={chart.height ?? 280}
                     />

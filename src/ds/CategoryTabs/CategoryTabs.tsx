@@ -1,7 +1,30 @@
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Plus, X } from 'lucide-react'
+import { mergeLabels, type LabelFn } from '../../shared/labels'
 import styles from './CategoryTabs.module.css'
+
+/**
+ * 탭 크롬의 문구 — 탭 라벨(items[].label)은 데이터라 여기 없다.
+ * 삭제 x·추가 버튼·인라인 입력은 컴포넌트가 그리므로 문구도 컴포넌트가 열어야 한다.
+ */
+export type CategoryTabsLabels = {
+  /** 탭 삭제 x의 접근성 이름 — 기본: (label) => `${label} 카테고리 삭제` */
+  remove?: LabelFn<string>
+  /** 추가 버튼 — 기본 '카테고리 추가' */
+  add?: string
+  /** 추가 입력의 placeholder — 기본 '카테고리명 입력 후 Enter' */
+  addPlaceholder?: string
+  /** 추가 입력의 접근성 이름 — 기본 '새 카테고리명' */
+  addField?: string
+}
+
+export const DEFAULT_CATEGORY_TABS_LABELS: Required<CategoryTabsLabels> = {
+  remove: (label) => `${label} 카테고리 삭제`,
+  add: '카테고리 추가',
+  addPlaceholder: '카테고리명 입력 후 Enter',
+  addField: '새 카테고리명',
+}
 
 export type CategoryTabItem = {
   label: string
@@ -34,6 +57,8 @@ export type CategoryTabsProps = {
    * 사이트 히어로 아래에 탭만 띄울 때는 면 경계가 필요 없어 false로 끈다.
    */
   rule?: boolean
+  /** 문구 통로 — 넘기지 않으면 기본 문구 그대로다 */
+  labels?: CategoryTabsLabels
 }
 
 export function CategoryTabs({
@@ -46,7 +71,9 @@ export function CategoryTabs({
   variant = 'underline',
   align = 'start',
   rule = true,
+  labels,
 }: CategoryTabsProps) {
+  const L = mergeLabels(DEFAULT_CATEGORY_TABS_LABELS, labels)
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
@@ -134,7 +161,7 @@ export function CategoryTabs({
                 <button
                   type="button"
                   className={styles.remove}
-                  aria-label={`${item.label} 카테고리 삭제`}
+                  aria-label={L.remove(item.label)}
                   onClick={() => onRemove(item.value)}
                 >
                   <X size={12} />
@@ -152,8 +179,8 @@ export function CategoryTabs({
             autoFocus
             className={styles.input}
             value={draft}
-            placeholder="카테고리명 입력 후 Enter"
-            aria-label="새 카테고리명"
+            placeholder={L.addPlaceholder}
+            aria-label={L.addField}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleDraftKeyDown}
             onBlur={closeAdd}
@@ -161,7 +188,7 @@ export function CategoryTabs({
         ) : (
           <button type="button" className={styles.add} onClick={() => setAdding(true)}>
             <Plus size={14} />
-            카테고리 추가
+            {L.add}
           </button>
         ))}
     </div>

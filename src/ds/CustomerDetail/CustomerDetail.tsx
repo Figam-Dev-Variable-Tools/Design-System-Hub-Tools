@@ -16,6 +16,7 @@ import { Skeleton } from '../Skeleton/Skeleton'
 import { ActivityStats, type ActivityStat } from './activityStats'
 import {
   mergeLabels,
+  resolveText,
   type ConfirmDialogLabels,
   type DeepPartialOneLevel,
   type EmptyLabels,
@@ -247,11 +248,6 @@ export const DEFAULT_CUSTOMER_DETAIL_LABELS: CustomerDetailLabels = {
   },
   empty: { title: DEFAULT_EMPTY_CONSENT },
   emptyCell: '-',
-}
-
-/** ConfirmDialogLabels.description은 문자열이거나 인자 1개짜리 함수다 */
-function dialogDescription<A>(description: string | LabelFn<A>, arg: A): string {
-  return typeof description === 'function' ? description(arg) : description
 }
 
 export type CustomerDetailProps = {
@@ -726,7 +722,7 @@ export function CustomerDetail({
         open={blockOpen}
         mode="delete"
         title={blocked ? L.unblockDialog.title : L.blockDialog.title}
-        description={dialogDescription(
+        description={resolveText(
           blocked ? L.unblockDialog.description : L.blockDialog.description,
           profile,
         )}
@@ -743,7 +739,7 @@ export function CustomerDetail({
         open={deleteOpen}
         mode="delete"
         title={L.deleteDialog.title}
-        description={dialogDescription(L.deleteDialog.description, profile)}
+        description={resolveText(L.deleteDialog.description, profile)}
         onConfirm={() => {
           onDelete?.()
           setDeleteOpen(false)

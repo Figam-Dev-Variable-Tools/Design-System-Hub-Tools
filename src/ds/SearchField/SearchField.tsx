@@ -1,7 +1,15 @@
 import { InputBase, inputStyles } from '../InputBase/InputBase'
 
+/** 지우기(×) 버튼의 접근성 이름 — 아이콘뿐이라 이름이 없으면 스크린리더에 '버튼'으로만 읽힌다 */
+const DEFAULT_CLEAR_LABEL = '지우기'
+
 export type SearchFieldProps = {
   label?: string
+  /**
+   * 검색 입력의 접근성 이름 — 라벨을 그릴 자리가 없는 툴바·필터바에서 쓴다(placeholder는 이름이 아니다).
+   * 이 축이 없어 ListToolbar·FilterBar가 SearchLabels.search를 타입에서 아예 빼고 있었다.
+   */
+  ariaLabel?: string
   value: string
   onChange?: (value: string) => void
   placeholder?: string
@@ -10,6 +18,8 @@ export type SearchFieldProps = {
   onSearch?: (value: string) => void
   /** 값이 있을 때 지우기(×) 버튼 표시 (기본 표시) */
   showClear?: boolean
+  /** 지우기(×) 버튼의 접근성 이름 — 기본 '지우기' */
+  clearLabel?: string
 }
 
 function SearchIcon() {
@@ -23,16 +33,19 @@ function SearchIcon() {
 
 export function SearchField({
   label,
+  ariaLabel,
   value,
   onChange,
   placeholder = '검색어를 입력하세요',
   disabled = false,
   onSearch,
   showClear = true,
+  clearLabel = DEFAULT_CLEAR_LABEL,
 }: SearchFieldProps) {
   return (
     <InputBase
       label={label}
+      ariaLabel={ariaLabel}
       value={value}
       onChange={onChange}
       placeholder={placeholder}
@@ -45,7 +58,7 @@ export function SearchField({
           <button
             type="button"
             className={inputStyles.iconButton}
-            aria-label="지우기"
+            aria-label={clearLabel}
             disabled={disabled}
             onClick={() => onChange?.('')}
           >

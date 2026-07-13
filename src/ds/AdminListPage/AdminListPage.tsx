@@ -4,9 +4,11 @@ import { Plus, Trash2 } from 'lucide-react'
 import {
   mergeLabels,
   resolveLabel,
+  resolveText,
   type BulkLabels,
   type ConfirmDialogLabels,
   type EmptyLabels,
+  type Formatters,
   type LoadingLabels,
   type SearchLabels,
   type TotalLabels,
@@ -19,13 +21,23 @@ import {
   type AdminBulkAction,
   type AdminColumn,
   type AdminColumnKind,
+  type AdminTableLabels,
 } from '../AdminTable/AdminTable'
 import { Button } from '../Button/Button'
-import { CategoryTabs, type CategoryTabItem } from '../CategoryTabs/CategoryTabs'
+import {
+  CategoryTabs,
+  type CategoryTabItem,
+  type CategoryTabsLabels,
+} from '../CategoryTabs/CategoryTabs'
 import { CrudDialog } from '../CrudDialog/CrudDialog'
 import { ListToolbar, type ListToolbarSelect } from '../ListToolbar/ListToolbar'
 import { Loading } from '../Loading/Loading'
-import { SearchPanel, type SearchFieldDef, type SearchValues } from '../SearchPanel/SearchPanel'
+import {
+  SearchPanel,
+  type SearchFieldDef,
+  type SearchPanelLabels,
+  type SearchValues,
+} from '../SearchPanel/SearchPanel'
 import type { SelectOption } from '../Select/Select'
 import type { ViewSwitchValue } from '../ViewSwitch/ViewSwitch'
 
@@ -113,39 +125,43 @@ export type AdminListChrome = 'page' | 'plain' | 'card'
  */
 export type AdminListSelection = 'multi' | 'single' | 'none'
 
-export type AdminListDeleteConfirm = {
-  title: string
-  /** 함수면 삭제 대상 id를 받아 문구를 만든다 — "N건이 제거됩니다" */
-  description?: string | ((ids: string[]) => string)
-  /** 확인 버튼 라벨 (기본 CrudDialog의 '삭제') */
-  confirmLabel?: string
-}
+/**
+ * 삭제 확인창 — 공용 ConfirmDialogLabels를 그대로 쓰고 title만 필수로 좁힌다(재정의 금지).
+ * 제목이 있어야 확인창이 열리기 때문이다. description의 함수형 인자는 삭제 대상 id들이다.
+ */
+export type AdminListDeleteConfirm = ConfirmDialogLabels & { title: string }
 
 /**
- * 셸이 직접 그리는 문구 — 타입은 전부 src/shared/labels.ts의 공용 타입을 그대로 쓴다(재정의 금지).
+ * 셸의 문구 — 타입은 전부 src/shared/labels.ts의 공용 타입을 그대로 쓴다(재정의 금지).
  *
- * 자식(AdminTable · SearchPanel · ListToolbar · CrudDialog · EmptyState)의 문구는
- * 그 자식들이 오늘 이미 갖고 있는 개별 prop(emptyText · totalLabel · confirmLabel …)으로 흘려보낸다.
- * 자식들이 자기 labels 통로를 열면, 여기의 Pick<>을 통째 타입으로 넓히고 그대로 통과시키면 된다
- * (같은 문구에 새 이름을 만들지 않는다).
+ * 두 갈래다.
+ *  1) 셸이 직접 그리는 것(등록 버튼·카드형 선택 바·로딩·건수·빈 상태·삭제 확인창)
+ *  2) 자식에게 그대로 통과시키는 것(table · searchPanel · tabs) — 자식의 labels 타입을 그대로 받는다.
+ *     자식이 이미 완결된 문구 타입을 갖고 있으므로 여기서 키를 다시 세지 않는다.
  */
 export type AdminListPageLabels = {
   /** 카드형 로딩 오버레이 + 표 로딩 오버레이 — 기본 '불러오는 중' */
   loading?: LoadingLabels['loading']
   /** 헤더 등록 버튼 — 기본 '등록' */
   create?: string
-  /** 툴바 건수 — TotalLabels.count(통째 교체)는 ListToolbar가 열어야 닿는다(지금은 prefix/unit만) */
-  total?: Pick<TotalLabels, 'prefix' | 'unit'>
-  /** 검색 — 나머지(reset·submit·expand…)는 SearchPanel이 열어야 닿는다 */
-  search?: Pick<SearchLabels, 'searchPlaceholder'>
-  /** 카드형 선택 바 — 표 하단 선택 바는 AdminTable이 그린다(같은 문구를 두 번 선언하지 않는다) */
+  /** 툴바·카드뷰 건수 — count(통째 교체)까지 ListToolbar·AdminListView로 내려간다 */
+  total?: TotalLabels
+  /** 툴바 안 한 줄 검색 — search는 입력의 접근성 이름이다(검색 패널 문구는 searchPanel이 맡는다) */
+  search?: Pick<SearchLabels, 'search' | 'searchPlaceholder'>
+  /** 선택 바 — 카드형은 셸이 그리고, 표 하단은 AdminTable이 그린다(같은 문구가 둘 다에 닿는다) */
   bulk?: BulkLabels
   /** 삭제 확인창 — 개별 prop deleteConfirm이 이긴다 */
   deleteDialog?: ConfirmDialogLabels
-  /** 데이터가 0건일 때 — actionLabel(CTA)은 AdminTable이 열어야 닿는다 */
-  empty?: Pick<EmptyLabels, 'title' | 'description'>
+  /** 데이터가 0건일 때 — actionLabel을 주면 onEmptyAction과 짝이 되어 CTA 버튼이 뜬다 */
+  empty?: EmptyLabels
   /** 탭·검색으로 걸러져 0건일 때 — 개별 prop이 없는 새 표면이라 걸러진 상태에서는 이쪽이 먼저 쓰인다 */
-  emptyFiltered?: Pick<EmptyLabels, 'title' | 'description'>
+  emptyFiltered?: EmptyLabels
+  /** 표 — AdminTable로 그대로 통과(컬럼 헤더·행 액션·메모·내보내기·페이지 크기 …) */
+  table?: AdminTableLabels
+  /** 검색 패널(다중 조건) — SearchPanel로 그대로 통과(초기화·검색·상세검색·기간 프리셋 …) */
+  searchPanel?: SearchPanelLabels
+  /** 상태 탭 — CategoryTabs로 그대로 통과(탭 삭제·카테고리 추가) */
+  tabs?: CategoryTabsLabels
 }
 
 /*
@@ -308,6 +324,8 @@ export type AdminListPageProps<T> = {
    * 탭·검색으로 걸러져 0건인 상태는 labels.emptyFiltered가 따로 맡는다 — 이 prop 하나로는 두 상태를 가를 수 없었다.
    */
   emptyText?: string
+  /** 빈 목록의 CTA — labels.table.empty.actionLabel과 짝이어야 버튼이 뜬다 */
+  onEmptyAction?: () => void
 
   /* ── 본문 갈아끼우기 ── */
   /**
@@ -356,6 +374,11 @@ export type AdminListPageProps<T> = {
   show?: AdminListPageShow
   /** 문구 통로 — 개별 prop > labels.* > 기본값 */
   labels?: AdminListPageLabels
+  /**
+   * 숫자·통화·날짜 포맷 — 문구가 아니라 포맷이라 labels가 아니다(§labels 규약 4).
+   * 표(가격·수량 셀)와 건수 표기(툴바·카드뷰)가 같은 포맷을 쓰도록 한 통로로 내려보낸다.
+   */
+  formatters?: Formatters
 }
 
 /** 오너 규격 — 한 화면 20행, 페이지 크기 20/50/100 */
@@ -498,6 +521,7 @@ export function AdminListPage<T>({
   pageSizeOptions = PAGE_SIZE_OPTIONS,
   density = 'compact',
   emptyText,
+  onEmptyAction,
   renderCard,
   view,
   onViewChange,
@@ -513,6 +537,7 @@ export function AdminListPage<T>({
   maxWidth = 'full',
   show,
   labels,
+  formatters,
 }: AdminListPageProps<T>) {
   const on = resolveShow(show)
   const L = mergeLabels(DEFAULT_ADMIN_LIST_PAGE_LABELS, labels)
@@ -650,6 +675,8 @@ export function AdminListPage<T>({
     ? resolveLabel(L.emptyFiltered?.title, emptyText, L.empty?.title)
     : resolveLabel(emptyText, L.empty?.title)
   const emptyDescription = emptyGroup?.description
+  // CTA 문구도 상태를 따른다 — 걸러진 표의 '등록해 보세요'는 거짓말이고 '필터 초기화'가 맞는 말이다
+  const emptyActionLabel = resolveLabel(emptyGroup?.actionLabel, L.table?.empty?.actionLabel)
 
   // totalPages를 주면 rows는 이미 서버가 잘라 보낸 한 페이지다 — 여기서 또 자르지 않는다
   const serverPaged = totalPages != null
@@ -673,7 +700,7 @@ export function AdminListPage<T>({
   const dialogTitle = resolveLabel(deleteConfirm?.title, L.deleteDialog?.title)
   const dialogDescription = resolveLabel(deleteConfirm?.description, L.deleteDialog?.description)
   const dialogConfirmLabel = resolveLabel(deleteConfirm?.confirmLabel, L.deleteDialog?.confirmLabel)
-  const dialogCancelLabel = L.deleteDialog?.cancelLabel
+  const dialogCancelLabel = resolveLabel(deleteConfirm?.cancelLabel, L.deleteDialog?.cancelLabel)
 
   const confirmDelete = (ids: string[]) => {
     if (ids.length === 0) return
@@ -759,6 +786,7 @@ export function AdminListPage<T>({
         onReset={handleReset}
         columns={4}
         loading={loading}
+        labels={L.searchPanel}
       />
     ) : undefined
 
@@ -770,6 +798,7 @@ export function AdminListPage<T>({
         onChange={changeTab}
         onAdd={onTabAdd}
         addable={onTabAdd != null}
+        labels={L.tabs}
       />
     ) : undefined
 
@@ -797,12 +826,33 @@ export function AdminListPage<T>({
       // null = 접두사 없이 숫자만("135건") — ListToolbar는 undefined일 때 접두사를 생략한다
       totalLabel={totalPrefix ?? undefined}
       totalUnit={totalUnitText}
+      // 접근성 이름과 '건수 문장 통째 교체'는 개별 prop이 없다 — labels로만 닿는다
+      labels={{
+        search: { search: L.search?.search },
+        total: { count: L.total?.count },
+      }}
+      formatters={formatters}
       actions={toolbarActions}
     />
   ) : undefined
 
   // ── 본문 ──────────────────────────────────────────────────────────────
   const cardMode = renderCard != null
+
+  /*
+   * 표 문구 — labels.table을 그대로 통과시키되, 셸이 이미 갖고 있던 두 문구를 기본값으로 얹는다.
+   *   bulk    : 선택 바는 표(하단)와 카드 그리드 두 곳에 뜬다 — 같은 문구를 두 번 선언하지 않는다.
+   *   loading : 로딩 오버레이도 표·카드가 함께 쓴다.
+   * 더 구체적인 labels.table.*이 셸의 값을 이긴다.
+   * (loadingLabel 개별 prop으로 넘기면 그 prop이 labels를 항상 이겨 labels.table.loading이 죽는다)
+   */
+  const tableLabels: AdminTableLabels = {
+    ...L.table,
+    bulk: { ...L.bulk, ...L.table?.bulk },
+    loading: resolveLabel(L.table?.loading, L.loading),
+    // 제목·설명은 개별 prop(emptyText/emptyDescription)으로 내려간다 — 여기서는 CTA만 얹는다
+    empty: { ...L.table?.empty, actionLabel: emptyActionLabel },
+  }
 
   const table = (
     <AdminTable
@@ -832,9 +882,11 @@ export function AdminListPage<T>({
       exportable={exportable && on.export}
       exportFilename={exportFilename}
       loading={loading}
-      loadingLabel={L.loading}
       emptyText={emptyTitle}
       emptyDescription={emptyDescription}
+      onEmptyAction={onEmptyAction}
+      labels={tableLabels}
+      formatters={formatters}
       // AdminTable은 레이아웃의 density 변수를 읽지 않는다 — 같은 값을 명시적으로 넘긴다
       density={density}
     />
@@ -908,6 +960,13 @@ export function AdminListPage<T>({
           empty={!loading && ordered.length === 0}
           emptyText={emptyTitle}
           emptyDescription={emptyDescription}
+          onEmptyAction={onEmptyAction}
+          // 건수 문장 통째 교체·빈 화면 CTA는 개별 prop이 없다 — labels로만 닿는다
+          labels={{
+            total: { count: L.total?.count },
+            empty: { actionLabel: emptyActionLabel },
+          }}
+          formatters={formatters}
         />
         {/* 게시물형은 AdminTable이 자체 오버레이를 갖는다 — 카드형만 여기서 덮는다 */}
         {loading && viewValue === 'card' && <Loading overlay label={L.loading} />}
@@ -931,11 +990,8 @@ export function AdminListPage<T>({
         open
         mode="delete"
         title={dialogTitle}
-        description={
-          typeof dialogDescription === 'function'
-            ? dialogDescription(pendingDelete)
-            : dialogDescription
-        }
+        // 문구가 함수면 삭제 대상 id들을 끼워 넣는다 — 해석기는 공용(resolveText) 하나뿐이다
+        description={resolveText(dialogDescription, pendingDelete)}
         confirmLabel={dialogConfirmLabel}
         cancelLabel={dialogCancelLabel}
         onCancel={() => setPendingDelete(null)}

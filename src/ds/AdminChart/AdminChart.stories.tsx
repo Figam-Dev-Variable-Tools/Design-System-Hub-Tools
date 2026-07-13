@@ -29,7 +29,7 @@ const meta = {
   tags: ['autodocs'],
   args: {
     kind: 'bar',
-    labels: MONTHS,
+    categories: MONTHS,
     series: TREND_SERIES,
     title: '월별 매출 추이',
     showLegend: true,
@@ -50,10 +50,10 @@ const meta = {
       description: 'horizontal은 카테고리 라벨이 긴 랭킹용(bar에만 적용)',
     },
     legendPosition: { control: 'inline-radio', options: ['top', 'right', 'bottom'] },
-    title: { control: 'text', description: '@deprecated — copy.title을 쓰세요' },
-    centerLabel: { control: 'text', description: '@deprecated — copy.centerCaption을 쓰세요' },
-    // 문구 통로. 이 컴포넌트만 `labels`가 아니라 `copy`다 — `labels`는 x축 카테고리 데이터가 쓰고 있다
-    copy: { control: 'object' },
+    title: { control: 'text', description: '@deprecated — labels.title을 쓰세요' },
+    centerLabel: { control: 'text', description: '@deprecated — labels.centerCaption을 쓰세요' },
+    // 문구 통로 — 다른 컴포넌트와 같은 이름(labels)이다. x축 카테고리 데이터는 categories가 갖는다
+    labels: { control: 'object' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -71,7 +71,7 @@ export const Default: Story = {
 export const Donut: Story = {
   args: {
     kind: 'donut',
-    labels: ORDER_LABELS,
+    categories: ORDER_LABELS,
     series: ORDER_SERIES,
     title: '주문 상태 비율',
     centerLabel: '총 주문',
@@ -83,7 +83,7 @@ export const Donut: Story = {
 export const Stacked: Story = {
   args: {
     kind: 'bar',
-    labels: MONTHS,
+    categories: MONTHS,
     series: STACKED_SERIES,
     title: '채널별 매출 (누적)',
     stacked: true,
@@ -112,7 +112,7 @@ export const Minimal: Story = {
 export const DonutWithoutCenterTotal: Story = {
   args: {
     kind: 'donut',
-    labels: ORDER_LABELS,
+    categories: ORDER_LABELS,
     series: ORDER_SERIES,
     title: '주문 상태 비율',
     showCenterTotal: false,
@@ -125,7 +125,7 @@ export const DonutWithoutCenterTotal: Story = {
 export const Line: Story = {
   args: {
     kind: 'line',
-    labels: MONTHS,
+    categories: MONTHS,
     series: TREND_SERIES,
     title: '월별 매출 추이',
     valueFormat: won,
@@ -137,7 +137,7 @@ export const Line: Story = {
 export const Area: Story = {
   args: {
     kind: 'area',
-    labels: MONTHS,
+    categories: MONTHS,
     series: [TREND_SERIES[0]],
     title: '월별 매출',
     valueFormat: won,
@@ -150,7 +150,7 @@ export const HorizontalBar: Story = {
   args: {
     kind: 'bar',
     orientation: 'horizontal',
-    labels: ['네이버 검색', '인스타그램 광고', '카카오 채널', '직접 유입', '제휴 뉴스레터'],
+    categories: ['네이버 검색', '인스타그램 광고', '카카오 채널', '직접 유입', '제휴 뉴스레터'],
     series: [{ label: '유입', data: [4820, 3610, 2940, 1870, 920], tone: 'primary' }],
     title: '유입 경로 TOP 5',
     showLegend: false,
@@ -163,7 +163,7 @@ export const HorizontalBar: Story = {
 export const LegendRight: Story = {
   args: {
     kind: 'donut',
-    labels: ORDER_LABELS,
+    categories: ORDER_LABELS,
     series: ORDER_SERIES,
     title: '주문 상태 비율',
     legendPosition: 'right',
@@ -174,22 +174,21 @@ export const LegendRight: Story = {
 }
 
 /**
- * Labels(copy): 영문 오버라이드 — 제목·도넛 가운데 문구뿐 아니라, 지금까지 스크린리더에
+ * Labels: 영문 오버라이드 — 제목·도넛 가운데 문구뿐 아니라, 지금까지 스크린리더에
  * 아무것도 읽히지 않던 <canvas>의 접근성 이름·요약까지 통로로 열린다.
  *
- * NOTE: 이 컴포넌트만 통로 이름이 `copy`다 — `labels`는 이미 x축 카테고리 데이터(string[])가
- * 쓰고 있어 개명하면 호출부(DashboardScreen·ProductDetail·AdminSuite)가 깨진다.
+ * 문구 통로의 이름은 다른 컴포넌트와 같은 `labels`다 — x축 카테고리 '데이터'는 `categories`가 갖는다.
  */
 export const Labels: Story = {
   args: {
     kind: 'donut',
-    labels: ['Delivered', 'Shipping', 'Pending', 'Refunded'],
+    categories: ['Delivered', 'Shipping', 'Pending', 'Refunded'],
     series: ORDER_SERIES,
     title: undefined,
     centerLabel: undefined,
     height: 280,
     valueFormat: (n: number) => n.toLocaleString('en-US'),
-    copy: {
+    labels: {
       title: 'Order status breakdown',
       centerCaption: 'Total orders',
       ariaLabel: 'Order status breakdown, donut chart',
@@ -201,11 +200,11 @@ export const Labels: Story = {
   render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
 }
 
-/** 데이터가 없을 때 — 빈 격자가 아니라 copy.empty가 그려진다 */
+/** 데이터가 없을 때 — 빈 격자가 아니라 labels.empty가 그려진다 */
 export const Empty: Story = {
   args: {
     kind: 'bar',
-    labels: [],
+    categories: [],
     series: [],
     title: '월별 매출 추이',
   },

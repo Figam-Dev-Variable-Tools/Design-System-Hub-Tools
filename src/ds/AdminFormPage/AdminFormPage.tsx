@@ -5,13 +5,14 @@ import { mergeLabels, resolveLabel } from '../../shared/labels'
 import { Placeholder } from '../../shared/placeholders'
 import { AdminPageLayout } from '../AdminPageLayout/AdminPageLayout'
 import { Button } from '../Button/Button'
-import { DropZone } from '../DropZone/DropZone'
+import { DropZone, type DropZoneLabels } from '../DropZone/DropZone'
 import { FieldRow, type FieldRowLabelPlacement } from '../FieldRow/FieldRow'
 import {
   DEFAULT_FORM_SECTION_LABELS,
   FormSection,
   type FormSectionAppearance,
   type FormSectionColumns,
+  type FormSectionLabels,
 } from '../FormSection/FormSection'
 import { Image, type ImageProps } from '../Image/Image'
 import { InputBase } from '../InputBase/InputBase'
@@ -242,6 +243,8 @@ export type AdminFormImageFieldProps = {
   hint?: string
   dropLabel?: ReactNode
   disabled?: boolean
+  /** 드롭존 자신의 문구 — DropZone으로 그대로 통과한다(안내·접근성 이름·검증 실패) */
+  dropZoneLabels?: DropZoneLabels
 }
 
 /**
@@ -268,6 +271,7 @@ export function AdminFormImageField({
   hint,
   dropLabel,
   disabled = false,
+  dropZoneLabels,
 }: AdminFormImageFieldProps) {
   const hasImage = value != null && value !== ''
   // 미리보기가 꺼져 있으면 이미지가 있어도 드롭존(교체 UI)만 남는다
@@ -286,6 +290,7 @@ export function AdminFormImageField({
       maxSizeMb={maxSizeMb}
       hint={hint}
       disabled={disabled}
+      labels={dropZoneLabels}
     >
       {/* dropLabel이 없으면 children을 넘기지 않는다 — DropZone의 기본 내용이 그대로 뜬다 */}
       {dropLabel != null ? (
@@ -374,9 +379,9 @@ export function AdminFormImageField({
 /* ── 문구 ────────────────────────────────────────────────────────────────── */
 
 /**
- * 셸이 직접 그리는 문구.
- * 확인창·표·검색처럼 공용 표면이 없어(폼은 제출/취소/스위치가 전부다) 공용 타입에서 가져올 것이 없다 —
- * 대신 여기서 정한 이름을 자식(FormSection)이 그대로 받아 쓴다(같은 문구를 두 이름으로 만들지 않는다).
+ * 셸의 문구.
+ * 셸이 직접 그리는 것(제출·취소)과, 자식에게 그대로 통과시키는 것(toggle → FormSection,
+ * dropZone → DropZone)이 함께 있다. 자식의 문구 타입은 그 자식에게서 import한다(재정의 금지).
  */
 export type AdminFormPageLabels = {
   /** 제출 버튼 — 주면 mode와 무관하게 이 문구를 쓴다 */
@@ -388,12 +393,18 @@ export type AdminFormPageLabels = {
   /** 취소 버튼 — 기본 '취소' */
   cancel?: string
   /**
-   * 스위치 문구 — 기본 'ON'/'OFF'. toggle 필드와 섹션 밴드가 함께 쓴다.
-   * (필드마다 onLabel/offLabel을 반복해 적던 것을 폼 전체 기본값 하나로 대신한다)
+   * 스위치 문구 — FormSection으로 그대로 통과한다(밴드 좌측 label + 스위치 on/off).
+   * toggle 필드와 섹션 밴드가 함께 쓴다 — 필드마다 onLabel/offLabel을 반복해 적지 않는다.
+   * (섹션의 개별 prop section.toggleLabel이 이긴다)
    */
-  toggle?: { on?: string; off?: string }
+  toggle?: FormSectionLabels['toggle']
   /** image 필드 기본값 — 필드의 removeLabel/dropLabel/hint가 이긴다 */
   image?: { removeLabel?: string; dropLabel?: string; hint?: string }
+  /**
+   * 업로드 영역의 '보이지 않는' 문구 — DropZone으로 그대로 통과한다
+   * (영역의 접근성 이름 · 형식/용량 검증 실패 문구). 보이는 안내문은 image.dropLabel이 맡는다.
+   */
+  dropZone?: DropZoneLabels
 }
 
 /*
@@ -492,6 +503,12 @@ export type AdminFormPageProps<V extends object> = {
   labelPlacement?: FieldRowLabelPlacement
   /** labelPlacement='left'의 라벨 열 폭(px) */
   labelWidth?: number
+  /**
+   * 필수 표시 기호 (기본 FieldRow의 '*') — 폼 전체에 한 번만 선언한다.
+   * 문구가 아니라 장식(ReactNode)이라 labels가 아니라 prop이다. 셸이 통과시키지 않아
+   * 화면들이 '*' 말고 다른 관례('필수'·'●')를 쓸 수 없었다.
+   */
+  requiredMark?: ReactNode
 
   /** 문구 통로 — 개별 prop > labels.* > 기본값 */
   labels?: AdminFormPageLabels
@@ -539,6 +556,7 @@ export function AdminFormPage<V extends object>({
   sectionAppearance = 'card',
   labelPlacement = 'top',
   labelWidth,
+  requiredMark,
   labels,
 }: AdminFormPageProps<V>) {
   const on = resolveShow(show)
@@ -676,6 +694,7 @@ export function AdminFormPage<V extends object>({
           maxSizeMb={field.maxSizeMb}
           hint={resolveLabel(field.hint, L.image?.hint)}
           dropLabel={resolveLabel(field.dropLabel, L.image?.dropLabel)}
+          dropZoneLabels={L.dropZone}
           disabled={off}
         />
       )
@@ -703,6 +722,8 @@ export function AdminFormPage<V extends object>({
         span={field.span}
         labelPlacement={labelPlacement}
         labelWidth={labelWidth}
+        // 넘기지 않으면 FieldRow의 기본 '*' 그대로다(기본 렌더 유지)
+        requiredMark={requiredMark}
       >
         {renderControl(field)}
       </FieldRow>

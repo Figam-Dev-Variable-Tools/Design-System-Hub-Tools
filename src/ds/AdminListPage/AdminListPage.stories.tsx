@@ -427,3 +427,59 @@ export const CardChrome: Story = {
   },
   parameters: { layout: 'padded' },
 }
+
+/**
+ * 셸 → 자식 통과 축 — 화면에 나오는 글자가 **전부** 셸의 labels 하나로 갈린다.
+ *
+ * 지금까지는 셸이 자식에게 문구를 흘려보내지 않아, 표 크롬('컬럼'·CSV·'20개씩'·선택 바)과
+ * 탭 크롬('카테고리 추가')은 셸을 쓰는 12개 목록 화면에서 갈아끼울 방법이 아예 없었다.
+ * 이 스토리가 그 통로가 실제로 화면까지 닿는지를 증명한다 —
+ *   labels.table   → AdminTable  (컬럼 머리글 · 툴바 버튼 · 페이지 크기 · 선택 바 · 행 액션 이름)
+ *   labels.tabs    → CategoryTabs(탭 추가 버튼 · 입력 · 삭제 이름)
+ *   labels.total   → ListToolbar (count로 건수 '문장'을 통째 교체)
+ *   labels.search  → SearchField (placeholder + **접근성 이름**)
+ *   deleteDialog   → CrudDialog  (취소 라벨까지 — 지금까지 '취소'로 고정돼 있었다)
+ *   formatters     → 표 셀·건수 (문구가 아니라 포맷이라 labels가 아니다)
+ */
+export const LabelsToChildren: Story = {
+  args: {
+    search: 'inline',
+    matchKeyword,
+    sortOptions: SORT_OPTIONS,
+    orderRows,
+    // 개별 카피 prop은 labels를 이긴다 — 통로를 증명하려면 비워야 한다
+    createLabel: undefined,
+    emptyText: undefined,
+    onTabAdd: () => {},
+    deleteConfirm: undefined,
+    formatters: { number: (value) => value.toLocaleString('en-US') },
+    labels: {
+      create: 'New',
+      loading: 'Loading…',
+      total: { count: (n) => `${n} of ${ROWS.length} items` },
+      search: { search: 'Search notices', searchPlaceholder: 'Search title or author…' },
+      bulk: { selectedCount: (n) => `${n} selected`, delete: 'Delete selected' },
+      deleteDialog: {
+        title: 'Delete the selected items?',
+        description: (ids) => `${ids.length} item(s) will be permanently removed.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep',
+      },
+      empty: { title: 'Nothing here yet', description: 'Try another filter.' },
+      emptyFiltered: { title: 'No matches', description: 'Clear the search and try again.' },
+      tabs: {
+        add: 'Add category',
+        addPlaceholder: 'Type a name, then Enter',
+        addField: 'New category name',
+        remove: (label) => `Remove ${label}`,
+      },
+      table: {
+        // header를 선언하지 않은 컬럼(index)만 이 값을 쓴다 — 나머지는 컬럼 선언이 이긴다
+        columns: { index: 'No.' },
+        toolbar: { csv: 'CSV', excel: 'Excel', columnPicker: 'Columns', columnPickerTitle: 'Show columns' },
+        pageSizeOption: (size) => `${size} per page`,
+        row: { more: (row) => `More actions for ${row}` },
+      },
+    },
+  },
+}

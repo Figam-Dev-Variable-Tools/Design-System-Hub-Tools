@@ -1,8 +1,35 @@
 import { useId, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
+import { mergeLabels, type LabelFn } from '../../shared/labels'
 import { Alert } from '../Alert/Alert'
 import { Placeholder } from '../../shared/placeholders'
 import styles from './DropZone.module.css'
+
+/**
+ * 드롭존 문구 — 컴포넌트 안에 박혀 있어 밖에서 갈아끼울 수 없던 것만 연다:
+ * 접근성 이름(영역의 role=button 이름)과 검증 실패 문구다.
+ *
+ * 보이는 안내문(label · draggingLabel)은 여기 다시 선언하지 않는다 —
+ * 이미 개별 prop으로 열려 있고 Figma DS/DropZone의 TEXT 속성 'label'과 짝이다.
+ * 같은 문구를 labels.label로 한 번 더 선언하면 한 글자에 이름이 둘 생긴다(CLAUDE.md §0-2).
+ */
+export type DropZoneLabels = {
+  /** 영역(role=button)의 접근성 이름 — 기본 '파일 업로드' */
+  upload?: string
+  /** multiple일 때의 접근성 이름 — 기본 '파일 여러 개 업로드' */
+  uploadMultiple?: string
+  /** 형식 불일치 — 기본: (name) => `${name}은(는) 허용되지 않는 형식입니다.` */
+  rejectedType?: LabelFn<string>
+  /** 용량 초과 — 인자가 둘이라 객체 하나로 받는다(§labels 규약 3) */
+  tooLarge?: LabelFn<{ name: string; maxSizeMb: number }>
+}
+
+export const DEFAULT_DROP_ZONE_LABELS: Required<DropZoneLabels> = {
+  upload: '파일 업로드',
+  uploadMultiple: '파일 여러 개 업로드',
+  rejectedType: (name) => `${name}은(는) 허용되지 않는 형식입니다.`,
+  tooLarge: ({ name, maxSizeMb }) => `${name}은(는) ${maxSizeMb}MB를 초과합니다.`,
+}
 
 export type DropZoneProps = {
   /** 검증(accept·maxSizeMb)을 통과한 파일만 전달된다 */
@@ -37,6 +64,8 @@ export type DropZoneProps = {
   label?: string
   /** 드래그가 영역 위에 올라왔을 때의 라벨 — 기본 '여기에 놓으세요' */
   draggingLabel?: string
+  /** 보이지 않는 문구 — 접근성 이름과 검증 실패 문구(보이는 안내문은 label·draggingLabel이다) */
+  labels?: DropZoneLabels
 
   /**
    * 에러 아이콘 슬롯. 공용 Alert에는 아이콘 교체 축이 없어(showIcon 불리언뿐),
@@ -77,8 +106,11 @@ export function DropZone({
   showError = true,
   label = '파일을 끌어다 놓거나 클릭해서 선택하세요',
   draggingLabel = '여기에 놓으세요',
+  labels,
   errorIcon,
 }: DropZoneProps) {
+  const L = mergeLabels(DEFAULT_DROP_ZONE_LABELS, labels)
+
   const inputRef = useRef<HTMLInputElement>(null)
   // dragenter/dragleave가 자식 요소마다 발생하므로 깊이를 세어 깜빡임을 막는다
   const depthRef = useRef(0)
@@ -102,11 +134,11 @@ export function DropZone({
 
     for (const file of files) {
       if (!matchesAccept(file, accept)) {
-        messages.push(`${file.name}은(는) 허용되지 않는 형식입니다.`)
+        messages.push(L.rejectedType(file.name))
         continue
       }
-      if (limitBytes != null && file.size > limitBytes) {
-        messages.push(`${file.name}은(는) ${maxSizeMb}MB를 초과합니다.`)
+      if (limitBytes != null && maxSizeMb != null && file.size > limitBytes) {
+        messages.push(L.tooLarge({ name: file.name, maxSizeMb }))
         continue
       }
       passed.push(file)
@@ -183,7 +215,7 @@ export function DropZone({
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
-        aria-label={multiple ? '파일 여러 개 업로드' : '파일 업로드'}
+        aria-label={multiple ? L.uploadMultiple : L.upload}
         aria-describedby={describedBy === '' ? undefined : describedBy}
         // 드래그 상태 확인용 — 테스트/스토리에서 [data-dragging="true"]로 잡을 수 있다
         data-dragging={dragging ? 'true' : 'false'}

@@ -361,3 +361,86 @@ export const WithRails: Story = {
     ),
   },
 }
+
+/**
+ * 셸 → 자식 통과 축 — 폼 화면의 글자가 **전부** 셸의 labels 하나로 갈린다.
+ *
+ * 지금까지 셸은 자식에게 문구를 흘려보내지 않아, 섹션 밴드의 '사용'과 업로드 영역의 보이지 않는 문구
+ * (접근성 이름 · '10MB를 초과합니다' 같은 검증 실패 문구)는 갈아끼울 방법이 없었다.
+ *   labels.toggle   → FormSection (밴드 좌측 문구 + 스위치 ON/OFF)
+ *   labels.dropZone → DropZone    (접근성 이름 · 검증 실패 문구)
+ *   labels.image    → 이미지 필드 (삭제 버튼 · 드롭존 안내문)
+ *   requiredMark    → FieldRow    (문구가 아니라 장식이라 labels가 아니라 prop이다)
+ *
+ * 파일 규칙에 어긋나는 파일을 끌어다 놓으면 검증 실패 문구까지 영문으로 나온다(통로가 실제로 닿는다).
+ */
+function LabelsToChildrenDemo() {
+  const [value, setValue] = useState<DemoValue>(EMPTY)
+
+  return (
+    <AdminFormPage<DemoValue>
+      value={value}
+      onChange={setValue}
+      title="New portfolio"
+      description="Same shell, English copy — every string comes from labels."
+      // FieldRow의 '*' 대신 화면 관례를 따른다(장식이라 스크린리더 낭독에는 끼어들지 않는다)
+      requiredMark=" (required)"
+      sections={[
+        {
+          key: 'basic',
+          title: 'Basics',
+          fields: [
+            { kind: 'text', key: 'name', label: 'Name', required: true, span: 2 },
+            { kind: 'select', key: 'category', label: 'Category', span: 1, options: CATEGORIES },
+          ],
+        },
+        {
+          key: 'media',
+          title: 'Media',
+          // toggleLabel(개별 prop)을 주지 않는다 — 밴드 문구가 labels.toggle.label로 열리는 것을 보인다
+          toggleable: true,
+          enabled: value.detailEnabled,
+          onEnabledChange: (detailEnabled) => setValue({ ...value, detailEnabled }),
+          fields: [
+            {
+              kind: 'image',
+              key: 'image',
+              label: 'Cover image',
+              ratio: '4x3',
+              accept: 'image/jpeg,image/png',
+              maxSizeMb: 10,
+            },
+          ],
+        },
+        {
+          key: 'publish',
+          title: 'Publish',
+          fields: [{ kind: 'toggle', key: 'active', label: 'Active' }],
+        },
+      ]}
+      labels={{
+        submitByMode: { create: 'Create', edit: 'Save' },
+        submitting: 'Saving…',
+        cancel: 'Cancel',
+        toggle: { label: 'Detail page', on: 'On', off: 'Off' },
+        image: {
+          removeLabel: 'Remove image',
+          dropLabel: 'Drag a file here or click to upload',
+          hint: 'JPG · PNG · up to 10MB',
+        },
+        dropZone: {
+          // 보이지 않는 문구 — 업로드 영역의 접근성 이름과 검증 실패 문구
+          upload: 'Upload cover image',
+          rejectedType: (name) => `${name} is not an allowed file type.`,
+          tooLarge: ({ name, maxSizeMb }) => `${name} is larger than ${maxSizeMb}MB.`,
+        },
+      }}
+      onSubmit={() => {}}
+      onCancel={() => {}}
+    />
+  )
+}
+
+export const LabelsToChildren: Story = {
+  render: () => <LabelsToChildrenDemo />,
+}

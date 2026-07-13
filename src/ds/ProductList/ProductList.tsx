@@ -8,6 +8,7 @@ import {
 } from '../../shared/tableExport'
 import {
   mergeLabels,
+  resolveText,
   resolveLabel,
   type ColumnLabels,
   type ConfirmDialogLabels,
@@ -307,11 +308,6 @@ function exportColumnsOf(L: ProductListLabelsResolved): ExportColumn<ProductRow>
 
 /** 값을 골라야 하는 확인창(카테고리) + 삭제 확인창 — 둘 다 대상 id를 따로 들고 있는다 */
 type DialogKind = 'category' | 'delete'
-
-/** 확인창 설명 — 문자열이면 그대로, 함수면 대상 건수를 끼워 넣는다 */
-function dialogText(description: string | LabelFn<number> | undefined, count: number): string | undefined {
-  return typeof description === 'function' ? description(count) : description
-}
 
 /**
  * ProductList — 상품 목록 화면 프리셋.
@@ -679,7 +675,7 @@ export function ProductList({
           open
           mode="edit"
           title={L.categoryDialog.title}
-          description={dialogText(L.categoryDialog.description, targetIds.length)}
+          description={resolveText(L.categoryDialog.description, targetIds.length)}
           confirmLabel={L.categoryDialog.confirmLabel}
           cancelLabel={L.categoryDialog.cancelLabel}
           onCancel={() => setDialog(null)}
@@ -705,7 +701,7 @@ export function ProductList({
           open
           mode="delete"
           title={L.deleteDialog.title}
-          description={dialogText(L.deleteDialog.description, targetIds.length)}
+          description={resolveText(L.deleteDialog.description, targetIds.length)}
           confirmLabel={L.deleteDialog.confirmLabel}
           cancelLabel={L.deleteDialog.cancelLabel}
           onCancel={() => setDialog(null)}

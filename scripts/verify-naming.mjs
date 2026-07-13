@@ -33,6 +33,37 @@ const ALLOWLIST = [
     reason: 'Figma 전용 합성 세트 — 대응 React 컴포넌트가 없다(문서/화면 샘플용).',
     owner: 'sb.hong',
   })),
+
+  // 접근성 이름(aria-label) — Figma TEXT 속성은 **텍스트 레이어에 바인딩**되어야 존재할 수 있는데
+  // (buildSet의 texts: { prop, layer, def }), 접근성 이름은 화면에 글자로 그려지지 않아 바인딩할
+  // 레이어 자체가 없다. 그래서 이 string prop들은 Figma 속성으로 표현이 **불가능**하다.
+  // 문구를 하드코딩으로 되돌리는 것이 유일한 대안이므로(§0-1 위반) 예외로 둔다.
+  ...[
+    ['SearchField', 'ariaLabel'], // 라벨 없는 검색 입력의 이름(툴바·필터바)
+    ['SearchField', 'clearLabel'], // × 버튼의 이름
+    ['Select', 'ariaLabel'], // 라벨 없는 트리거의 이름
+    ['Chip', 'removeLabel'], // × 버튼의 이름
+    ['DropZone', 'labels.upload'], // 드롭 영역(role=button)의 이름
+    ['DropZone', 'labels.uploadMultiple'],
+  ].map(([component, code]) => ({
+    component,
+    kind: 'text-missing',
+    figma: null,
+    code,
+    reason: '접근성 이름 — 그려지는 글자가 아니라 바인딩할 텍스트 레이어가 없다(Figma 속성으로 표현 불가).',
+    owner: 'sb.hong',
+  })),
+
+  // DS/CategoryTabs 생성기가 스스로 밝힌 범위: "추가·삭제 입력은 문서화 범위 밖 — Figma는 정적 세트다".
+  // 그 UI가 Figma에 없으므로 그 문구를 담을 TEXT 속성도 없다. 결정을 존중해 코드 쪽만 문구를 연다(§0-4).
+  ...['labels.add', 'labels.addPlaceholder', 'labels.addField'].map((code) => ({
+    component: 'CategoryTabs',
+    kind: 'text-missing',
+    figma: null,
+    code,
+    reason: 'Figma DS/CategoryTabs는 정적 세트다 — 카테고리 추가 입력 UI 자체가 문서화 범위 밖이다.',
+    owner: 'sb.hong',
+  })),
 ]
 
 // ── CLI ──────────────────────────────────────────────────────────────

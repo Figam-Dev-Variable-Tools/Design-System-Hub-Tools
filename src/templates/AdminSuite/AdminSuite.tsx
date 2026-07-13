@@ -2372,7 +2372,7 @@ export function AdminSuite({ initialMenu = 'dashboard' }: AdminSuiteProps = {}) 
             <PageSection title="매출 · 방문자 추이">
               <AdminChart
                 kind="bar"
-                labels={MONTHS}
+                categories={MONTHS}
                 series={[
                   { label: '매출(만원)', data: [820, 932, 901, 1290, 1330, 1520], tone: 'primary' },
                   { label: '방문자(백명)', data: [420, 532, 611, 690, 730, 810], tone: 'secondary' },
@@ -2382,7 +2382,7 @@ export function AdminSuite({ initialMenu = 'dashboard' }: AdminSuiteProps = {}) 
             <PageSection title="주문 비율">
               <AdminChart
                 kind="donut"
-                labels={['의류', '가방', '액세서리']}
+                categories={['의류', '가방', '액세서리']}
                 series={[{ label: '주문', data: [560, 320, 210] }]}
                 centerLabel="총 주문"
               />

@@ -34,6 +34,7 @@ import { Textarea } from '../Textarea/Textarea'
 import { Timeline, type TimelineItem } from '../Timeline/Timeline'
 import {
   mergeLabels,
+  resolveText,
   type ConfirmDialogLabels,
   type DeepPartialOneLevel,
   type EmptyLabels,
@@ -375,14 +376,6 @@ export const INQUIRY_STATUS_OPTIONS: SelectOption[] = (
 
 /** EmptyLabels.title은 옵셔널(공용 타입)이라 최종 기본값을 이름으로 둔다 */
 const DEFAULT_EMPTY_ASSIGNEE = DEFAULT_INQUIRY_DETAIL_LABELS.assigneeDialog.empty.title ?? ''
-
-/** ConfirmDialogLabels.description은 문자열이거나 인자 1개짜리 함수다 */
-function dialogDescription<A>(
-  description: string | LabelFn<A>,
-  arg: A,
-): string {
-  return typeof description === 'function' ? description(arg) : description
-}
 
 export type InquiryDetailProps = {
   header: InquiryHeader
@@ -1205,7 +1198,7 @@ export function InquiryDetail({
         open={memoEditing != null}
         mode="edit"
         title={L.memoEditDialog.title}
-        description={dialogDescription(L.memoEditDialog.description, [])}
+        description={resolveText(L.memoEditDialog.description, [])}
         confirmLabel={L.memoEditDialog.confirmLabel}
         onConfirm={commitMemoEdit}
         onCancel={() => setMemoEditing(null)}
@@ -1227,7 +1220,7 @@ export function InquiryDetail({
         title={L.memoDeleteDialog.title}
         description={
           memoDeleting != null
-            ? dialogDescription(L.memoDeleteDialog.description, memoDeleting)
+            ? resolveText(L.memoDeleteDialog.description, memoDeleting)
             : undefined
         }
         onConfirm={() => {
@@ -1242,7 +1235,7 @@ export function InquiryDetail({
         open={answerDeleteOpen}
         mode="delete"
         title={L.answerDeleteDialog.title}
-        description={dialogDescription(L.answerDeleteDialog.description, [])}
+        description={resolveText(L.answerDeleteDialog.description, [])}
         onConfirm={() => {
           if (answer != null) onAnswerDelete?.(answer)
           setAnswerDeleteOpen(false)
@@ -1255,7 +1248,7 @@ export function InquiryDetail({
         open={deleteOpen}
         mode="delete"
         title={L.deleteDialog.title}
-        description={dialogDescription(L.deleteDialog.description, header)}
+        description={resolveText(L.deleteDialog.description, header)}
         onConfirm={() => {
           onDelete?.()
           setDeleteOpen(false)

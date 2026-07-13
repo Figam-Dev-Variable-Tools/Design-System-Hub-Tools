@@ -34,8 +34,18 @@ const meta = {
     badge: { control: 'object' },
     actions: { control: false },
     showDivider: { control: 'boolean', description: 'sticky 하단 보더' },
-    size: { control: 'inline-radio', options: ['md', 'lg'], description: 'md=섹션 헤더 규격' },
+    size: {
+      control: 'inline-radio',
+      options: ['sm', 'md', 'lg'],
+      description: 'md=섹션 헤더 · sm=카드·드로어 안 헤더',
+    },
     headingLevel: { control: 'inline-radio', options: [1, 2], description: '제목 태그(h1/h2)' },
+    badges: { control: 'object', description: '상태가 둘 이상인 화면 — 선언 순서대로 붙는다' },
+    layout: {
+      control: 'inline-radio',
+      options: ['row', 'stack'],
+      description: 'stack=액션을 제목 아래로(액션 3개 이상·좁은 폭)',
+    },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -134,6 +144,68 @@ export const SectionSize: Story = {
     size: 'md',
     headingLevel: 2,
     actions: <Button variant="secondary" size="sm" label="초기화" />,
+  },
+}
+
+/**
+ * 카드·드로어 안 헤더 규격 — size="sm".
+ * 이 규격이 없어서 그런 자리는 이 조각을 버리고 제목 마크업을 직접 만들고 있었다.
+ */
+export const SmallSize: Story = {
+  args: {
+    title: '최근 활동',
+    description: '최근 30일 기준입니다.',
+    size: 'sm',
+    headingLevel: 2,
+    actions: <Button variant="secondary" appearance="outline" size="sm" label="전체 보기" />,
+  },
+  render: (args) => (
+    <div
+      style={{
+        width: 360,
+        padding: 'var(--ds-spacing-5)',
+        background: 'var(--ds-color-bg)',
+        border: 'var(--ds-border-width) solid var(--ds-color-border)',
+        borderRadius: 'var(--ds-radius-lg)',
+      }}
+    >
+      <PageHeaderBar {...args} />
+    </div>
+  ),
+}
+
+/**
+ * 배지 다중 + 강한 톤 — 상태가 둘 이상인 화면('임시저장' + '노출중')과
+ * solid로 세게 말해야 하는 상태('판매중지')를 모두 표현한다(Badge의 축을 막지 않는다).
+ */
+export const MultipleBadges: Story = {
+  args: {
+    title: '여름 프로모션 배너',
+    description: '노출 기간이 지나면 자동으로 종료됩니다.',
+    badge: { label: '판매중지', tone: 'error', appearance: 'solid' },
+    badges: [
+      { label: '임시저장', tone: 'warning' },
+      { label: '노출중', tone: 'success', appearance: 'outline' },
+    ],
+    actions: <Button variant="primary" size="sm" label="저장" />,
+  },
+}
+
+/** stack — 액션이 많아 한 줄에 다 들어가지 않는 화면. 타이틀이 눌리지 않는다 */
+export const StackLayout: Story = {
+  args: {
+    title: '상품 상세',
+    description: '상품 정보를 수정하고 즉시 반영합니다.',
+    layout: 'stack',
+    badge: { label: '판매중', tone: 'success' },
+    actions: (
+      <>
+        <Button variant="secondary" appearance="outline" size="sm" label="복제" />
+        <Button variant="secondary" appearance="outline" size="sm" label="미리보기" />
+        <Button variant="error" appearance="outline" size="sm" label="삭제" />
+        <Button variant="primary" size="sm" label="저장" />
+      </>
+    ),
   },
 }
 

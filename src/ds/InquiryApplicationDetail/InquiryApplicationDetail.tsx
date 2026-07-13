@@ -12,10 +12,89 @@ import { Select, type SelectOption } from '../Select/Select'
 import { Skeleton } from '../Skeleton/Skeleton'
 import { StatusTimeline, type StatusStep } from '../StatusTimeline/StatusTimeline'
 // 동의 배지 줄·메타 줄은 시공 문의 상세와 한 벌을 나눠 쓴다(같은 그림을 두 번 그리지 않는다)
-import { ConsentBadges, MetaLine, type ConsentBadgeItem } from '../InquiryManageDetail/consent'
+import {
+  ConsentBadges,
+  MetaLine,
+  DEFAULT_CONSENT_BADGE_LABELS,
+  type ConsentBadgeItem,
+  type ConsentBadgeLabels,
+} from '../InquiryManageDetail/consent'
+import { mergeLabels, type DeepPartialOneLevel, type EmptyLabels } from '../../shared/labels'
 
 /** 동의 항목 — 배지 한 개로 그려진다(동의 = success / 미동의 = secondary) */
 export type ApplicationConsent = ConsentBadgeItem
+
+export type InquiryApplicationDetailLabels = {
+  /** 카드 제목 — 본문 2개 + aside 2개 */
+  sections: {
+    applicant: string
+    answers: string
+    answersDescription: string
+    status: string
+    assignee: string
+  }
+  /** 신청자 카드의 필드·메타 라벨 */
+  applicant: {
+    name: string
+    phone: string
+    email: string
+    createdAt: string
+    updatedAt: string
+    updatedBy: string
+  }
+  /** aside 상태 Select */
+  status: { field: string; placeholder: string }
+  /** aside 담당자 Select */
+  assignee: { field: string; placeholder: string }
+  /** aside 메모 — title/description을 비우면 MemoBox 기본값이 그대로 쓰인다 */
+  memo: { title?: string; description?: string; placeholder: string }
+  actions: {
+    prev: string
+    next: string
+    list: string
+    edit: string
+    delete: string
+    statusApply: string
+  }
+  /** 문의 응답이 0건일 때 */
+  empty: EmptyLabels
+  /** 동의 배지 접미사 — consent.tsx와 공유한다 */
+  consent: ConsentBadgeLabels
+}
+
+/** EmptyLabels.title은 옵셔널(공용 타입)이라 최종 기본값을 이름으로 둔다 */
+const DEFAULT_EMPTY_ANSWERS = '등록된 문의 응답이 없습니다'
+
+export const DEFAULT_INQUIRY_APPLICATION_DETAIL_LABELS: InquiryApplicationDetailLabels = {
+  sections: {
+    applicant: '신청자 정보',
+    answers: '문의 응답',
+    answersDescription: '신청 폼에 입력된 답변입니다.',
+    status: '상태 변경',
+    assignee: '담당자',
+  },
+  applicant: {
+    name: '이름',
+    phone: '연락처',
+    email: '이메일',
+    createdAt: '신청일',
+    updatedAt: '수정일',
+    updatedBy: '수정자',
+  },
+  status: { field: '현재 상태', placeholder: '상태 선택' },
+  assignee: { field: '배정된 담당자', placeholder: '담당자 선택' },
+  memo: { placeholder: '상담 이력·처리 근거를 남겨 주세요.' },
+  actions: {
+    prev: '이전',
+    next: '다음',
+    list: '목록',
+    edit: '수정',
+    delete: '삭제',
+    statusApply: '상태 변경',
+  },
+  empty: { title: DEFAULT_EMPTY_ANSWERS },
+  consent: DEFAULT_CONSENT_BADGE_LABELS,
+}
 
 export type ApplicationApplicant = {
   name: string
@@ -57,6 +136,10 @@ export type InquiryApplicationDetailProps = {
   loading?: boolean
   /** 밀도 — 정의 목록 행 높이(compact 44 / comfortable 56)까지 함께 바뀐다 */
   density?: 'compact' | 'comfortable'
+  /** 본문 최대 폭 (기본 full) — 읽기 위주의 좁은 상세로 줄일 때 lg/md로 내린다 */
+  maxWidth?: 'md' | 'lg' | 'full'
+  /** 문구 — 넘기지 않으면 오늘과 같은 화면이 나온다 */
+  labels?: DeepPartialOneLevel<InquiryApplicationDetailLabels>
   /** footer */
   onList?: () => void
   onEdit?: () => void
@@ -92,14 +175,16 @@ export type InquiryApplicationDetailProps = {
 function ApplicantFields({
   applicant,
   density,
+  labels,
 }: {
   applicant: ApplicationApplicant
   density: 'compact' | 'comfortable'
+  labels: InquiryApplicationDetailLabels['applicant']
 }) {
   const fields = [
-    { label: '이름', value: applicant.name },
-    { label: '연락처', value: applicant.phone },
-    { label: '이메일', value: applicant.email },
+    { label: labels.name, value: applicant.name },
+    { label: labels.phone, value: applicant.phone },
+    { label: labels.email, value: applicant.email },
   ]
 
   return (
@@ -145,6 +230,8 @@ export function InquiryApplicationDetail({
   memoSaving = false,
   loading = false,
   density = 'compact',
+  maxWidth = 'full',
+  labels,
   onList,
   onEdit,
   onDelete,
@@ -161,6 +248,7 @@ export function InquiryApplicationDetail({
   editIcon,
   deleteIcon,
 }: InquiryApplicationDetailProps) {
+  const L = mergeLabels(DEFAULT_INQUIRY_APPLICATION_DETAIL_LABELS, labels)
   const consents = applicant.consents ?? []
   const showMemo = memo != null && onMemoChange != null
   const showAssignee = assigneeOptions != null && assigneeOptions.length > 0
@@ -169,9 +257,13 @@ export function InquiryApplicationDetail({
 
   // 값이 없는 메타 쌍은 아예 만들지 않는다 — '수정일 -' 같은 빈 자리가 남지 않게
   const metaItems = [
-    { label: '신청일', value: applicant.createdAt },
-    ...(applicant.updatedAt != null ? [{ label: '수정일', value: applicant.updatedAt }] : []),
-    ...(applicant.updatedBy != null ? [{ label: '수정자', value: applicant.updatedBy }] : []),
+    { label: L.applicant.createdAt, value: applicant.createdAt },
+    ...(applicant.updatedAt != null
+      ? [{ label: L.applicant.updatedAt, value: applicant.updatedAt }]
+      : []),
+    ...(applicant.updatedBy != null
+      ? [{ label: L.applicant.updatedBy, value: applicant.updatedBy }]
+      : []),
   ]
 
   const applicantBody = loading ? (
@@ -181,8 +273,10 @@ export function InquiryApplicationDetail({
     </div>
   ) : (
     <>
-      <ApplicantFields applicant={applicant} density={density} />
-      {showConsents && consents.length > 0 && <ConsentBadges consents={consents} />}
+      <ApplicantFields applicant={applicant} density={density} labels={L.applicant} />
+      {showConsents && consents.length > 0 && (
+        <ConsentBadges consents={consents} labels={L.consent} />
+      )}
       {showMeta && metaItems.length > 0 && <MetaLine items={metaItems} />}
     </>
   )
@@ -194,7 +288,11 @@ export function InquiryApplicationDetail({
     </div>
   ) : answers.length === 0 ? (
     /* 빈 상태는 공용 EmptyState 한 규격으로 */
-    <EmptyState kind="empty" title="등록된 문의 응답이 없습니다" />
+    <EmptyState
+      kind="empty"
+      title={L.empty.title ?? DEFAULT_EMPTY_ANSWERS}
+      description={L.empty.description}
+    />
   ) : (
     <QaList items={answers} />
   )
@@ -203,12 +301,12 @@ export function InquiryApplicationDetail({
     <AdminPageLayout
       title={title}
       description={description}
-      maxWidth="full"
+      maxWidth={maxWidth}
       density={density}
       aside={
         <>
           {showStatus && (
-            <PageSection title="상태 변경">
+            <PageSection title={L.sections.status}>
               {loading ? (
                 <Skeleton variant="block" height={160} />
               ) : (
@@ -217,11 +315,11 @@ export function InquiryApplicationDetail({
                     <StatusTimeline steps={statusSteps} direction="vertical" />
                   )}
                   <Select
-                    label="현재 상태"
+                    label={L.status.field}
                     value={status}
                     options={statusOptions}
                     onChange={onStatusChange}
-                    placeholder="상태 선택"
+                    placeholder={L.status.placeholder}
                   />
                 </div>
               )}
@@ -229,16 +327,16 @@ export function InquiryApplicationDetail({
           )}
 
           {showAssignee && (
-            <PageSection title="담당자">
+            <PageSection title={L.sections.assignee}>
               {loading ? (
                 <Skeleton variant="block" height={44} />
               ) : (
                 <Select
-                  label="배정된 담당자"
+                  label={L.assignee.field}
                   value={assignee ?? null}
                   options={assigneeOptions}
                   onChange={onAssigneeChange}
-                  placeholder="담당자 선택"
+                  placeholder={L.assignee.placeholder}
                 />
               )}
             </PageSection>
@@ -250,7 +348,9 @@ export function InquiryApplicationDetail({
               onChange={onMemoChange}
               onSave={onMemoSave}
               saving={memoSaving}
-              placeholder="상담 이력·처리 근거를 남겨 주세요."
+              title={L.memo.title}
+              description={L.memo.description}
+              placeholder={L.memo.placeholder}
             />
           )}
         </>
@@ -263,7 +363,7 @@ export function InquiryApplicationDetail({
                 variant="secondary"
                 appearance="outline"
                 size="md"
-                label="이전"
+                label={L.actions.prev}
                 disabled={!hasPrev || onPrev == null}
                 showLeftIcon
                 leftIcon={prevIcon ?? <ChevronLeft size={16} />}
@@ -273,7 +373,7 @@ export function InquiryApplicationDetail({
                 variant="secondary"
                 appearance="outline"
                 size="md"
-                label="다음"
+                label={L.actions.next}
                 disabled={!hasNext || onNext == null}
                 showRightIcon
                 rightIcon={nextIcon ?? <ChevronRight size={16} />}
@@ -287,7 +387,7 @@ export function InquiryApplicationDetail({
               variant="secondary"
               appearance="outline"
               size="md"
-              label="목록"
+              label={L.actions.list}
               showLeftIcon
               leftIcon={<List size={16} />}
               onClick={onList}
@@ -298,7 +398,7 @@ export function InquiryApplicationDetail({
               variant="error"
               appearance="outline"
               size="md"
-              label="삭제"
+              label={L.actions.delete}
               showLeftIcon
               leftIcon={deleteIcon ?? <Trash2 size={16} />}
               onClick={onDelete}
@@ -308,20 +408,25 @@ export function InquiryApplicationDetail({
             <Button
               variant="secondary"
               size="md"
-              label="수정"
+              label={L.actions.edit}
               showLeftIcon
               leftIcon={editIcon ?? <Pencil size={16} />}
               onClick={onEdit}
             />
           )}
           {onStatusApply != null && (
-            <Button variant="primary" size="md" label="상태 변경" onClick={onStatusApply} />
+            <Button
+              variant="primary"
+              size="md"
+              label={L.actions.statusApply}
+              onClick={onStatusApply}
+            />
           )}
         </>
       }
     >
-      <PageSection title="신청자 정보">{applicantBody}</PageSection>
-      <PageSection title="문의 응답" description="신청 폼에 입력된 답변입니다.">
+      <PageSection title={L.sections.applicant}>{applicantBody}</PageSection>
+      <PageSection title={L.sections.answers} description={L.sections.answersDescription}>
         {answersBody}
       </PageSection>
     </AdminPageLayout>

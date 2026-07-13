@@ -15,7 +15,11 @@ const meta = {
   argTypes: {
     variant: { control: 'inline-radio', options: ['spinner', 'dots'] },
     size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
-    label: { control: 'text' },
+    label: {
+      control: 'text',
+      description: '인디케이터 아래 보이는 글자 — 있으면 접근성 이름도 겸한다',
+    },
+    labels: { control: false, description: '접근성 이름(loading) — label을 넘기면 그쪽이 이긴다' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -26,6 +30,22 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
+
+/**
+ * 문구 오버라이드 — 글자 없는 스피너에도 접근성 이름은 남아야 한다(기본 '로딩 중').
+ * label(보이는 글자)을 주면 그쪽이 이름을 가져가므로, 여기서는 label을 비우고 labels만 넘긴다.
+ */
+export const Labels: Story = {
+  args: { label: undefined, labels: { loading: 'Loading' } },
+  render: (args) => (
+    <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+      {/* 이름만 영문으로 바뀐다(화면에는 글자가 없다) */}
+      <Loading {...args} />
+      {/* 글자까지 영문으로 — label이 이름을 겸한다 */}
+      <Loading {...args} label="Loading…" />
+    </div>
+  ),
+}
 
 export const States: Story = {
   render: () => (

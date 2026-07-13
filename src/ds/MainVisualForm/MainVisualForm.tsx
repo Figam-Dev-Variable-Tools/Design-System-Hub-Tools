@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { AdminFormPage, type AdminFormField } from '../AdminFormPage/AdminFormPage'
 import { Callout } from '../Callout/Callout'
 import { Toggle } from '../Toggle/Toggle'
+import { mergeLabels, type DeepPartialOneLevel } from '../../shared/labels'
 import styles from './MainVisualForm.module.css'
 
 /* ── 값 ──────────────────────────────────────────────────────────────────── */
@@ -98,6 +99,124 @@ const DEFAULT_SHOW: Required<MainVisualShow> = {
   help: true,
 }
 
+/* ── 문구 ────────────────────────────────────────────────────────────────── */
+
+/**
+ * 화면에 나오는 모든 글자 — 값(value)과 섹션 후보(sections)만 데이터다.
+ * 중첩은 표면 기준 1단계다(sections / fields / placeholders / helpers / image / …).
+ */
+export type MainVisualFormLabels = {
+  /** 페이지 헤더 타이틀 */
+  title: string
+  /** 헤더 상태 배지 — value.active에 따라 갈린다 */
+  status: { active: string; inactive: string }
+  /** 섹션 카드 제목(카드 번호 1~4는 고정이다) */
+  sections: { banner: string; copy: string; image: string; link: string }
+  /** 섹션 카드 설명 */
+  sectionDescriptions: { banner: string }
+  /** 2번 섹션의 밴드 스위치(value.useCopy) */
+  copyToggle: { label: string; description: string; disabledHint: string }
+  /** 필드 라벨 */
+  fields: {
+    section: string
+    title: string
+    overline: string
+    menuLabel: string
+    buttonLabel: string
+    image: string
+    link: string
+  }
+  /** 필드 플레이스홀더 */
+  placeholders: {
+    section: string
+    title: string
+    overline: string
+    menuLabel: string
+    buttonLabel: string
+    link: string
+  }
+  /** 필드 보조설명(FieldRow 설명 줄) */
+  helpers: { buttonLabel: string; link: string }
+  /** 섹션 하단 도움말(Callout) */
+  help: { title: string; banner: string; copy: string }
+  /** 이미지 블록 */
+  image: {
+    /** 썸네일 삭제 버튼의 접근성 이름 */
+    removeLabel: string
+    /** 드롭존 하단 제약 안내 */
+    hint: string
+    /** 드롭존 안 문구 — 이미 이미지가 있으면 '교체', 없으면 '선택' */
+    dropReplace: string
+    dropSelect: string
+  }
+  /** 4번 섹션의 '활성화' 밴드(value.active) */
+  visibility: {
+    label: string
+    on: string
+    off: string
+    /** 켜져 있을 때/꺼져 있을 때의 설명 */
+    onDescription: string
+    offDescription: string
+  }
+  /** 액션 버튼 */
+  actions: { save: string; cancel: string; saving: string }
+}
+
+export const DEFAULT_MAIN_VISUAL_FORM_LABELS: MainVisualFormLabels = {
+  title: '메인 비주얼 수정',
+  status: { active: '활성', inactive: '비활성' },
+  sections: { banner: '배너 구분', copy: '문구·콘텐츠', image: '이미지', link: '링크·노출' },
+  sectionDescriptions: {
+    banner: '노출 위치(섹션)는 목록 탭에서 정해지며 고정됩니다. 배너 형태만 선택합니다.',
+  },
+  copyToggle: {
+    label: '문구 사용',
+    description: '이미지 위에 제목·문구를 함께 노출합니다.',
+    disabledHint: '문구를 사용하지 않으면 배너 이미지만 노출됩니다.',
+  },
+  fields: {
+    section: '섹션',
+    title: '제목',
+    overline: '오버라인 문구',
+    menuLabel: '우측 메뉴 라벨',
+    buttonLabel: '버튼 문구',
+    image: '배너 이미지(대표)',
+    link: '링크 URL',
+  },
+  placeholders: {
+    section: '섹션을 선택하세요',
+    title: '예: 사무실 이전, 중고 가구로 예산을 아끼세요',
+    overline: '예: 신규 입고',
+    menuLabel: '예: 중고 가구',
+    buttonLabel: '예: 매물 보러가기',
+    link: 'https://spaceplanning.ai/used',
+  },
+  helpers: {
+    buttonLabel: '비우면 버튼이 노출되지 않습니다.',
+    link: '비우면 배너를 눌러도 이동하지 않습니다.',
+  },
+  help: {
+    title: '도움말',
+    banner:
+      '섹션은 저장 후 변경할 수 없습니다. 다른 섹션에 노출하려면 해당 섹션 목록에서 새로 등록하세요.',
+    copy: '오버라인 문구는 제목 위 작은 글씨로, 우측 메뉴 라벨은 메인 우측 퀵메뉴에 표시됩니다. 제목은 두 줄(60자) 안으로 맞추는 것을 권장합니다.',
+  },
+  image: {
+    removeLabel: '배너 이미지 삭제',
+    hint: 'JPG·PNG 이미지 · 최대 10MB',
+    dropReplace: '다른 이미지를 끌어다 놓거나 클릭해서 교체하세요',
+    dropSelect: '이미지를 끌어다 놓거나 클릭해서 선택하세요',
+  },
+  visibility: {
+    label: '활성화',
+    on: 'ON',
+    off: 'OFF',
+    onDescription: '클라이언트 페이지에 노출됩니다.',
+    offDescription: '저장해도 클라이언트 페이지에 노출되지 않습니다.',
+  },
+  actions: { save: '저장', cancel: '취소', saving: '저장 중…' },
+}
+
 /* ── 목데이터 ────────────────────────────────────────────────────────────── */
 
 /** 배너가 붙을 수 있는 섹션 — 목록 탭과 같은 축이다 */
@@ -106,6 +225,9 @@ const SECTION_OPTIONS: MainVisualSectionOption[] = [
   { value: 'rental', label: '렌탈' },
   { value: 'construction', label: '시공' },
 ]
+
+/** 업로드 제약 — 안내 문구(labels.image.hint)와 DropZone 검증이 같은 상한을 본다 */
+const MAX_IMAGE_MB = 10
 
 /** 신규 등록 시작값 */
 export const EMPTY_MAIN_VISUAL_VALUE: MainVisualValue = {
@@ -127,6 +249,11 @@ export type MainVisualFormProps = {
   onSave?: () => void
   onCancel?: () => void
   show?: MainVisualShow
+  /** 문구 — 개별 prop(saveLabel·imageHint …)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<MainVisualFormLabels>
+  /** 목록 밀도 — 페이지 리듬을 다른 폼과 맞춘다 */
+  density?: 'compact' | 'comfortable'
+  maxWidth?: 'md' | 'lg' | 'full'
 
   /**
    * 올린 이미지의 썸네일 블록(미리보기 + 삭제 버튼). 기본 true.
@@ -140,17 +267,17 @@ export type MainVisualFormProps = {
   removeImageIcon?: ReactNode
 
   /* ── 문구 (없으면 기존 기본 문구 그대로) ── */
-  /** 썸네일 삭제 버튼의 접근성 이름 — 기본 '배너 이미지 삭제' */
+  /** @deprecated labels.image.removeLabel을 쓴다(개별 prop이 우선한다) */
   removeImageLabel?: string
-  /** 드롭존 안내 문구 — 기본은 이미지 유무에 따라 '교체/선택' 문구가 갈린다 */
+  /** @deprecated labels.image.dropReplace / dropSelect를 쓴다. 주면 이미지 유무와 무관하게 이 문구가 뜬다 */
   dropLabel?: string
-  /** 드롭존 하단 제약 안내 — 기본 'JPG·PNG 이미지 · 최대 10MB' */
+  /** @deprecated labels.image.hint를 쓴다 */
   imageHint?: string
-  /** 저장 버튼 — 기본 '저장' */
+  /** @deprecated labels.actions.save를 쓴다 */
   saveLabel?: string
-  /** 저장 중 버튼 문구 — 기본 '저장 중…' */
+  /** @deprecated labels.actions.saving을 쓴다 */
   savingLabel?: string
-  /** 하단 취소 버튼 — 기본 '취소' */
+  /** @deprecated labels.actions.cancel을 쓴다 */
   cancelLabel?: string
 }
 
@@ -177,15 +304,24 @@ export function MainVisualForm({
   onSave,
   onCancel,
   show,
+  labels,
+  density = 'compact',
+  maxWidth = 'lg',
   showPreview = true,
   removeImageIcon,
-  removeImageLabel = '배너 이미지 삭제',
+  removeImageLabel,
   dropLabel,
-  imageHint = 'JPG·PNG 이미지 · 최대 10MB',
-  saveLabel = '저장',
-  savingLabel = '저장 중…',
-  cancelLabel = '취소',
+  imageHint,
+  saveLabel,
+  savingLabel,
+  cancelLabel,
 }: MainVisualFormProps) {
+  // 우선순위: 개별 prop > labels > 기본값. mergeLabels는 undefined를 무시한다.
+  const L = mergeLabels(mergeLabels(DEFAULT_MAIN_VISUAL_FORM_LABELS, labels), {
+    image: { hint: imageHint, removeLabel: removeImageLabel },
+    actions: { save: saveLabel, cancel: cancelLabel, saving: savingLabel },
+  })
+
   const s = { ...DEFAULT_SHOW, ...show }
 
   const hasImage = value.image != null && value.image !== ''
@@ -197,11 +333,11 @@ export function MainVisualForm({
     bannerFields.push({
       kind: 'select',
       key: 'section',
-      label: '섹션',
+      label: L.fields.section,
       required: true,
       span: 1,
       options: sections,
-      placeholder: '섹션을 선택하세요',
+      placeholder: L.placeholders.section,
     })
   }
 
@@ -211,9 +347,8 @@ export function MainVisualForm({
       kind: 'custom',
       key: 'banner-help',
       render: () => (
-        <Callout tone="info" title="도움말">
-          섹션은 저장 후 변경할 수 없습니다. 다른 섹션에 노출하려면 해당 섹션 목록에서 새로
-          등록하세요.
+        <Callout tone="info" title={L.help.title}>
+          {L.help.banner}
         </Callout>
       ),
     })
@@ -226,10 +361,10 @@ export function MainVisualForm({
     copyFields.push({
       kind: 'textarea',
       key: 'title',
-      label: '제목',
+      label: L.fields.title,
       required: true,
       span: 3,
-      placeholder: '예: 사무실 이전, 중고 가구로 예산을 아끼세요',
+      placeholder: L.placeholders.title,
       rows: 2,
       maxLength: 60,
       showCounter: true,
@@ -240,9 +375,9 @@ export function MainVisualForm({
     copyFields.push({
       kind: 'text',
       key: 'overline',
-      label: '오버라인 문구',
+      label: L.fields.overline,
       span: 1,
-      placeholder: '예: 신규 입고',
+      placeholder: L.placeholders.overline,
     })
   }
 
@@ -250,9 +385,9 @@ export function MainVisualForm({
     copyFields.push({
       kind: 'text',
       key: 'menuLabel',
-      label: '우측 메뉴 라벨',
+      label: L.fields.menuLabel,
       span: 1,
-      placeholder: '예: 중고 가구',
+      placeholder: L.placeholders.menuLabel,
     })
   }
 
@@ -260,10 +395,10 @@ export function MainVisualForm({
     copyFields.push({
       kind: 'text',
       key: 'buttonLabel',
-      label: '버튼 문구',
-      description: '비우면 버튼이 노출되지 않습니다.',
+      label: L.fields.buttonLabel,
+      description: L.helpers.buttonLabel,
       span: 1,
-      placeholder: '예: 매물 보러가기',
+      placeholder: L.placeholders.buttonLabel,
     })
   }
 
@@ -272,9 +407,8 @@ export function MainVisualForm({
       kind: 'custom',
       key: 'copy-help',
       render: () => (
-        <Callout tone="info" title="도움말">
-          오버라인 문구는 제목 위 작은 글씨로, 우측 메뉴 라벨은 메인 우측 퀵메뉴에 표시됩니다.
-          제목은 두 줄(60자) 안으로 맞추는 것을 권장합니다.
+        <Callout tone="info" title={L.help.title}>
+          {L.help.copy}
         </Callout>
       ),
     })
@@ -287,24 +421,21 @@ export function MainVisualForm({
     imageFields.push({
       kind: 'image',
       key: 'image',
-      label: '배너 이미지(대표)',
+      label: L.fields.image,
       required: true,
       layout: 'row',
       ratio: '16x9',
       previewWidth: 200,
       remove: 'round',
-      removeLabel: removeImageLabel,
+      removeLabel: L.image.removeLabel,
       removeIcon: removeImageIcon,
       accept: 'image/jpeg,image/png',
-      maxSizeMb: 10,
-      hint: imageHint,
+      maxSizeMb: MAX_IMAGE_MB,
+      hint: L.image.hint,
       // 드롭존 문구는 이 화면의 톤(weight 400)을 지킨다 — 셸의 기본 라벨 규격보다 약하게 둔다
       dropLabel: (
         <span className={styles.dropLabel}>
-          {dropLabel ??
-            (hasImage
-              ? '다른 이미지를 끌어다 놓거나 클릭해서 교체하세요'
-              : '이미지를 끌어다 놓거나 클릭해서 선택하세요')}
+          {dropLabel ?? (hasImage ? L.image.dropReplace : L.image.dropSelect)}
         </span>
       ),
       showPreview,
@@ -318,10 +449,10 @@ export function MainVisualForm({
     linkFields.push({
       kind: 'text',
       key: 'link',
-      label: '링크 URL',
-      description: '비우면 배너를 눌러도 이동하지 않습니다.',
+      label: L.fields.link,
+      description: L.helpers.link,
       span: 2,
-      placeholder: 'https://spaceplanning.ai/used',
+      placeholder: L.placeholders.link,
     })
   }
 
@@ -337,11 +468,9 @@ export function MainVisualForm({
       render: ({ value: v, patch, disabled }) => (
         <div className={[styles.band, v.active ? styles.bandOn : styles.bandOff].join(' ')}>
           <div className={styles.bandText}>
-            <span className={styles.bandLabel}>활성화</span>
+            <span className={styles.bandLabel}>{L.visibility.label}</span>
             <span className={styles.bandDesc}>
-              {v.active
-                ? '클라이언트 페이지에 노출됩니다.'
-                : '저장해도 클라이언트 페이지에 노출되지 않습니다.'}
+              {v.active ? L.visibility.onDescription : L.visibility.offDescription}
             </span>
           </div>
           <Toggle
@@ -349,7 +478,7 @@ export function MainVisualForm({
             onChange={(active) => patch({ active })}
             size="sm"
             disabled={disabled}
-            label={v.active ? 'ON' : 'OFF'}
+            label={v.active ? L.visibility.on : L.visibility.off}
           />
         </div>
       ),
@@ -365,40 +494,41 @@ export function MainVisualForm({
         {
           key: 'banner',
           index: 1,
-          title: '배너 구분',
-          description:
-            '노출 위치(섹션)는 목록 탭에서 정해지며 고정됩니다. 배너 형태만 선택합니다.',
+          title: L.sections.banner,
+          description: L.sectionDescriptions.banner,
           fields: bannerFields,
         },
         {
           key: 'copy',
           index: 2,
-          title: '문구·콘텐츠',
+          title: L.sections.copy,
           toggleable: true,
-          toggleLabel: '문구 사용',
-          toggleDescription: '이미지 위에 제목·문구를 함께 노출합니다.',
+          toggleLabel: L.copyToggle.label,
+          toggleDescription: L.copyToggle.description,
           enabled: value.useCopy,
           onEnabledChange: (useCopy) => onChange({ ...value, useCopy }),
-          disabledHint: '문구를 사용하지 않으면 배너 이미지만 노출됩니다.',
+          disabledHint: L.copyToggle.disabledHint,
           fields: copyFields,
         },
-        { key: 'image', index: 3, title: '이미지', fields: imageFields },
-        { key: 'link', index: 4, title: '링크·노출', fields: linkFields },
+        { key: 'image', index: 3, title: L.sections.image, fields: imageFields },
+        { key: 'link', index: 4, title: L.sections.link, fields: linkFields },
       ]}
-      title="메인 비주얼 수정"
+      title={L.title}
       headerBadge={
         value.active
-          ? { label: '활성', tone: 'success' }
-          : { label: '비활성', tone: 'secondary' }
+          ? { label: L.status.active, tone: 'success' }
+          : { label: L.status.inactive, tone: 'secondary' }
       }
-      submitLabel={saveLabel}
-      submittingLabel={savingLabel}
-      cancelLabel={cancelLabel}
+      submitLabel={L.actions.save}
+      submittingLabel={L.actions.saving}
+      cancelLabel={L.actions.cancel}
       submitting={saving}
       // 저장 중에는 모든 컨트롤이 잠긴다
       disabled={saving}
       onSubmit={onSave}
       onCancel={onCancel}
+      density={density}
+      maxWidth={maxWidth}
       show={{
         header: s.header,
         headerBadge: s.statusBadge,

@@ -157,18 +157,28 @@ const meta = {
     columns: 4,
     collapsible: true,
     defaultCollapsed: false,
+    collapsedCount: 4,
     loading: false,
     showLabels: true,
     showReset: true,
     showSearch: true,
-    resetLabel: '초기화',
-    searchLabel: '검색',
-    searchingLabel: '검색 중…',
-    expandLabel: '상세검색',
-    collapseLabel: '상세검색 접기',
+    appearance: 'card',
   },
   argTypes: {
-    columns: { control: 'inline-radio', options: [2, 3, 4] },
+    columns: {
+      control: 'inline-radio',
+      options: [1, 2, 3, 4],
+      description: '1은 좁아져도 접히지 않는다(사이드바·모바일)',
+    },
+    collapsedCount: {
+      control: 'number',
+      description: '접었을 때 보이는 필드 수 — columns를 줄이면 함께 줄인다',
+    },
+    appearance: {
+      control: 'inline-radio',
+      options: ['card', 'plain'],
+      description: 'plain은 카드 크롬을 벗긴다 — 이미 카드 안에 넣을 때',
+    },
     fields: { control: false },
     values: { control: false },
     onChange: { control: false },
@@ -179,11 +189,12 @@ const meta = {
     showReset: { control: 'boolean', description: '초기화 버튼' },
     showSearch: { control: 'boolean', description: '검색 버튼(즉시 조회 화면에서 끈다)' },
     collapseIcon: { control: false, description: '상세검색 토글 아이콘(기본 ChevronDown)' },
-    resetLabel: { control: 'text' },
-    searchLabel: { control: 'text' },
-    searchingLabel: { control: 'text' },
-    expandLabel: { control: 'text', description: "펼치기 라벨 — 뒤에 '(+N)'이 붙는다" },
-    collapseLabel: { control: 'text' },
+    labels: { control: false, description: '버튼·프리셋·플레이스홀더·섹션 이름' },
+    resetLabel: { control: 'text', description: '@deprecated — labels.reset' },
+    searchLabel: { control: 'text', description: '@deprecated — labels.submit' },
+    searchingLabel: { control: 'text', description: '@deprecated — labels.submitting' },
+    expandLabel: { control: 'text', description: '@deprecated — labels.expand' },
+    collapseLabel: { control: 'text', description: '@deprecated — labels.collapse' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -225,6 +236,44 @@ export const Loading: Story = {
   render: (args) => <SearchPanelDemo {...args} />,
 }
 
+/**
+ * 1열 — 사이드바·모바일용 세로 한 줄 검색.
+ * 접었을 때 보이는 필드 수도 함께 줄여야(collapsedCount) '한 줄'이라는 뜻이 유지된다.
+ */
+export const SingleColumn: Story = {
+  args: {
+    fields: COMPACT_FIELDS,
+    columns: 1,
+    collapsedCount: 2,
+    defaultCollapsed: true,
+  },
+  render: (args) => (
+    <div style={{ width: 320 }}>
+      <SearchPanelDemo {...args} />
+    </div>
+  ),
+}
+
+/**
+ * 카드 크롬 벗기기 — 이미 카드(PageSection) 안에 넣으면 보더가 두 겹으로 겹친다.
+ * 바깥 카드는 스토리가 그린 것이고, 안쪽 패널이 appearance="plain"이다.
+ */
+export const Plain: Story = {
+  args: { fields: COMPACT_FIELDS, columns: 3, collapsible: false },
+  render: (args) => (
+    <div
+      style={{
+        padding: 'var(--ds-spacing-5)',
+        background: 'var(--ds-color-bg)',
+        border: 'var(--ds-border-width) solid var(--ds-color-border)',
+        borderRadius: 'var(--ds-radius-lg)',
+      }}
+    >
+      <SearchPanelDemo {...args} appearance="plain" />
+    </div>
+  ),
+}
+
 // text/number/select/multiselect/daterange 5종 + span 병합
 export const FieldKinds: Story = {
   args: {
@@ -251,7 +300,10 @@ export const MinimalToggles: Story = {
   render: (args) => <SearchPanelDemo {...args} />,
 }
 
-/** 문구·아이콘 교체 — 화면 언어/아이콘 세트가 다른 제품에 맞춘다 */
+/**
+ * 문구·아이콘 교체 — 화면 언어/아이콘 세트가 다른 제품에 맞춘다.
+ * 개별 prop(resetLabel …)은 @deprecated지만 계속 동작하며, labels보다 우선한다.
+ */
 export const CustomCopy: Story = {
   args: {
     defaultCollapsed: true,
@@ -261,6 +313,38 @@ export const CustomCopy: Story = {
     searchingLabel: '조회 중…',
     expandLabel: '조건 더보기',
     collapseLabel: '조건 접기',
+  },
+  render: (args) => <SearchPanelDemo {...args} />,
+}
+
+/**
+ * 문구 오버라이드 — 버튼뿐 아니라 그동안 컴포넌트 안에 박혀 있던 것들까지 연다:
+ * 기간 프리셋('오늘'·'최근 7일'), kind별 기본 플레이스홀더('입력하세요'·'숫자만 입력'·'전체'),
+ * 접힘 표기('(+3)'), 그리고 섹션의 접근성 이름.
+ */
+export const Labels: Story = {
+  args: {
+    fields: KIND_FIELDS,
+    columns: 3,
+    collapsible: true,
+    collapsedCount: 3,
+    defaultCollapsed: true,
+    labels: {
+      panel: 'Search filters',
+      reset: 'Reset',
+      submit: 'Search',
+      submitting: 'Searching…',
+      expand: 'More filters',
+      collapse: 'Fewer filters',
+      hiddenCount: (count) => ` (${count} more)`,
+      presets: { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days' },
+      placeholders: {
+        text: 'Type here',
+        number: 'Numbers only',
+        select: 'All',
+        multiselect: 'All',
+      },
+    },
   },
   render: (args) => <SearchPanelDemo {...args} />,
 }

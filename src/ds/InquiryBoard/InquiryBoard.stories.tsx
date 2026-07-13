@@ -258,3 +258,55 @@ export const CustomCopy: Story = {
   },
   render: (args) => <InquiryBoard {...args} onCreate={() => {}} />,
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글 · 상태(배지·탭·검색 Select가 함께 쓴다) · 케밥의 '…으로 변경'(조사가 상태마다 달라 통짜 문자열) ·
+ * 검색 7조건 · 일괄 버튼까지 전부 labels가 소유한다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Inquiries',
+      description: 'Review consultation requests submitted from the website.',
+      create: 'New request',
+      columns: {
+        no: 'No.',
+        category: 'Category',
+        title: 'Subject',
+        applicant: 'Applicant',
+        phone: 'Phone',
+        email: 'Email',
+        appliedAt: 'Submitted',
+        updatedAt: 'Updated',
+        status: 'Status',
+      },
+      status: { pending: 'New', checking: 'In review', done: 'Done', hold: 'On hold' },
+      statusChange: {
+        pending: 'Mark as new',
+        checking: 'Mark as in review',
+        done: 'Mark as done',
+        hold: 'Put on hold',
+      },
+      tabs: { all: 'All' },
+      search: {
+        title: 'Subject',
+        titlePlaceholder: 'Search by subject',
+        applicant: 'Applicant',
+        applicantPlaceholder: 'Enter a name',
+        phone: 'Phone',
+        phonePlaceholder: '010-0000-0000',
+        email: 'Email',
+        emailPlaceholder: 'user@example.com',
+        period: 'Submitted',
+        status: 'Status',
+        category: 'Category',
+      },
+      bulk: { checking: 'Move to in review', done: 'Mark as done' },
+      rowMenu: { open: 'View details', delete: 'Delete' },
+      empty: { title: 'No requests received yet.' },
+      emptyCell: '—',
+    },
+  },
+  render: (args) => <InquiryBoardDemo {...args} />,
+}

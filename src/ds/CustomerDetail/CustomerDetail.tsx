@@ -14,6 +14,14 @@ import { PageHeaderBar } from '../PageHeaderBar/PageHeaderBar'
 import { PageSection } from '../PageContainer/PageContainer'
 import { Skeleton } from '../Skeleton/Skeleton'
 import { ActivityStats, type ActivityStat } from './activityStats'
+import {
+  mergeLabels,
+  type ConfirmDialogLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type Formatters,
+  type LabelFn,
+} from '../../shared/labels'
 import styles from './CustomerDetail.module.css'
 
 /** 배지 톤 — 회원 유형(일반/VIP/휴면/차단)에 맞춰 호출부가 고른다 */
@@ -116,6 +124,136 @@ export type CustomerDetailShow = {
  */
 export type CustomerDetailHeader = 'layout' | 'bar'
 
+/* ────────────────────────────────────────────────────────────
+ * 문구 — 같은 화면을 다른 도메인(회원/파트너/작가)에 쓸 때 여기만 갈아끼운다
+ * ──────────────────────────────────────────────────────────── */
+
+/**
+ * 가입일·최근 로그인 옆의 상대시간 — '3일 전' / '1년 8개월 전'.
+ * 숫자 포맷이 아니라 '일 전'이라는 말이므로 formatters가 아니라 labels에 둔다.
+ */
+export type RelativeTimeLabels = {
+  justNow: string
+  minutes: LabelFn<number>
+  hours: LabelFn<number>
+  days: LabelFn<number>
+  months: LabelFn<number>
+  years: LabelFn<number>
+  /** 년 + 개월이 함께 나올 때 */
+  yearsMonths: LabelFn<{ years: number; months: number }>
+}
+
+export type CustomerDetailLabels = {
+  /** 카드 제목 — adminMemo는 MemoBox의 카드 제목으로도 그대로 흘러간다 */
+  sections: { profile: string; activity: string; consent: string; adminMemo: string }
+  /** [회원 정보] 정의 표의 행 라벨 — 키는 show의 필드 키와 1:1 */
+  info: {
+    memberType: string
+    account: string
+    name: string
+    phone: string
+    birthday: string
+    gender: string
+    signupPath: string
+    memberId: string
+    /** 연락처 옆 인증 표시 */
+    verified: string
+    /** 이름 옆 차단 배지 */
+    blocked: string
+  }
+  /** 활동 통계 4칸 */
+  stats: {
+    orderCount: string
+    totalPurchase: string
+    inquiryCount: string
+    commentCount: string
+  }
+  /** 활동 정보의 날짜 행 */
+  activity: { joinedAt: string; lastLoginAt: string; noLogin: string }
+  /** 날짜 옆 상대시간 */
+  relativeTime: RelativeTimeLabels
+  /** 값 뒤에 붙는 단위 — 자릿수·로케일은 문구가 아니라 formatters가 맡는다 */
+  units: { count: string; currency: string }
+  /** 하단 액션 바 */
+  actions: { back: string; edit: string; block: string; unblock: string; delete: string }
+  /** 차단 확인창 — description은 대상 회원을 받는다 */
+  blockDialog: Required<Pick<ConfirmDialogLabels<CustomerProfile>, 'title' | 'description'>> &
+    Pick<ConfirmDialogLabels<CustomerProfile>, 'confirmLabel'>
+  /** 차단 해제 확인창 */
+  unblockDialog: Required<Pick<ConfirmDialogLabels<CustomerProfile>, 'title' | 'description'>> &
+    Pick<ConfirmDialogLabels<CustomerProfile>, 'confirmLabel'>
+  /** 삭제 확인창 */
+  deleteDialog: Required<Pick<ConfirmDialogLabels<CustomerProfile>, 'title' | 'description'>>
+  /** 동의 내역이 비었을 때 */
+  empty: EmptyLabels
+  /** 값이 없는 칸에 찍히는 문자 */
+  emptyCell: string
+}
+
+/** EmptyLabels.title은 옵셔널(공용 타입)이라 최종 기본값을 이름으로 둔다 */
+const DEFAULT_EMPTY_CONSENT = '동의 내역이 없습니다.'
+
+export const DEFAULT_CUSTOMER_DETAIL_LABELS: CustomerDetailLabels = {
+  sections: {
+    profile: '회원 정보',
+    activity: '활동 정보',
+    consent: '동의 정보',
+    adminMemo: '관리자 메모',
+  },
+  info: {
+    memberType: '회원 유형',
+    account: '계정(이메일)',
+    name: '이름',
+    phone: '연락처',
+    birthday: '생년월일',
+    gender: '성별',
+    signupPath: '가입 경로',
+    memberId: '회원 ID',
+    verified: '인증됨',
+    blocked: '차단됨',
+  },
+  stats: {
+    orderCount: '주문 수',
+    totalPurchase: '누적 구매금액',
+    inquiryCount: '문의',
+    commentCount: '댓글',
+  },
+  activity: { joinedAt: '가입일', lastLoginAt: '최근 로그인', noLogin: '기록 없음' },
+  relativeTime: {
+    justNow: '방금 전',
+    minutes: (n) => `${n}분 전`,
+    hours: (n) => `${n}시간 전`,
+    days: (n) => `${n}일 전`,
+    months: (n) => `${n}개월 전`,
+    years: (n) => `${n}년 전`,
+    yearsMonths: ({ years, months }) => `${years}년 ${months}개월 전`,
+  },
+  units: { count: '건', currency: '원' },
+  actions: { back: '목록', edit: '수정', block: '차단', unblock: '차단 해제', delete: '삭제' },
+  blockDialog: {
+    title: '회원을 차단할까요?',
+    description: (p) => `${p.name}(${p.email}) 님은 로그인과 주문이 즉시 차단됩니다.`,
+    confirmLabel: '차단',
+  },
+  unblockDialog: {
+    title: '차단을 해제할까요?',
+    description: (p) => `${p.name}(${p.email}) 님이 다시 로그인할 수 있습니다.`,
+    confirmLabel: '차단 해제',
+  },
+  deleteDialog: {
+    title: '회원을 삭제할까요?',
+    description: (p) =>
+      `${p.name}(${p.id}) 님의 계정과 활동 정보가 함께 삭제됩니다. 되돌릴 수 없습니다.`,
+  },
+  empty: { title: DEFAULT_EMPTY_CONSENT },
+  emptyCell: '-',
+}
+
+/** ConfirmDialogLabels.description은 문자열이거나 인자 1개짜리 함수다 */
+function dialogDescription<A>(description: string | LabelFn<A>, arg: A): string {
+  return typeof description === 'function' ? description(arg) : description
+}
+
 export type CustomerDetailProps = {
   profile: CustomerProfile
   activity: CustomerActivity
@@ -141,9 +279,17 @@ export type CustomerDetailProps = {
   show?: CustomerDetailShow
 
   /* ── 문구 — 같은 화면을 다른 도메인(회원/파트너/작가)에 쓸 때 라벨만 갈아끼운다 ── */
-  /** 동의 내역이 비었을 때의 제목 */
+  /** 문구 — 개별 prop(emptyTitle·emptyDescription)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<CustomerDetailLabels>
+  /** 숫자·통화 표기 — 로케일·자릿수는 문구가 아니라 포맷이다(단위는 labels.units) */
+  formatters?: Formatters
+  /**
+   * @deprecated labels.empty.title을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   emptyTitle?: string
-  /** 동의 내역 빈 상태 보조 설명 — 기본은 제목만 띄운다 */
+  /**
+   * @deprecated labels.empty.description을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   emptyDescription?: string
 
   /* ── 아이콘 슬롯 — 프로덕트마다 아이콘 세트가 달라 lucide 기본값만 갈아끼우게 연다 ── */
@@ -201,17 +347,9 @@ function resolveShow(show: CustomerDetailShow = {}): Required<CustomerDetailShow
   }
 }
 
-/** 원화 — 통화 기호 없이 '원'만 붙인다(표/통계에서 자릿수 정렬) */
-function formatKrw(value: number): string {
-  if (!Number.isFinite(value)) return '-'
-  return `${Math.round(value).toLocaleString('ko-KR')}원`
-}
-
-/** 건수 */
-function formatCount(value: number): string {
-  if (!Number.isFinite(value)) return '-'
-  return `${Math.round(value).toLocaleString('ko-KR')}건`
-}
+/** 자릿수 구분 — 통화 기호 없이 숫자만. 단위는 labels.units가 붙인다 */
+const DEFAULT_FORMAT_NUMBER: NonNullable<Formatters['number']> = (value) =>
+  Math.round(value).toLocaleString('ko-KR')
 
 /** 'YYYY-MM-DD HH:mm' / ISO 모두 받는다 — 공백 구분자는 T로 바꿔야 사파리에서 파싱된다 */
 function toDate(value: string): Date | null {
@@ -223,7 +361,12 @@ function toDate(value: string): Date | null {
  * 상대시간 — '3일 전' / '1년 8개월 전'.
  * 파싱 실패나 미래 시각이면 undefined를 돌려 hint 자리를 비운다(엉뚱한 문구를 만들지 않는다).
  */
-export function formatRelativeKo(value: string, now: Date = new Date()): string | undefined {
+export function formatRelativeKo(
+  value: string,
+  now: Date = new Date(),
+  /** 문구 — 상세 화면이 labels로 갈아끼운 문구를 그대로 흘려보낸다 */
+  labels: RelativeTimeLabels = DEFAULT_CUSTOMER_DETAIL_LABELS.relativeTime,
+): string | undefined {
   const date = toDate(value)
   if (date == null) return undefined
 
@@ -231,26 +374,30 @@ export function formatRelativeKo(value: string, now: Date = new Date()): string 
   if (diffMs < 0) return undefined
 
   const minutes = Math.floor(diffMs / 60_000)
-  if (minutes < 1) return '방금 전'
-  if (minutes < 60) return `${minutes}분 전`
+  if (minutes < 1) return labels.justNow
+  if (minutes < 60) return labels.minutes(minutes)
 
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}시간 전`
+  if (hours < 24) return labels.hours(hours)
 
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}일 전`
+  if (days < 30) return labels.days(days)
 
   const months = Math.floor(days / 30)
-  if (months < 12) return `${months}개월 전`
+  if (months < 12) return labels.months(months)
 
   const years = Math.floor(months / 12)
   const restMonths = months % 12
-  return restMonths === 0 ? `${years}년 전` : `${years}년 ${restMonths}개월 전`
+  return restMonths === 0 ? labels.years(years) : labels.yearsMonths({ years, months: restMonths })
 }
 
-/** 값이 비었으면 '-' — 표의 빈칸을 흐린 대시 하나로 통일한다 */
-function orDash(value: string | undefined): ReactNode {
-  return value != null && value.trim() !== '' ? value : <span className={styles.muted}>-</span>
+/** 값이 비었으면 emptyCell — 표의 빈칸을 흐린 대시 하나로 통일한다 */
+function orDash(value: string | undefined, emptyCell: string): ReactNode {
+  return value != null && value.trim() !== '' ? (
+    value
+  ) : (
+    <span className={styles.muted}>{emptyCell}</span>
+  )
 }
 
 /**
@@ -282,7 +429,9 @@ export function CustomerDetail({
   header = 'layout',
   headerActions,
   show,
-  emptyTitle = '동의 내역이 없습니다.',
+  labels,
+  formatters,
+  emptyTitle,
   emptyDescription,
   backIcon,
   editIcon,
@@ -301,11 +450,29 @@ export function CustomerDetail({
 
   const s = resolveShow(show)
 
-  const joinedHint = activity.joinedAtHint ?? formatRelativeKo(activity.joinedAt)
+  // 우선순위: 개별 prop(emptyTitle·emptyDescription) > labels > 기본값.
+  // mergeLabels는 그룹 안의 undefined를 걸러내므로, 넘기지 않은 개별 prop이 기본값을 지우지 않는다.
+  const L = mergeLabels(mergeLabels(DEFAULT_CUSTOMER_DETAIL_LABELS, labels), {
+    empty: { title: emptyTitle, description: emptyDescription },
+  })
+
+  const formatNumber = formatters?.number ?? DEFAULT_FORMAT_NUMBER
+  /** 건수 — 자릿수는 formatters, 단위는 labels */
+  const formatCount = (value: number) =>
+    Number.isFinite(value) ? `${formatNumber(value)}${L.units.count}` : L.emptyCell
+  /** 금액 — 통화 기호 없이 단위만 붙인다(표/통계에서 자릿수 정렬) */
+  const formatPrice =
+    formatters?.price ??
+    ((value: number) =>
+      Number.isFinite(value) ? `${formatNumber(value)}${L.units.currency}` : L.emptyCell)
+
+  const joinedHint =
+    activity.joinedAtHint ?? formatRelativeKo(activity.joinedAt, new Date(), L.relativeTime)
   const lastLoginHint =
     activity.lastLoginAt == null
       ? undefined
-      : (activity.lastLoginHint ?? formatRelativeKo(activity.lastLoginAt))
+      : (activity.lastLoginHint ??
+        formatRelativeKo(activity.lastLoginAt, new Date(), L.relativeTime))
 
   // ── 헤더 ──
   // AdminPageLayout에는 노드형 헤더 슬롯이 없다(title/description은 문자열이라 배지를 붙일 수 없다).
@@ -325,7 +492,7 @@ export function CustomerDetail({
   const infoItems: DefinitionItem[] = []
   if (s.memberType) {
     infoItems.push({
-      label: '회원 유형',
+      label: L.info.memberType,
       value: (
         <Badge
           variant={profile.memberTypeTone ?? 'secondary'}
@@ -336,14 +503,14 @@ export function CustomerDetail({
       ),
     })
   }
-  if (s.account) infoItems.push({ label: '계정(이메일)', value: orDash(profile.email) })
-  if (s.name) infoItems.push({ label: '이름', value: orDash(profile.name) })
+  if (s.account) infoItems.push({ label: L.info.account, value: orDash(profile.email, L.emptyCell) })
+  if (s.name) infoItems.push({ label: L.info.name, value: orDash(profile.name, L.emptyCell) })
   if (s.phone) {
     infoItems.push({
-      label: '연락처',
+      label: L.info.phone,
       value:
         profile.phone == null || profile.phone === '' ? (
-          orDash(undefined)
+          orDash(undefined, L.emptyCell)
         ) : (
           <span className={styles.phone}>
             <span className={styles.phoneNumber}>{profile.phone}</span>
@@ -351,28 +518,33 @@ export function CustomerDetail({
               // 인증됨 — 색은 아이콘만, 위계는 굵기로
               <span className={styles.verified}>
                 <ShieldCheck size={13} aria-hidden="true" />
-                인증됨
+                {L.info.verified}
               </span>
             )}
           </span>
         ),
     })
   }
-  if (s.birthday) infoItems.push({ label: '생년월일', value: orDash(profile.birthday) })
-  if (s.gender) infoItems.push({ label: '성별', value: orDash(profile.gender) })
+  if (s.birthday) {
+    infoItems.push({ label: L.info.birthday, value: orDash(profile.birthday, L.emptyCell) })
+  }
+  if (s.gender) infoItems.push({ label: L.info.gender, value: orDash(profile.gender, L.emptyCell) })
   if (s.signupPath) {
     infoItems.push({
-      label: '가입 경로',
-      value: orDash(profile.signupPath),
+      label: L.info.signupPath,
+      value: orDash(profile.signupPath, L.emptyCell),
       hint: profile.signupPathHint,
     })
   }
   if (s.memberId) {
-    infoItems.push({ label: '회원 ID', value: <span className={styles.muted}>{profile.id}</span> })
+    infoItems.push({
+      label: L.info.memberId,
+      value: <span className={styles.muted}>{profile.id}</span>,
+    })
   }
 
   const profileCard = !s.profile ? null : loading ? (
-    <PageSection key="profile" title="회원 정보">
+    <PageSection key="profile" title={L.sections.profile}>
       <div className={styles.skeletonProfile}>
         <Skeleton variant="circle" width={56} height={56} />
         <Skeleton variant="text" lines={2} width="240px" />
@@ -380,7 +552,7 @@ export function CustomerDetail({
       <Skeleton variant="block" width="100%" height={280} />
     </PageSection>
   ) : (
-    <PageSection key="profile" title="회원 정보">
+    <PageSection key="profile" title={L.sections.profile}>
       <div className={styles.profile}>
         <div className={styles.identity}>
           <Avatar name={profile.name} src={profile.avatarUrl} size="xl" />
@@ -392,7 +564,9 @@ export function CustomerDetail({
               {profile.signupBadge != null && profile.signupBadge !== '' && (
                 <Badge variant="secondary" appearance="soft" size="sm" label={profile.signupBadge} />
               )}
-              {blocked && <Badge variant="error" appearance="soft" size="sm" label="차단됨" />}
+              {blocked && (
+                <Badge variant="error" appearance="soft" size="sm" label={L.info.blocked} />
+              )}
             </span>
           </div>
         </div>
@@ -405,19 +579,19 @@ export function CustomerDetail({
 
   // ── 활동 정보 — 통계 2×2. 마크업은 두 상세 화면이 공유하는 ActivityStats 하나뿐이다 ──
   const statItems: ActivityStat[] = [
-    { label: '주문 수', value: formatCount(activity.orderCount) },
-    { label: '누적 구매금액', value: formatKrw(activity.totalPurchase) },
-    { label: '문의', value: formatCount(activity.inquiryCount) },
-    { label: '댓글', value: formatCount(activity.commentCount) },
+    { label: L.stats.orderCount, value: formatCount(activity.orderCount) },
+    { label: L.stats.totalPurchase, value: formatPrice(activity.totalPurchase) },
+    { label: L.stats.inquiryCount, value: formatCount(activity.inquiryCount) },
+    { label: L.stats.commentCount, value: formatCount(activity.commentCount) },
   ]
 
   const activityItems: DefinitionItem[] = [
-    { label: '가입일', value: orDash(activity.joinedAt), hint: joinedHint },
+    { label: L.activity.joinedAt, value: orDash(activity.joinedAt, L.emptyCell), hint: joinedHint },
     {
-      label: '최근 로그인',
+      label: L.activity.lastLoginAt,
       value:
         activity.lastLoginAt == null || activity.lastLoginAt === '' ? (
-          <span className={styles.muted}>기록 없음</span>
+          <span className={styles.muted}>{L.activity.noLogin}</span>
         ) : (
           activity.lastLoginAt
         ),
@@ -428,11 +602,11 @@ export function CustomerDetail({
   // 통계·날짜가 둘 다 꺼지면 카드 자체가 사라진다(제목만 남은 빈 카드 금지)
   const hasActivityBody = s.activityStats || s.activityDates
   const activityCard = !s.activity || !hasActivityBody ? null : loading ? (
-    <PageSection key="activity" title="활동 정보">
+    <PageSection key="activity" title={L.sections.activity}>
       <Skeleton variant="block" width="100%" height={168} />
     </PageSection>
   ) : (
-    <PageSection key="activity" title="활동 정보">
+    <PageSection key="activity" title={L.sections.activity}>
       <div className={styles.activity}>
         {s.activityStats && <ActivityStats items={statItems} />}
         {s.activityDates && <DefinitionList items={activityItems} columns={1} density="compact" />}
@@ -441,13 +615,18 @@ export function CustomerDetail({
   )
 
   const consentCard = !s.consent ? null : loading ? (
-    <PageSection key="consent" title="동의 정보">
+    <PageSection key="consent" title={L.sections.consent}>
       <Skeleton variant="text" lines={3} />
     </PageSection>
   ) : (
-    <PageSection key="consent" title="동의 정보">
+    <PageSection key="consent" title={L.sections.consent}>
       {consents.length === 0 ? (
-        <EmptyState compact kind="empty" title={emptyTitle} description={emptyDescription} />
+        <EmptyState
+          compact
+          kind="empty"
+          title={L.empty.title ?? DEFAULT_EMPTY_CONSENT}
+          description={L.empty.description}
+        />
       ) : (
         <ConsentList items={consents} />
       )}
@@ -455,7 +634,7 @@ export function CustomerDetail({
   )
 
   const memoCard = !s.adminMemo ? null : loading ? (
-    <PageSection key="memo" title="관리자 메모">
+    <PageSection key="memo" title={L.sections.adminMemo}>
       <Skeleton variant="block" width="100%" height={120} />
     </PageSection>
   ) : (
@@ -467,6 +646,7 @@ export function CustomerDetail({
       onSave={onMemoSave}
       maxLength={memoMaxLength}
       saving={memoSaving}
+      title={L.sections.adminMemo}
     />
   )
 
@@ -484,7 +664,7 @@ export function CustomerDetail({
           variant="secondary"
           appearance="outline"
           size="md"
-          label="목록"
+          label={L.actions.back}
           showLeftIcon
           leftIcon={backIcon ?? <List size={16} />}
           disabled={loading}
@@ -496,7 +676,7 @@ export function CustomerDetail({
         variant="secondary"
         appearance="outline"
         size="md"
-        label={blocked ? '차단 해제' : '차단'}
+        label={blocked ? L.actions.unblock : L.actions.block}
         showLeftIcon
         leftIcon={blockIcon ?? <Ban size={16} />}
         disabled={loading}
@@ -506,7 +686,7 @@ export function CustomerDetail({
         variant="error"
         appearance="outline"
         size="md"
-        label="삭제"
+        label={L.actions.delete}
         showLeftIcon
         leftIcon={deleteIcon ?? <Trash2 size={16} />}
         disabled={loading}
@@ -515,7 +695,7 @@ export function CustomerDetail({
       <Button
         variant="primary"
         size="md"
-        label="수정"
+        label={L.actions.edit}
         showLeftIcon
         leftIcon={editIcon ?? <Pencil size={16} />}
         disabled={loading}
@@ -545,13 +725,12 @@ export function CustomerDetail({
       <CrudDialog
         open={blockOpen}
         mode="delete"
-        title={blocked ? '차단을 해제할까요?' : '회원을 차단할까요?'}
-        description={
-          blocked
-            ? `${profile.name}(${profile.email}) 님이 다시 로그인할 수 있습니다.`
-            : `${profile.name}(${profile.email}) 님은 로그인과 주문이 즉시 차단됩니다.`
-        }
-        confirmLabel={blocked ? '차단 해제' : '차단'}
+        title={blocked ? L.unblockDialog.title : L.blockDialog.title}
+        description={dialogDescription(
+          blocked ? L.unblockDialog.description : L.blockDialog.description,
+          profile,
+        )}
+        confirmLabel={blocked ? L.unblockDialog.confirmLabel : L.blockDialog.confirmLabel}
         onConfirm={() => {
           onBlock?.(!blocked)
           setBlockOpen(false)
@@ -563,8 +742,8 @@ export function CustomerDetail({
       <CrudDialog
         open={deleteOpen}
         mode="delete"
-        title="회원을 삭제할까요?"
-        description={`${profile.name}(${profile.id}) 님의 계정과 활동 정보가 함께 삭제됩니다. 되돌릴 수 없습니다.`}
+        title={L.deleteDialog.title}
+        description={dialogDescription(L.deleteDialog.description, profile)}
         onConfirm={() => {
           onDelete?.()
           setDeleteOpen(false)

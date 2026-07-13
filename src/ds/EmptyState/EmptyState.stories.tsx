@@ -49,6 +49,7 @@ const meta = {
   argTypes: {
     icon: { control: false },
     onAction: { control: false },
+    labels: { control: false, description: '공용 EmptyLabels — 개별 prop이 있으면 그쪽이 이긴다' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -60,6 +61,24 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   render: (args) => <EmptyStateDemo {...args} />,
+}
+
+/**
+ * 문구 오버라이드 — 표·목록이 들고 있던 공용 EmptyLabels가 그대로 흘러 들어오는 자리다.
+ * 개별 prop(title …)을 함께 넘기면 그쪽이 이기므로, 여기서는 비우고 labels만 넘긴다.
+ */
+export const Labels: Story = {
+  args: { title: undefined, description: undefined, actionLabel: undefined },
+  render: () => (
+    <EmptyState
+      labels={{
+        title: 'No data yet',
+        description: 'Adjust your filters or add a new item.',
+        actionLabel: 'Add item',
+      }}
+      onAction={() => {}}
+    />
+  ),
 }
 
 export const States: Story = {

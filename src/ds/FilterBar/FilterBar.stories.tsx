@@ -61,6 +61,7 @@ const meta = {
     searchPlaceholder: '이름, 이메일 검색',
     filters: DEMO_FILTERS,
     filterValues: {},
+    appearance: 'plain',
   },
   argTypes: {
     onSearchChange: { control: false },
@@ -69,6 +70,13 @@ const meta = {
     onReset: { control: false },
     activeChips: { control: false },
     actions: { control: false },
+    appearance: {
+      control: 'inline-radio',
+      options: ['plain', 'card'],
+      description: 'card는 흰 면 + 보더를 입힌다 — 페이지 배경 위에 홀로 놓일 때',
+    },
+    searchPlaceholder: { control: 'text', description: '@deprecated — labels.searchPlaceholder' },
+    labels: { control: false, description: '검색 플레이스홀더 + 초기화 버튼 문구' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -107,6 +115,49 @@ export const WithActions: Story = {
           />
         </>
       }
+    />
+  ),
+}
+
+/**
+ * 문구 오버라이드 — 그동안 '초기화'는 컴포넌트 안에 박혀 있었다(SearchPanel만 열려 있었다).
+ * 이제 검색 플레이스홀더와 함께 labels 한 통로로 연다.
+ */
+export const Labels: Story = {
+  args: { searchPlaceholder: undefined },
+  render: (args) => (
+    <FilterBarDemo
+      {...args}
+      labels={{ searchPlaceholder: 'Search by name or email', reset: 'Reset' }}
+    />
+  ),
+}
+
+/**
+ * 크롬 — 기본은 배경·보더가 없다(카드 안에 놓는 화면들이 그렇게 쓴다).
+ * 페이지 배경 위에 홀로 놓을 때만 card로 영역을 만든다.
+ */
+export const Card: Story = {
+  render: (args) => <FilterBarDemo {...args} appearance="card" />,
+}
+
+/** 필터 폭 지정(width) — 옵션 라벨이 길면 넓혀 말줄임을 막는다 */
+export const FilterWidth: Story = {
+  render: (args) => (
+    <FilterBarDemo
+      {...args}
+      filters={[
+        { key: 'status', label: '상태', options: DEMO_FILTERS[0].options },
+        {
+          key: 'category',
+          label: '아주 긴 카테고리 이름',
+          options: [
+            { value: 'a', label: '실내 조경용 관엽식물' },
+            { value: 'b', label: '실외 조경용 자갈' },
+          ],
+          width: 220,
+        },
+      ]}
     />
   ),
 }

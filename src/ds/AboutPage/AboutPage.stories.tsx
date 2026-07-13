@@ -84,10 +84,18 @@ const meta = {
     showDivider: { control: 'boolean', description: '섹션 헤딩 아래 구분선' },
     showHeroScrim: { control: 'boolean', description: '히어로 이미지 위 흰 스크림' },
     ctaIcon: { control: false, description: 'CTA 버튼 우측 아이콘(기본 ArrowRight)' },
+    // 변형 축 — 기본값(4열 · solid)이 레퍼런스 시안이다
+    capabilityColumns: { control: 'inline-radio', options: [2, 3, 4], description: '역량 카드 열 수' },
+    statColumns: { control: 'inline-radio', options: [2, 3, 4], description: '숫자 성과 열 수' },
+    ctaAppearance: { control: 'inline-radio', options: ['solid', 'outline', 'ghost'] },
+    labels: { control: 'object' },
     hero: { control: false },
     intro: { control: false },
     capabilities: { control: false },
     stats: { control: false },
+    capabilitiesCopy: { control: false },
+    statsCopy: { control: false },
+    cta: { control: false },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -168,5 +176,73 @@ export const TogglesOff: Story = {
 export const MailCta: Story = {
   args: {
     ctaIcon: <Mail size={18} />,
+  },
+}
+
+/**
+ * 열 수 — 역량이 3개, 숫자가 3칸일 때 마지막 줄이 비대칭으로 남지 않게 열을 줄인다.
+ * (기본은 4열 · 레퍼런스 시안 그대로)
+ */
+export const ThreeColumns: Story = {
+  args: {
+    capabilities: CAPABILITIES.slice(0, 3),
+    stats: STATS.slice(0, 3),
+    capabilityColumns: 3,
+    statColumns: 3,
+  },
+}
+
+/**
+ * Labels — 영문 오버라이드. 섹션 헤딩 2개와 CTA 밴드가 labels로 열려 있다.
+ * (히어로·개요는 데이터라 hero/intro props로 넘긴다)
+ * CTA 면 처리를 outline으로 낮춰 ContactPage의 조용한 CTA와 톤을 맞췄다.
+ */
+export const Labels: Story = {
+  args: {
+    hero: {
+      ...HERO,
+      eyebrow: 'About us',
+      title: 'We design the sound of space.',
+      subtitle:
+        'We let the space speak first — we do not fill it with sound, we design the sound it needs.',
+    },
+    intro: {
+      ...INTRO,
+      title: 'Who we are',
+      subtitle: 'A spatial acoustics studio founded in Seoul in 2011.',
+      paragraphs: [
+        'We started with cafes and retail stores and have since worked on hotels, galleries and concert halls. One team owns the project from the first drawing to the final tuning.',
+        'Good acoustics come from understanding a space, not from a list of equipment. We read the ceiling height, the finishes and the way people move — and only then choose the speakers.',
+      ],
+    },
+    capabilities: CAPABILITIES.map((capability, index) => ({
+      ...capability,
+      title: ['Acoustic design', 'System integration', 'Interior collaboration', 'Post-tuning'][index],
+      description: [
+        'We simulate reverberation and reflection at the drawing stage.',
+        'Amplifiers, speakers and networked audio, sized to the room.',
+        'We work on the same drawing as architects and contractors.',
+        'We measure again once the room is full, and adjust for six months.',
+      ][index],
+    })),
+    stats: [
+      { label: 'Projects delivered', value: '248' },
+      { label: 'Clients', value: '96' },
+      { label: 'Years in business', value: '15' },
+      { label: 'Repeat rate', value: '82%' },
+    ],
+    labels: {
+      capabilities: {
+        title: 'What we do',
+        subtitle: 'Four disciplines that shape the sound of a space.',
+      },
+      stats: { title: 'By the numbers', subtitle: 'The studio, in figures.' },
+      cta: {
+        title: "Let's build it together.",
+        subtitle: 'Tell us the space and the budget — you will have a proposal within three days.',
+        buttonLabel: 'Start a project',
+      },
+    },
+    ctaAppearance: 'outline',
   },
 }

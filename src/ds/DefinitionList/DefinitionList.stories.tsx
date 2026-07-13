@@ -47,14 +47,21 @@ const meta = {
   },
   argTypes: {
     items: { control: 'object' },
-    columns: { control: 'inline-radio', options: [1, 2] },
+    columns: { control: 'inline-radio', options: [1, 2, 3] },
     divider: { control: 'boolean' },
     density: { control: 'inline-radio', options: ['compact', 'comfortable'] },
     layout: {
       control: 'inline-radio',
-      options: ['grid', 'inline'],
-      description: 'grid=표 / inline=라벨-값을 한 줄에 붙여 가로로 흘린다(푸터 사업자 정보)',
+      options: ['grid', 'inline', 'stacked'],
+      description:
+        'grid=표 / inline=라벨-값을 한 줄에 붙여 가로로 흘린다(푸터 사업자 정보) / stacked=라벨 위·값 아래(좁은 폭)',
     },
+    align: {
+      control: 'inline-radio',
+      options: ['left', 'right'],
+      description: '값 정렬 — right는 금액·수량의 자릿수를 눈으로 맞춘다(grid에만 적용)',
+    },
+    labels: { control: 'object' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -102,6 +109,50 @@ export const Inline: Story = {
       { label: '주소', value: '서울특별시 강남구 테헤란로 123, 8층' },
       { label: '전화', value: '02-1234-5678' },
     ],
+  },
+}
+
+/** 3열 — 1600px급 상세 화면에서 항목이 세로로 길게 늘어지지 않는다 */
+export const ThreeColumns: Story = {
+  args: { columns: 3 },
+}
+
+/** stacked — 라벨 위·값 아래. 좁은 폭에서 라벨 고정폭이 값을 짓눌러 말줄임되는 것을 막는다 */
+export const Stacked: Story = {
+  args: { layout: 'stacked' },
+  render: (args) => (
+    <div style={{ width: 280 }}>
+      <Card>
+        <DefinitionList {...args} />
+      </Card>
+    </div>
+  ),
+}
+
+/** align="right" — 금액·수량 상세에서 값의 자릿수가 한 축으로 읽힌다 */
+export const AlignRight: Story = {
+  args: {
+    align: 'right',
+    items: [
+      { label: '상품 금액', value: '₩1,240,000' },
+      { label: '할인', value: '-₩124,000' },
+      { label: '배송비', value: '₩3,000' },
+      { label: '결제 금액', value: '₩1,119,000' },
+    ],
+  },
+}
+
+/**
+ * Labels: 영문 오버라이드 — 빈 상태 문구와 dl 접근성 이름이 labels 통로로 화면까지 닿는다.
+ * items가 비면 껍데기 dl 대신 labels.empty가 그려진다.
+ */
+export const Labels: Story = {
+  args: {
+    items: [],
+    labels: {
+      empty: 'No details to show',
+      ariaLabel: 'Member details',
+    },
   },
 }
 

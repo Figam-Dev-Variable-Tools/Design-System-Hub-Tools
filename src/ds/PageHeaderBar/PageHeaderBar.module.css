@@ -25,6 +25,15 @@
   background: var(--ds-color-bg);
 }
 
+/*
+ * stack — 액션을 제목 아래로 내린다(액션이 3개 이상이거나 폭이 좁은 화면).
+ * .sticky의 align-items를 이겨야 하므로 뒤에 온다.
+ */
+.stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 /* 경계는 그림자 대신 1px 보더로 긋는다(리포 공통 크롬 규칙).
    아래 콘텐츠가 이미 보더를 갖는 카드면 두 겹이 되므로 showDivider로 뗄 수 있게 분리한다. */
 .divider {
@@ -45,6 +54,11 @@
   min-width: 0;
 }
 
+/* 배지가 둘 이상일 때만 줄바꿈을 연다 — 배지 1개(기존 화면)는 지금까지처럼 제목이 말줄임된다 */
+.titleRowWrap {
+  flex-wrap: wrap;
+}
+
 /* 위계는 색이 아니라 굵기/크기로 */
 .title {
   margin: 0;
@@ -58,8 +72,14 @@
 }
 
 /* 페이지 안쪽 섹션 헤더용 한 단계 작은 규격 — 페이지 타이틀(h1)보다 조용해야 한다 */
-.titleMd {
+.title-md {
   font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-medium);
+}
+
+/* 카드·드로어 안에 놓이는 가장 작은 규격 — 본문 글자와 같은 크기에서 굵기로만 위계를 만든다 */
+.title-sm {
+  font-size: var(--ds-font-size-sm);
   font-weight: var(--ds-font-weight-medium);
 }
 
@@ -87,6 +107,11 @@
   display: flex;
   align-items: center;
   gap: var(--ds-spacing-2);
+}
+
+/* 액션이 아래로 내려오면 우측 정렬을 유지한다(버튼이 왼쪽으로 흩어지지 않게) */
+.stack .actions {
+  justify-content: flex-end;
 }
 
 /* sticky는 한 줄로 눌러 붙는다 — 고정 헤더가 두꺼워지면 본문을 가린다 */

@@ -89,6 +89,11 @@ const meta = {
     submitLabel: { control: 'text' },
     cancelLabel: { control: 'text' },
     savingLabel: { control: 'text' },
+    labels: { control: 'object' },
+
+    // 변형 축 — 기본값(2열 · 6장)이 지금까지의 폼이다
+    columns: { control: 'inline-radio', options: [1, 2] },
+    maxImages: { control: { type: 'range', min: 1, max: 12, step: 1 } },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -168,6 +173,84 @@ export const CustomCopy: Story = {
     submitLabel: '발행',
     cancelLabel: '닫기',
     savingLabel: '발행 중…',
+  },
+  render: (args) => <ProductFormDemo {...args} />,
+}
+
+/**
+ * 1열 · 이미지 3장 — 모달·사이드시트처럼 폭이 좁은 자리.
+ * 기본은 2열 · 6장이라 지금까지의 폼은 그대로다.
+ */
+export const NarrowColumn: Story = {
+  args: {
+    value: FILLED_VALUE,
+    mode: 'edit',
+    columns: 1,
+    maxImages: 3,
+  },
+  render: (args) => (
+    <div style={{ maxWidth: 420 }}>
+      <ProductFormDemo {...args} />
+    </div>
+  ),
+}
+
+/**
+ * Labels — 영문 오버라이드. 섹션 제목·필드·플레이스홀더·이미지 타일·드롭존·액션이 전부 열려 있다.
+ * 값을 끼우는 문구(장수 안내·삭제 접근성 이름)는 인자 1개짜리 함수다.
+ */
+export const Labels: Story = {
+  args: {
+    value: FILLED_VALUE,
+    mode: 'edit',
+    onSaveDraft: () => {},
+    categories: [
+      { label: 'Keyboards', value: 'keyboard' },
+      { label: 'Mice', value: 'mouse' },
+      { label: 'Monitors', value: 'monitor' },
+    ],
+    labels: {
+      sections: {
+        basic: 'Basics',
+        images: 'Product images',
+        options: 'Options',
+        description: 'Description',
+      },
+      sectionDescriptions: {
+        images: (max) =>
+          `Up to ${max} images including the cover. Drag to reorder — the first one is the cover.`,
+        options: 'Add options when the product comes in colors or sizes.',
+      },
+      fields: {
+        name: 'Product name',
+        category: 'Category',
+        price: 'Price',
+        stock: 'Stock',
+        onSale: 'Sale status',
+      },
+      placeholders: {
+        name: 'Enter the product name',
+        category: 'Choose a category',
+        description: 'Describe the product in detail',
+      },
+      helpers: { price: 'Include VAT in the amount.' },
+      units: { stock: ' pcs' },
+      onSale: { on: 'On sale', off: 'Paused' },
+      images: {
+        coverBadge: 'Cover',
+        addLabel: 'Add image',
+        removeAria: (position) => `Remove image ${position}`,
+        hint: ({ count, max }) => `${count}/${max} · JPG·PNG · up to 10MB`,
+        fullHint: (max) => `You can upload up to ${max} images`,
+      },
+      actions: {
+        create: 'Publish',
+        edit: 'Save changes',
+        cancel: 'Cancel',
+        saving: 'Saving…',
+        saveDraft: 'Save draft',
+      },
+    },
   },
   render: (args) => <ProductFormDemo {...args} />,
 }

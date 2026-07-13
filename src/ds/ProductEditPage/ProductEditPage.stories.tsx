@@ -135,6 +135,12 @@ const meta = {
     saveLabel: { control: 'text' },
     cancelLabel: { control: 'text' },
     savingLabel: { control: 'text' },
+    labels: { control: 'object' },
+    formatters: { control: false },
+
+    // 변형 축 — 기본값(edit · 320px)이 지금까지의 화면이다
+    mode: { control: 'inline-radio', options: ['create', 'edit'] },
+    previewWidth: { control: { type: 'range', min: 280, max: 768, step: 8 } },
   },
   parameters: {
     layout: 'fullscreen',
@@ -257,6 +263,162 @@ export const CustomCopy: Story = {
       saveLabel="승인 요청"
       cancelLabel="닫기"
       savingLabel="요청 중…"
+    />
+  ),
+}
+
+/**
+ * 등록 모드 — mode='create'면 타이틀이 '상품 등록'이 된다(title prop 없이).
+ * 미리보기 프레임도 태블릿 폭(480)으로 넓혔다.
+ */
+export const CreateMode: Story = {
+  render: () => (
+    <ProductEditDemo initial={EMPTY_PRODUCT_VALUE} mode="create" status="draft" previewWidth={480} />
+  ),
+}
+
+/**
+ * Labels — 영문 오버라이드.
+ * 앵커 내비·섹션 카드 제목이 한 소스(labels.sections)를 쓰고, 상태 배지·Select 값·필수 오류·
+ * 폰 미리보기의 구매 CTA('렌탈하기' 같은 도메인 문구)까지 전부 열려 있다.
+ * 통화는 문구가 아니라 포맷이므로 formatters.price로 연다($ 표기).
+ */
+export const Labels: Story = {
+  render: () => (
+    <ProductEditDemo
+      initial={SAMPLE_PRODUCT}
+      mode="edit"
+      highlightOptions={[
+        { label: 'New', value: 'new' },
+        { label: 'BEST', value: 'best' },
+        { label: "Editor's pick", value: 'md' },
+        { label: 'Limited', value: 'limited' },
+      ]}
+      formatters={{ price: (value) => `$${Math.round(value / 1000).toLocaleString('en-US')}` }}
+      labels={{
+        title: { create: 'New product', edit: 'Edit product' },
+        status: { selling: 'On sale', soldout: 'Sold out', hidden: 'Hidden', draft: 'Draft' },
+        sections: {
+          info: 'Product',
+          detail: 'Description',
+          price: 'Price',
+          point: 'Rewards',
+          shipping: 'Shipping',
+          stock: 'Inventory',
+          options: 'Options',
+          highlight: 'Badges',
+          visibility: 'Visibility',
+          seo: 'SEO',
+        },
+        sectionDescriptions: {
+          detail: 'Shown as-is in the body of the detail page.',
+          options: 'Add options when the product comes in colors or sizes.',
+          highlight: 'Badges shown above the product name in lists and detail pages.',
+          seo: 'What search engines and social cards show.',
+        },
+        pointTypes: { rate: '% of price', amount: 'Fixed amount' },
+        shippingTypes: { free: 'Free', paid: 'Paid', conditional: 'Free over threshold' },
+        fields: {
+          brand: 'Brand',
+          category1: 'Category',
+          category2: 'Subcategory',
+          name: 'Product name',
+          images: 'Product images',
+          intro: 'Short description',
+          maker: 'Manufacturer',
+          origin: 'Country of origin',
+          headline: 'Tagline',
+          detail: 'Full description',
+          price: 'Price',
+          salePrice: 'Sale price',
+          discount: 'Discount',
+          pointEnabled: 'Earn rewards',
+          pointType: 'Reward type',
+          pointRate: 'Reward rate',
+          pointAmount: 'Reward amount',
+          shippingType: 'Shipping',
+          shippingFee: 'Shipping fee',
+          freeOver: 'Free shipping over',
+          stock: 'Stock',
+          stockThreshold: 'Low-stock threshold',
+          soldOut: 'Mark as sold out',
+          highlights: 'Badges',
+          pinned: 'Pin to top',
+          onSale: 'On sale',
+          listed: 'Show in lists',
+          searchable: 'Show in search',
+          memberOnly: 'Members only',
+          seoTitle: 'Meta title',
+          seoDescription: 'Meta description',
+          seoKeywords: 'Keywords',
+        },
+        placeholders: {
+          brand: 'Choose a brand',
+          category1: 'Choose a category',
+          category2: 'Choose a subcategory',
+          category2Locked: 'Choose a category first',
+          name: 'Enter the product name',
+          intro: 'Introduce the product in a sentence or two',
+          maker: 'e.g. Hanssem',
+          origin: 'e.g. Made in Korea',
+          headline: 'e.g. Assembles in 3 minutes',
+          detail: 'Write the full description',
+          seoTitle: 'Leave empty to use the product name',
+          seoDescription: 'The summary shown in search results',
+          seoKeywords: 'e.g. desk, storage desk, study desk',
+        },
+        helpers: {
+          requiredMark: 'Required',
+          price: 'VAT included · required',
+          images: 'The first image is the cover. Drag to reorder.',
+          intro: 'Used in lists and previews.',
+          headline: 'Shown as one line under the product name.',
+          salePrice: 'Leave empty to sell at the full price.',
+          discount: 'Calculated from the price and the sale price.',
+          pointEnabled: 'When off, this product earns no rewards.',
+          pointRate: 'Calculated from the price.',
+          pointAmount: 'Granted per order.',
+          freeOver: 'Orders above this amount ship free.',
+          stockByOption: 'Products with options follow per-option stock.',
+          stockThreshold: 'We notify you when stock drops to this level.',
+          soldOut: 'When on, the product shows as sold out regardless of stock.',
+          pinned: 'Always shown at the top of the list, whatever the sort.',
+          onSale: 'When off, the buy button disappears from the detail page.',
+          listed: 'Show the product in category and campaign lists.',
+          searchable: 'Show the product in on-site search results.',
+          memberOnly: 'Only signed-in members see the price and buy button.',
+          seoKeywords: 'Separate keywords with commas.',
+        },
+        errors: {
+          brand: 'Brand is required.',
+          category1: 'Category is required.',
+          name: 'Product name is required.',
+          price: 'Price is required.',
+        },
+        units: { stock: ' pcs', pointRate: '%' },
+        images: {
+          coverBadge: 'Cover',
+          addLabel: 'Add image',
+          removeAria: (position) => `Remove image ${position}`,
+          hint: ({ count, max }) => `JPG·PNG up to 10MB (max ${max}) · ${count}/${max}`,
+          fullHint: (max) => `You can upload up to ${max} images`,
+        },
+        discount: { empty: 'No discount', saved: (amount) => `${amount} off` },
+        preview: {
+          coverPlaceholder: 'Cover image',
+          namePlaceholder: 'Enter the product name',
+          cart: 'Add to cart',
+          buy: 'Rent now',
+          soldOut: 'Sold out',
+        },
+        actions: {
+          save: 'Save',
+          cancel: 'Cancel',
+          saving: 'Saving…',
+          saveDraft: 'Save draft',
+        },
+        loading: 'Loading product…',
+      }}
     />
   ),
 }

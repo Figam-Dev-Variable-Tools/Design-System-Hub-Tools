@@ -13,6 +13,12 @@ import { Button } from '../Button/Button'
 import { EmptyState } from '../EmptyState/EmptyState'
 import { Skeleton } from '../Skeleton/Skeleton'
 import { Placeholder, type PlaceholderKind } from '../../shared/placeholders'
+import {
+  mergeLabels,
+  type DeepPartialOneLevel,
+  type Formatters,
+  type LabelFn,
+} from '../../shared/labels'
 
 /** 상단 탭 — 중고 / 렌탈 / 시공 같은 사업 영역 전환 */
 export type DashboardTab = {
@@ -63,6 +69,33 @@ export type DashboardAnalyticsData = {
   summaries?: AnalyticsSummary[]
 }
 
+/**
+ * 이 화면의 카피는 거의 데이터 주도다 — title·todoTitle·statsTitle은 prop이고,
+ * feed.title / feed.moreLabel / feed.emptyText는 피드 데이터가 들고 있다.
+ * 여기 남는 건 화면이 스스로 만들어 내는 문구뿐이다(단위·구분자·기본 더보기/빈 문구).
+ */
+export type DashboardScreenLabels = {
+  feed: {
+    /** 건수 배지의 스크린리더 이름 — 숫자만으로는 단위를 알 수 없다. 기본 '12건' */
+    countAria: LabelFn<string>
+    /** 작성자와 날짜 사이 구분자 — 기본 '·' */
+    metaSeparator: string
+    /** feed.moreLabel이 없을 때의 더보기 버튼 — 기본 '더보기' */
+    more: string
+    /** feed.emptyText가 없을 때의 빈 목록 문구 — 기본 '표시할 내역이 없습니다' */
+    empty: string
+  }
+}
+
+export const DEFAULT_DASHBOARD_SCREEN_LABELS: DashboardScreenLabels = {
+  feed: {
+    countAria: (count) => `${count}건`,
+    metaSeparator: '·',
+    more: '더보기',
+    empty: '표시할 내역이 없습니다',
+  },
+}
+
 export type DashboardScreenProps = {
   title?: string
   description?: string
@@ -100,15 +133,31 @@ export type DashboardScreenProps = {
   showFeedMeta?: boolean
   /** 더보기 버튼 아이콘 — 기본은 오른쪽 화살표 */
   moreIcon?: ReactNode
+  /**
+   * 한 줄에 세우는 피드 카드 수 (기본 auto — 피드 개수만큼 12컬럼을 균등 분할).
+   * 피드 3개를 2열로 접어 마지막 한 장을 넓게 쓰는 구성처럼, 개수와 열 수를 분리해야 할 때 준다.
+   */
+  feedColumns?: 1 | 2 | 3 | 4 | 'auto'
+  /**
+   * 통계 영역의 차트:분석표 비율 (기본 split = 6:6).
+   *   chart-first — 8:4. 추이를 크게 보여주는 대시보드.
+   *   stacked     — 12:12. 좁은 폭에서 위아래로 쌓는다.
+   * 한쪽만 있으면 어느 값이든 남은 폭을 혼자 다 쓴다.
+   */
+  statsLayout?: 'split' | 'chart-first' | 'stacked'
+  /** 피드 카드 크롬 (기본 card) — 이미 카드 안에 임베드할 때 plain으로 이중 보더를 막는다 */
+  feedChrome?: 'card' | 'plain'
+  labels?: DeepPartialOneLevel<DashboardScreenLabels>
+  /** 숫자 표기 — 로케일·자릿수는 문구가 아니라 포맷이다(TodoSummary에도 그대로 내려간다) */
+  formatters?: Formatters
 }
 
 /** 큰 수도 자릿수 구분 — 배지/합계 표기를 맞춘다 */
-function formatCount(count: number): string {
-  return count.toLocaleString('ko-KR')
-}
+const DEFAULT_FORMAT_COUNT: NonNullable<Formatters['number']> = (count) =>
+  count.toLocaleString('ko-KR')
 
 /**
- * 피드 개수에 맞춰 12/8컬럼 그리드를 나눈다.
+ * 피드 개수(또는 지정한 열 수)에 맞춰 12/8컬럼 그리드를 나눈다.
  * 2개면 6/12 · 4/8 — 레퍼런스의 2열 구성이 그대로 나온다.
  */
 function feedSpan(total: number): { span: number; spanMd: number } {
@@ -119,6 +168,13 @@ function feedSpan(total: number): { span: number; spanMd: number } {
   }
 }
 
+/** 통계 영역의 [차트, 분석표] span — 한쪽만 있으면 12(혼자 다 쓴다) */
+function statsSpans(layout: NonNullable<DashboardScreenProps['statsLayout']>): [number, number] {
+  if (layout === 'chart-first') return [8, 4]
+  if (layout === 'stacked') return [12, 12]
+  return [6, 6]
+}
+
 /** 피드 카드 한 장 — 카드 헤더(제목·배지·더보기) + 촘촘한 목록 */
 function FeedCard({
   feed,
@@ -126,22 +182,32 @@ function FeedCard({
   showThumbnail,
   showMeta,
   moreIcon,
+  chrome,
+  labels,
+  formatCount,
 }: {
   feed: DashboardFeed
   loading: boolean
   showThumbnail: boolean
   showMeta: boolean
   moreIcon: ReactNode
+  chrome: 'card' | 'plain'
+  labels: DashboardScreenLabels
+  formatCount: NonNullable<Formatters['number']>
 }) {
   return (
-    <PageSection card>
+    <PageSection card={chrome === 'card'}>
       <div className={styles.feed}>
         <div className={styles.feedHeader}>
           <h3 className={styles.feedHeading}>{feed.title}</h3>
           {feed.count != null && (
             // 건수 배지 — pill을 직접 그리지 않고 공용 Badge를 쓴다.
             // 숫자만 있으면 단위를 알 수 없어 스크린리더에는 role=img + 'N건'으로 읽어 준다.
-            <span className={styles.feedCount} role="img" aria-label={`${formatCount(feed.count)}건`}>
+            <span
+              className={styles.feedCount}
+              role="img"
+              aria-label={labels.feed.countAria(formatCount(feed.count))}
+            >
               <Badge variant="primary" appearance="soft" size="sm" label={formatCount(feed.count)} />
             </span>
           )}
@@ -152,7 +218,7 @@ function FeedCard({
                 variant="secondary"
                 appearance="ghost"
                 size="sm"
-                label={feed.moreLabel ?? '더보기'}
+                label={feed.moreLabel ?? labels.feed.more}
                 showRightIcon
                 rightIcon={moreIcon}
                 onClick={feed.onMore}
@@ -178,7 +244,7 @@ function FeedCard({
           </ul>
         ) : feed.items.length === 0 ? (
           <div className={styles.feedEmpty}>
-            <EmptyState kind="empty" title={feed.emptyText ?? '표시할 내역이 없습니다'} compact />
+            <EmptyState kind="empty" title={feed.emptyText ?? labels.feed.empty} compact />
           </div>
         ) : (
           <ul className={styles.feedList}>
@@ -202,7 +268,7 @@ function FeedCard({
                       <span className={styles.feedMeta}>
                         <span className={styles.feedAuthor}>{item.author}</span>
                         <span className={styles.feedDot} aria-hidden="true">
-                          ·
+                          {labels.feed.metaSeparator}
                         </span>
                         <span className={styles.feedDate}>{item.date}</span>
                       </span>
@@ -269,7 +335,15 @@ export function DashboardScreen({
   showFeedThumbnail = true,
   showFeedMeta = true,
   moreIcon = <ChevronRight size={14} aria-hidden="true" />,
+  feedColumns = 'auto',
+  statsLayout = 'split',
+  feedChrome = 'card',
+  labels,
+  formatters,
 }: DashboardScreenProps) {
+  const L = mergeLabels(DEFAULT_DASHBOARD_SCREEN_LABELS, labels)
+  const formatCount = formatters?.number ?? DEFAULT_FORMAT_COUNT
+
   const hasTabs = tabs.length > 0
   const hasTodo = todoItems.length > 0
   const hasFeeds = feeds.length > 0
@@ -277,10 +351,12 @@ export function DashboardScreen({
 
   // 제어 탭 — 넘어온 값이 없으면 첫 탭을 켠 것으로 본다
   const tabValue = activeTab ?? tabs[0]?.value ?? ''
-  const { span, spanMd } = feedSpan(feeds.length)
+  // auto는 '피드 개수 = 열 수' — 지금까지의 균등 분할 그대로다
+  const { span, spanMd } = feedSpan(feedColumns === 'auto' ? feeds.length : feedColumns)
 
   // 차트/분석표가 한쪽만 있으면 남은 폭을 혼자 다 쓴다
-  const statsSpan = chart != null && analytics != null ? 6 : 12
+  const [chartSpan, analyticsSpan] = statsSpans(statsLayout)
+  const both = chart != null && analytics != null
   const statsSpanMd = 8
 
   return (
@@ -302,7 +378,12 @@ export function DashboardScreen({
             <Skeleton variant="text" lines={1} width="45%" />
           </div>
         ) : (
-          <TodoSummary title={todoTitle} total={todoTotal} items={todoItems} />
+          <TodoSummary
+            title={todoTitle}
+            total={todoTotal}
+            items={todoItems}
+            formatters={formatters}
+          />
         ))}
 
       {hasFeeds && (
@@ -315,6 +396,9 @@ export function DashboardScreen({
                 showThumbnail={showFeedThumbnail}
                 showMeta={showFeedMeta}
                 moreIcon={moreIcon}
+                chrome={feedChrome}
+                labels={L}
+                formatCount={formatCount}
               />
             </AdminGridItem>
           ))}
@@ -325,7 +409,7 @@ export function DashboardScreen({
         <PageSection title={statsTitle} card={false}>
           <AdminGrid>
             {chart != null && (
-              <AdminGridItem span={statsSpan} spanMd={statsSpanMd} spanSm={4}>
+              <AdminGridItem span={both ? chartSpan : 12} spanMd={statsSpanMd} spanSm={4}>
                 {/* AdminChart는 카드 크롬이 없다 — PageSection의 카드로 감싼다 */}
                 <PageSection card>
                   {loading ? (
@@ -344,7 +428,7 @@ export function DashboardScreen({
             )}
 
             {analytics != null && (
-              <AdminGridItem span={statsSpan} spanMd={statsSpanMd} spanSm={4}>
+              <AdminGridItem span={both ? analyticsSpan : 12} spanMd={statsSpanMd} spanSm={4}>
                 {/* AnalyticsTable은 자체 보더/radius를 가진다 — 카드로 또 감싸지 않는다 */}
                 {loading ? (
                   <PageSection card>

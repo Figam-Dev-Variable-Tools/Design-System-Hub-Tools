@@ -270,3 +270,83 @@ export const CustomIconsAndCopy: Story = {
     onDelete: () => {},
   },
 }
+
+/**
+ * Labels: 영문 오버라이드 — 카드 제목·정의 라벨·활동 통계·확인창·단위·상대시간까지
+ * labels 통로 하나로 전부 영문이 된다. 숫자 자릿수는 문구가 아니라 formatters가 맡는다.
+ */
+export const Labels: Story = {
+  args: {
+    title: 'Customer detail',
+    description: 'VIP · joined 2024-11-02',
+    labels: {
+      sections: {
+        profile: 'Profile',
+        activity: 'Activity',
+        consent: 'Consents',
+        adminMemo: 'Internal note',
+      },
+      info: {
+        memberType: 'Member type',
+        account: 'Account (email)',
+        name: 'Name',
+        phone: 'Phone',
+        birthday: 'Date of birth',
+        gender: 'Gender',
+        signupPath: 'Signup source',
+        memberId: 'Member ID',
+        verified: 'Verified',
+        blocked: 'Blocked',
+      },
+      stats: {
+        orderCount: 'Orders',
+        totalPurchase: 'Lifetime spend',
+        inquiryCount: 'Inquiries',
+        commentCount: 'Comments',
+      },
+      activity: { joinedAt: 'Joined', lastLoginAt: 'Last login', noLogin: 'Never' },
+      relativeTime: {
+        justNow: 'just now',
+        minutes: (n) => `${n}m ago`,
+        hours: (n) => `${n}h ago`,
+        days: (n) => `${n}d ago`,
+        months: (n) => `${n}mo ago`,
+        years: (n) => `${n}y ago`,
+        yearsMonths: ({ years, months }) => `${years}y ${months}mo ago`,
+      },
+      units: { count: '', currency: '' },
+      actions: {
+        back: 'Back to list',
+        edit: 'Edit',
+        block: 'Block',
+        unblock: 'Unblock',
+        delete: 'Delete',
+      },
+      blockDialog: {
+        title: 'Block this customer?',
+        description: (p) => `${p.name} (${p.email}) can no longer sign in or order.`,
+        confirmLabel: 'Block',
+      },
+      unblockDialog: {
+        title: 'Unblock this customer?',
+        description: (p) => `${p.name} (${p.email}) can sign in again.`,
+        confirmLabel: 'Unblock',
+      },
+      deleteDialog: {
+        title: 'Delete this customer?',
+        description: (p) =>
+          `${p.name} (${p.id}) and all of their activity will be removed. This cannot be undone.`,
+      },
+      empty: { title: 'No consents on file.' },
+    },
+    // 단위를 비웠으니 금액은 통화 기호를 포맷이 붙인다 — 문구가 아니라 포맷의 몫이다
+    formatters: {
+      number: (n) => n.toLocaleString('en-US'),
+      price: (n) => `$${Math.round(n / 1300).toLocaleString('en-US')}`,
+    },
+    onBackToList: () => {},
+    onEdit: () => {},
+    onBlock: () => {},
+    onDelete: () => {},
+  },
+}

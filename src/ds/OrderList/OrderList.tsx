@@ -1,6 +1,16 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, Download, Filter, LayoutGrid, Settings2, Truck, Upload } from 'lucide-react'
 import styles from './OrderList.module.css'
+import {
+  mergeLabels,
+  resolveLabel,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type Formatters,
+  type LabelFn,
+  type SearchLabels,
+  type StatusLabels,
+} from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
 import { ContextMenu, type ContextMenuItem } from '../ContextMenu/ContextMenu'
@@ -89,6 +99,68 @@ export type OrderRow = {
   receiver: OrderReceiver
 }
 
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   품목 상태 배지·헤더 액션·툴바 버튼·배송 입력 힌트·결제 내역 라벨·스크린리더 이름을 한 통로로 연다.
+   금액의 '원'은 문구가 아니라 포맷이므로 labels가 아니라 formatters로 연다.
+   우선순위: 개별 prop(title·exportLabel·createLabel …) > labels.* > 기본값. */
+type OrderListLabelsResolved = {
+  title: string
+  /** 품목 배지 — 한 주문 안에서 품목마다 다를 수 있다 */
+  itemStatus: Record<OrderItemStatus, string>
+  /** 헤더 우측 액션 */
+  header: { layout: string; export: string; bulkTracking: string; create: string }
+  /** 툴바 우측 액션 */
+  toolbar: { filter: string; columnSettings: string }
+  search: SearchLabels
+  /** 1) 주문 정보 셀 */
+  order: {
+    guest: string
+    /** 주문번호 버튼의 접근성 이름 — 숫자만 읽히면 무슨 번호인지 알 수 없다 */
+    orderNoAria: LabelFn<string>
+  }
+  /** 3) 배송 정보 셀 */
+  shipping: { carrierPlaceholder: string; trackingPlaceholder: string; lookup: string }
+  /** 4) 결제 정보 셀의 정의 라벨 */
+  payment: { product: string; shippingFee: string; discount: string; point: string }
+  /** 5) 수령인 셀 — 메모 버튼의 접근성 이름(메모 본문만 읽히면 맥락이 없다) */
+  receiver: { memoAria: LabelFn<string> }
+  /** 빈 목록 — EmptyState(kind='search')로 그대로 흘러간다 */
+  empty: Required<Pick<EmptyLabels, 'title' | 'description'>>
+}
+
+export const DEFAULT_ORDER_LIST_LABELS: OrderListLabelsResolved = {
+  title: '주문',
+  itemStatus: { delivered: '배송 완료', canceled: '취소 완료', confirmed: '구매 확정' },
+  header: {
+    layout: '레이아웃 변경',
+    export: '엑셀 다운로드',
+    bulkTracking: '송장 일괄 등록',
+    create: '주문 생성',
+  },
+  toolbar: { filter: '필터', columnSettings: '표시 항목 설정' },
+  search: { searchPlaceholder: '이름 · 아이디 · 연락처 · 주문번호 · 송장번호' },
+  order: {
+    guest: '비회원',
+    orderNoAria: (orderNo) => `주문번호 ${orderNo} 상세보기`,
+  },
+  shipping: {
+    carrierPlaceholder: '택배사 선택',
+    trackingPlaceholder: '송장번호',
+    lookup: '조회',
+  },
+  payment: { product: '상품금액', shippingFee: '배송비', discount: '할인', point: '적립금' },
+  receiver: { memoAria: (name) => `${name} 수령인 메모 열기` },
+  empty: {
+    title: '주문이 없습니다',
+    description: '검색 조건을 바꾸거나 필터를 초기화해 보세요.',
+  },
+} as const
+
+export type OrderListLabels = DeepPartialOneLevel<OrderListLabelsResolved>
+
+/** 품목 상태 문구만 갈아끼울 때 — labels.itemStatus와 같은 모양 */
+export type OrderItemStatusLabels = StatusLabels<OrderItemStatus>
+
 export type OrderListProps = {
   /** 화면에 그릴 주문 — 탭/검색 필터링은 호출 측(서버)에서 끝낸 결과를 넘긴다 */
   rows: OrderRow[]
@@ -152,26 +224,37 @@ export type OrderListProps = {
   trackingIcon?: ReactNode
 
   /* ── 카피 ─────────────────────────────────────────────────────────────
-   * '반품 관리'·'취소 관리'처럼 같은 목록을 다른 이름으로 재사용할 때만 건드린다.
-   * 컬럼 머리글·다이얼로그 문구까지는 열지 않는다 — 축이 무한히 늘어난다.
+   * 화면에 나오는 모든 글자는 labels 하나로 연다.
+   * 아래 개별 prop은 하위호환용 — 넘기면 labels보다 우선한다.
    * ──────────────────────────────────────────────────────────────────── */
+  /** @deprecated labels.title 을 쓰세요 */
   title?: string
+  /** @deprecated labels.header.export 를 쓰세요 */
   exportLabel?: string
+  /** @deprecated labels.header.create 를 쓰세요 */
   createLabel?: string
+  /** @deprecated labels.search.searchPlaceholder 를 쓰세요 */
   searchPlaceholder?: string
+  /** @deprecated labels.empty.title 을 쓰세요 */
   emptyTitle?: string
+  /** @deprecated labels.empty.description 을 쓰세요 */
   emptyDescription?: string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: OrderListLabels
+  /**
+   * 숫자·통화 포맷(문구가 아니라 포맷이다) — 품목가·결제 내역의 표기를 바꾼다.
+   * 기본 price는 통화 기호 없이 '1,234원'(레퍼런스 표기).
+   */
+  formatters?: Pick<Formatters, 'price'>
   /** 툴바 우측 총 건수 — 넘기지 않으면 건수 자리가 아예 없다(현재 화면) */
   total?: number
   /** 건수 단위. 기본 '건' → "135건" */
   countUnit?: string
 }
 
-const ITEM_STATUS_LABEL: Record<OrderItemStatus, string> = {
-  delivered: '배송 완료',
-  canceled: '취소 완료',
-  confirmed: '구매 확정',
-}
+/** @deprecated DEFAULT_ORDER_LIST_LABELS.itemStatus 를 쓰세요 (기존 이름 유지용 alias) */
+export const ITEM_STATUS_LABEL: Record<OrderItemStatus, string> =
+  DEFAULT_ORDER_LIST_LABELS.itemStatus
 
 // 상태는 soft 톤으로 조용하게 — 강조색(primary)은 액션에만 쓴다
 const ITEM_STATUS_TONE: Record<OrderItemStatus, 'secondary' | 'error' | 'success'> = {
@@ -180,9 +263,10 @@ const ITEM_STATUS_TONE: Record<OrderItemStatus, 'secondary' | 'error' | 'success
   confirmed: 'success',
 }
 
-/** 1,234원 — 표 안 숫자는 tabular-nums(CSS)와 함께 자릿수를 맞춘다 */
-function formatKrw(value: number): string {
-  return `${value.toLocaleString('ko-KR')}원`
+/** 기본 포맷 — 문구가 아니라 포맷이므로 formatters prop으로 갈아끼운다 */
+const DEFAULT_FORMATTERS: Required<Pick<Formatters, 'price'>> = {
+  // 1,234원 — 표 안 숫자는 tabular-nums(CSS)와 함께 자릿수를 맞춘다
+  price: (value) => `${value.toLocaleString('ko-KR')}원`,
 }
 
 /** 로딩 골격 — 실제 카드와 같은 5분할 그리드라 자리가 흔들리지 않는다 */
@@ -251,22 +335,29 @@ export function OrderList({
   filterIcon,
   columnSettingsIcon,
   trackingIcon,
-  title = '주문',
-  exportLabel = '엑셀 다운로드',
-  createLabel = '주문 생성',
-  searchPlaceholder = '이름 · 아이디 · 연락처 · 주문번호 · 송장번호',
-  emptyTitle = '주문이 없습니다',
-  emptyDescription = '검색 조건을 바꾸거나 필터를 초기화해 보세요.',
+  // 카피의 기본값은 DEFAULT_ORDER_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  title,
+  exportLabel,
+  createLabel,
+  searchPlaceholder,
+  emptyTitle,
+  emptyDescription,
+  labels,
+  formatters,
   total,
   countUnit = '건',
 }: OrderListProps) {
+  const L = mergeLabels(DEFAULT_ORDER_LIST_LABELS, labels)
+  const F = { ...DEFAULT_FORMATTERS, ...formatters }
+
   const hasCreateMenu = createMenu != null && createMenu.length > 0
 
   const createButton = (
     <Button
       variant="primary"
       size="sm"
-      label={createLabel}
+      label={resolveLabel(createLabel, L.header.create) ?? L.header.create}
       showRightIcon={hasCreateMenu}
       rightIcon={createIcon ?? <ChevronDown size={14} />}
       onClick={hasCreateMenu ? undefined : onCreate}
@@ -279,7 +370,7 @@ export function OrderList({
         variant="secondary"
         appearance="outline"
         size="sm"
-        label="레이아웃 변경"
+        label={L.header.layout}
         showLeftIcon
         leftIcon={layoutIcon ?? <LayoutGrid size={14} />}
         onClick={onLayoutChange}
@@ -288,7 +379,7 @@ export function OrderList({
         variant="secondary"
         appearance="outline"
         size="sm"
-        label={exportLabel}
+        label={resolveLabel(exportLabel, L.header.export) ?? L.header.export}
         showLeftIcon
         leftIcon={exportIcon ?? <Download size={14} />}
         onClick={onExcelDownload}
@@ -297,7 +388,7 @@ export function OrderList({
         variant="secondary"
         appearance="outline"
         size="sm"
-        label="송장 일괄 등록"
+        label={L.header.bulkTracking}
         showLeftIcon
         leftIcon={bulkTrackingIcon ?? <Upload size={14} />}
         onClick={onBulkTracking}
@@ -321,7 +412,7 @@ export function OrderList({
             variant="secondary"
             appearance="outline"
             size="sm"
-            label="필터"
+            label={L.toolbar.filter}
             showLeftIcon
             leftIcon={filterIcon ?? <Filter size={16} />}
             onClick={onFilter}
@@ -332,7 +423,7 @@ export function OrderList({
             variant="secondary"
             appearance="outline"
             size="sm"
-            label="표시 항목 설정"
+            label={L.toolbar.columnSettings}
             showLeftIcon
             leftIcon={columnSettingsIcon ?? <Settings2 size={16} />}
             onClick={onColumnSettings}
@@ -345,7 +436,7 @@ export function OrderList({
     <AdminListPage<OrderRow>
       rows={rows}
       rowKey={(row) => row.id}
-      title={title}
+      title={resolveLabel(title, L.title)}
       headerActions={headerActions}
       density={density}
       tabs={tabs}
@@ -357,7 +448,7 @@ export function OrderList({
       keyword={keyword}
       onKeywordChange={onKeywordChange}
       onSearch={(values) => onSearch?.(String(values.keyword ?? ''))}
-      searchPlaceholder={searchPlaceholder}
+      searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
       total={total}
       // 접두사 없이 숫자만 — "135건"
       totalLabel={null}
@@ -370,7 +461,11 @@ export function OrderList({
         loading ? (
           <LoadingRows />
         ) : pageRows.length === 0 ? (
-          <EmptyState kind="search" title={emptyTitle} description={emptyDescription} />
+          <EmptyState
+            kind="search"
+            title={resolveLabel(emptyTitle, L.empty.title) ?? L.empty.title}
+            description={resolveLabel(emptyDescription, L.empty.description)}
+          />
         ) : (
           // 좁아지면 셀을 짜부라뜨리지 않고 이 래퍼가 가로로 스크롤된다
           <div className={styles.scroller}>
@@ -383,6 +478,7 @@ export function OrderList({
                       <button
                         type="button"
                         className={styles.orderNo}
+                        aria-label={L.order.orderNoAria(row.orderNo)}
                         onClick={() => onOrderOpen?.(row)}
                       >
                         {row.orderNo}
@@ -399,7 +495,9 @@ export function OrderList({
                     <p className={styles.muted}>{row.orderedAt}</p>
                     <p className={styles.buyer}>
                       <span className={styles.ellipsis}>{row.buyer}</span>
-                      {row.buyerType === 'guest' && <span className={styles.guest}>비회원</span>}
+                      {row.buyerType === 'guest' && (
+                        <span className={styles.guest}>{L.order.guest}</span>
+                      )}
                     </p>
                     <p className={styles.mutedNum}>{row.phone}</p>
                   </div>
@@ -413,7 +511,7 @@ export function OrderList({
                             variant={ITEM_STATUS_TONE[item.status]}
                             appearance="soft"
                             size="sm"
-                            label={ITEM_STATUS_LABEL[item.status]}
+                            label={L.itemStatus[item.status]}
                           />
                           <span className={styles.itemNo}>{item.itemNo}</span>
                         </div>
@@ -427,9 +525,9 @@ export function OrderList({
                             <p className={styles.itemName}>{item.name}</p>
                             <p className={styles.itemPrice}>
                               {item.listPrice != null && item.listPrice !== item.price && (
-                                <span className={styles.strike}>{formatKrw(item.listPrice)}</span>
+                                <span className={styles.strike}>{F.price(item.listPrice)}</span>
                               )}
-                              <span className={styles.price}>{formatKrw(item.price)}</span>
+                              <span className={styles.price}>{F.price(item.price)}</span>
                               <span className={styles.qty}>× {item.qty}</span>
                             </p>
                             {item.cancelReason != null && (
@@ -446,14 +544,14 @@ export function OrderList({
                     <Select
                       value={row.shipping.carrier}
                       options={carriers}
-                      placeholder="택배사 선택"
+                      placeholder={L.shipping.carrierPlaceholder}
                       disabled={row.shipping.disabled === true}
                       onChange={(carrier) => onCarrierChange?.(row, carrier)}
                     />
                     <InputBase
                       value={row.shipping.trackingNo}
                       onChange={(value) => onTrackingNoChange?.(row, value)}
-                      placeholder="송장번호"
+                      placeholder={L.shipping.trackingPlaceholder}
                       inputMode="numeric"
                       disabled={row.shipping.disabled === true}
                     />
@@ -461,7 +559,7 @@ export function OrderList({
                       variant="secondary"
                       appearance="outline"
                       size="sm"
-                      label="조회"
+                      label={L.shipping.lookup}
                       showLeftIcon
                       leftIcon={trackingIcon ?? <Truck size={14} />}
                       disabled={row.shipping.disabled === true}
@@ -471,23 +569,23 @@ export function OrderList({
 
                   {/* 4) 결제 정보 */}
                   <div className={styles.cell}>
-                    <p className={styles.total}>{formatKrw(row.payment.total)}</p>
+                    <p className={styles.total}>{F.price(row.payment.total)}</p>
                     <dl className={styles.payList}>
                       <div className={styles.payRow}>
-                        <dt>상품금액</dt>
-                        <dd>{formatKrw(row.payment.product)}</dd>
+                        <dt>{L.payment.product}</dt>
+                        <dd>{F.price(row.payment.product)}</dd>
                       </div>
                       <div className={styles.payRow}>
-                        <dt>배송비</dt>
-                        <dd>{formatKrw(row.payment.shippingFee)}</dd>
+                        <dt>{L.payment.shippingFee}</dt>
+                        <dd>{F.price(row.payment.shippingFee)}</dd>
                       </div>
                       <div className={styles.payRow}>
-                        <dt>할인</dt>
-                        <dd>-{formatKrw(row.payment.discount)}</dd>
+                        <dt>{L.payment.discount}</dt>
+                        <dd>-{F.price(row.payment.discount)}</dd>
                       </div>
                       <div className={styles.payRow}>
-                        <dt>적립금</dt>
-                        <dd>-{formatKrw(row.payment.point)}</dd>
+                        <dt>{L.payment.point}</dt>
+                        <dd>-{F.price(row.payment.point)}</dd>
                       </div>
                     </dl>
                     <p className={styles.method}>{row.payment.method}</p>
@@ -502,6 +600,7 @@ export function OrderList({
                       <button
                         type="button"
                         className={styles.memo}
+                        aria-label={L.receiver.memoAria(row.receiver.name)}
                         onClick={() => onMemoOpen?.(row)}
                       >
                         {row.receiver.memo}

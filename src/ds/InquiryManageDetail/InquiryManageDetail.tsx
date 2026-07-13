@@ -12,7 +12,14 @@ import { Checkbox } from '../Checkbox/Checkbox'
 import { InputBase } from '../InputBase/InputBase'
 import { Select, type SelectOption } from '../Select/Select'
 import { Textarea } from '../Textarea/Textarea'
-import { ConsentBadges, MetaLine, type ConsentBadgeItem } from './consent'
+import {
+  ConsentBadges,
+  MetaLine,
+  DEFAULT_CONSENT_BADGE_LABELS,
+  type ConsentBadgeItem,
+  type ConsentBadgeLabels,
+} from './consent'
+import { mergeLabels, type DeepPartialOneLevel, type EmptyLabels } from '../../shared/labels'
 import styles from './InquiryManageDetail.module.css'
 
 /* ────────────────────────────────────────────────────────────
@@ -71,6 +78,75 @@ export type InquiryManageDetailShow = {
   footer?: boolean
 }
 
+export type InquiryManageDetailLabels = {
+  /** 카드 제목과 카드 설명 */
+  sections: {
+    applicant: string
+    qa: string
+    qaDescription: string
+    answer: string
+    /** [답변] 카드의 설명 — 필드 설명(answerDescription prop)과는 다른 자리다 */
+    answerDescription: string
+  }
+  /** 신청자 카드의 필드·메타 라벨 */
+  applicant: {
+    name: string
+    phone: string
+    email: string
+    createdAt: string
+    updatedAt: string
+    updatedBy: string
+  }
+  /** 답변 카드 — 필드 라벨 · 입력 안내 · 토글 · 메타 */
+  answer: {
+    field: string
+    placeholder: string
+    answeredAt: string
+    answeredBy: string
+    toggle: string
+    toggleDescription: string
+    disabledHint: string
+  }
+  actions: { save: string; list: string; delete: string }
+  /** 문의 응답이 0건일 때 */
+  empty: EmptyLabels
+  /** 동의 배지 접미사 — consent.tsx와 공유한다 */
+  consent: ConsentBadgeLabels
+}
+
+/** EmptyLabels.title은 옵셔널(공용 타입)이라 최종 기본값을 이름으로 둔다 */
+const DEFAULT_EMPTY_QA = '등록된 문의 응답이 없습니다'
+
+export const DEFAULT_INQUIRY_MANAGE_DETAIL_LABELS: InquiryManageDetailLabels = {
+  sections: {
+    applicant: '신청자 정보',
+    qa: '문의 응답',
+    qaDescription: '신청 폼에 입력된 답변입니다.',
+    answer: '답변',
+    answerDescription: '등록한 답변은 신청자 메일로 함께 발송됩니다.',
+  },
+  applicant: {
+    name: '이름',
+    phone: '연락처',
+    email: '이메일',
+    createdAt: '신청일',
+    updatedAt: '수정일',
+    updatedBy: '수정자',
+  },
+  answer: {
+    field: '답변 내용',
+    placeholder: '답변 내용을 입력해주세요',
+    answeredAt: '답변일',
+    answeredBy: '답변자',
+    toggle: '답변 사용',
+    toggleDescription: '끄면 신청자에게 답변이 노출되지 않습니다.',
+    disabledHint: '답변 사용이 꺼져 있어 답변을 작성할 수 없습니다.',
+  },
+  actions: { save: '저장', list: '목록', delete: '삭제' },
+  empty: { title: DEFAULT_EMPTY_QA },
+  consent: DEFAULT_CONSENT_BADGE_LABELS,
+}
+
 export type InquiryManageDetailProps = {
   title?: string
   description?: string
@@ -102,6 +178,10 @@ export type InquiryManageDetailProps = {
   show?: InquiryManageDetailShow
   /** 밀도 — 정의 목록 행 높이(compact 44 / comfortable 56)까지 함께 바뀐다 */
   density?: 'compact' | 'comfortable'
+  /** 본문 최대 폭 (기본 lg) — 정보가 많은 어드민 화면은 full로 넓힌다 */
+  maxWidth?: 'md' | 'lg' | 'full'
+  /** 문구 — 넘기지 않으면 오늘과 같은 화면이 나온다 */
+  labels?: DeepPartialOneLevel<InquiryManageDetailLabels>
 }
 
 /** show 기본값 — 전부 true */
@@ -123,14 +203,16 @@ const SHOW_DEFAULT: Required<InquiryManageDetailShow> = {
 function ApplicantFields({
   applicant,
   density,
+  labels,
 }: {
   applicant: InquiryApplicant
   density: 'compact' | 'comfortable'
+  labels: InquiryManageDetailLabels['applicant']
 }) {
   const fields = [
-    { label: '이름', value: applicant.name },
-    { label: '연락처', value: applicant.phone },
-    { label: '이메일', value: applicant.email },
+    { label: labels.name, value: applicant.name },
+    { label: labels.phone, value: applicant.phone },
+    { label: labels.email, value: applicant.email },
   ]
 
   return (
@@ -182,17 +264,24 @@ export function InquiryManageDetail({
   onDelete,
   show,
   density = 'compact',
+  maxWidth = 'lg',
+  labels,
 }: InquiryManageDetailProps) {
   const on = { ...SHOW_DEFAULT, ...show }
+  const L = mergeLabels(DEFAULT_INQUIRY_MANAGE_DETAIL_LABELS, labels)
 
   const consents = applicant.consents ?? []
   const showConsents = on.consent && consents.length > 0
 
   // 값이 없는 메타 쌍은 아예 만들지 않는다 — '수정일 -' 같은 빈 자리가 남지 않게
   const metaItems = [
-    { label: '신청일', value: applicant.createdAt },
-    ...(applicant.updatedAt != null ? [{ label: '수정일', value: applicant.updatedAt }] : []),
-    ...(applicant.updatedBy != null ? [{ label: '수정자', value: applicant.updatedBy }] : []),
+    { label: L.applicant.createdAt, value: applicant.createdAt },
+    ...(applicant.updatedAt != null
+      ? [{ label: L.applicant.updatedAt, value: applicant.updatedAt }]
+      : []),
+    ...(applicant.updatedBy != null
+      ? [{ label: L.applicant.updatedBy, value: applicant.updatedBy }]
+      : []),
   ]
   const showMeta = on.meta && metaItems.length > 0
 
@@ -201,7 +290,7 @@ export function InquiryManageDetail({
       <Button
         variant="primary"
         size="md"
-        label="저장"
+        label={L.actions.save}
         disabled={saving}
         showLeftIcon
         leftIcon={<Save size={16} />}
@@ -219,7 +308,7 @@ export function InquiryManageDetail({
             variant="secondary"
             appearance="outline"
             size="md"
-            label="목록"
+            label={L.actions.list}
             showLeftIcon
             leftIcon={<List size={16} />}
             onClick={onList}
@@ -230,7 +319,7 @@ export function InquiryManageDetail({
             variant="error"
             appearance="outline"
             size="md"
-            label="삭제"
+            label={L.actions.delete}
             showLeftIcon
             leftIcon={<Trash2 size={16} />}
             onClick={onDelete}
@@ -242,12 +331,12 @@ export function InquiryManageDetail({
 
   // 답변 메타(답변일 · 답변자) — 둘 다 없으면 줄 자체가 없다
   const answerMeta = [
-    ...(answeredAt != null ? [{ label: '답변일', value: answeredAt }] : []),
-    ...(answeredBy != null ? [{ label: '답변자', value: answeredBy }] : []),
+    ...(answeredAt != null ? [{ label: L.answer.answeredAt, value: answeredAt }] : []),
+    ...(answeredBy != null ? [{ label: L.answer.answeredBy, value: answeredBy }] : []),
   ]
 
   return (
-    <AdminPageLayout maxWidth="lg" density={density} footer={footer}>
+    <AdminPageLayout maxWidth={maxWidth} density={density} footer={footer}>
       {on.header && (
         <PageHeaderBar
           title={title}
@@ -258,18 +347,22 @@ export function InquiryManageDetail({
       )}
 
       {on.applicant && (
-        <PageSection title="신청자 정보">
-          <ApplicantFields applicant={applicant} density={density} />
-          {showConsents && <ConsentBadges consents={consents} />}
+        <PageSection title={L.sections.applicant}>
+          <ApplicantFields applicant={applicant} density={density} labels={L.applicant} />
+          {showConsents && <ConsentBadges consents={consents} labels={L.consent} />}
           {showMeta && <MetaLine items={metaItems} />}
         </PageSection>
       )}
 
       {on.qa && (
-        <PageSection title="문의 응답" description="신청 폼에 입력된 답변입니다.">
+        <PageSection title={L.sections.qa} description={L.sections.qaDescription}>
           {qa.length === 0 ? (
             /* 빈 상태는 공용 EmptyState 한 규격으로 — 그림+문구를 화면마다 다시 짜지 않는다 */
-            <EmptyState kind="empty" title="등록된 문의 응답이 없습니다" />
+            <EmptyState
+              kind="empty"
+              title={L.empty.title ?? DEFAULT_EMPTY_QA}
+              description={L.empty.description}
+            />
           ) : (
             <QaList items={qa} />
           )}
@@ -278,17 +371,17 @@ export function InquiryManageDetail({
 
       {on.answer && (
         <FormSection
-          title="답변"
-          description="등록한 답변은 신청자 메일로 함께 발송됩니다."
+          title={L.sections.answer}
+          description={L.sections.answerDescription}
           toggleable={onAnswerEnabledChange != null}
           enabled={answerEnabled}
           onEnabledChange={onAnswerEnabledChange}
-          toggleLabel="답변 사용"
-          toggleDescription="끄면 신청자에게 답변이 노출되지 않습니다."
-          disabledHint="답변 사용이 꺼져 있어 답변을 작성할 수 없습니다."
+          toggleLabel={L.answer.toggle}
+          toggleDescription={L.answer.toggleDescription}
+          disabledHint={L.answer.disabledHint}
         >
           <FieldRow
-            label="답변 내용"
+            label={L.answer.field}
             required
             description={answerDescription}
             error={answerError}
@@ -297,7 +390,7 @@ export function InquiryManageDetail({
             <Textarea
               value={answer}
               onChange={onAnswerChange}
-              placeholder="답변 내용을 입력해주세요"
+              placeholder={L.answer.placeholder}
               rows={6}
               maxLength={1000}
               showCounter
@@ -333,6 +426,36 @@ export type InquiryRequestField = keyof InquiryRequestFormValue
 /** 필드별 보조 설명 / 에러 문구 — FieldRow의 3상태(기본 · description · error)를 여는 열쇠 */
 export type InquiryRequestMessages = Partial<Record<InquiryRequestField, string>>
 
+/** 동의 체크박스에는 입력 자리가 없다 — placeholder를 갖는 필드만 키로 남긴다 */
+type InquiryRequestInputField = Exclude<InquiryRequestField, 'privacy'>
+
+export type InquiryRequestFormLabels = {
+  /** FieldRow 라벨 — 키는 값(InquiryRequestFormValue)과 1:1 */
+  fields: Record<InquiryRequestField, string>
+  /** 입력 placeholder */
+  placeholders: Record<InquiryRequestInputField, string>
+}
+
+export const DEFAULT_INQUIRY_REQUEST_FORM_LABELS: InquiryRequestFormLabels = {
+  fields: {
+    category: '업체 분류',
+    name: '성함',
+    email: '이메일',
+    phone: '연락처',
+    title: '문의 제목',
+    content: '문의 내용',
+    privacy: '개인정보 수집 및 이용 안내',
+  },
+  placeholders: {
+    category: '분류를 선택해주세요',
+    name: '성함을 입력해주세요',
+    email: '이메일을 입력해주세요',
+    phone: '연락처를 입력해주세요',
+    title: '제목을 입력해주세요',
+    content: '문의 내용을 입력해주세요',
+  },
+}
+
 export type InquiryRequestFormProps = {
   value: InquiryRequestFormValue
   onChange: (value: InquiryRequestFormValue) => void
@@ -349,6 +472,8 @@ export type InquiryRequestFormProps = {
   submitLabel?: string
   /** 동의 체크박스 옆 문구 */
   privacyLabel?: string
+  /** 문구 — 필드 라벨·placeholder */
+  labels?: DeepPartialOneLevel<InquiryRequestFormLabels>
 }
 
 /** 업체 분류 기본 옵션 — 사용처가 categoryOptions를 넘기면 대체된다 */
@@ -382,7 +507,10 @@ export function InquiryRequestForm({
   description = '남겨 주신 내용을 확인한 뒤 담당자가 순차적으로 연락드립니다.',
   submitLabel = '문의하기',
   privacyLabel = '개인정보 수집 및 이용에 동의합니다.',
+  labels,
 }: InquiryRequestFormProps) {
+  const L = mergeLabels(DEFAULT_INQUIRY_REQUEST_FORM_LABELS, labels)
+
   /** 필드 하나만 갈아 끼운 새 value를 올린다 */
   const set = <K extends InquiryRequestField>(key: K, next: InquiryRequestFormValue[K]) => {
     onChange({ ...value, [key]: next })
@@ -397,7 +525,7 @@ export function InquiryRequestForm({
   return (
     <FormSection title={title} description={description}>
       <FieldRow
-        label="업체 분류"
+        label={L.fields.category}
         required
         span={1}
         description={descriptions?.category}
@@ -407,13 +535,13 @@ export function InquiryRequestForm({
           value={value.category}
           options={categoryOptions}
           onChange={(next) => set('category', next)}
-          placeholder="분류를 선택해주세요"
+          placeholder={L.placeholders.category}
           error={hasError('category')}
         />
       </FieldRow>
 
       <FieldRow
-        label="성함"
+        label={L.fields.name}
         required
         span={1}
         description={descriptions?.name}
@@ -422,13 +550,13 @@ export function InquiryRequestForm({
         <InputBase
           value={value.name}
           onChange={(next) => set('name', next)}
-          placeholder="성함을 입력해주세요"
+          placeholder={L.placeholders.name}
           error={hasError('name')}
         />
       </FieldRow>
 
       <FieldRow
-        label="이메일"
+        label={L.fields.email}
         required
         span={1}
         description={descriptions?.email}
@@ -439,13 +567,13 @@ export function InquiryRequestForm({
           onChange={(next) => set('email', next)}
           type="email"
           inputMode="email"
-          placeholder="이메일을 입력해주세요"
+          placeholder={L.placeholders.email}
           error={hasError('email')}
         />
       </FieldRow>
 
       <FieldRow
-        label="연락처"
+        label={L.fields.phone}
         required
         span={1}
         description={descriptions?.phone}
@@ -456,13 +584,13 @@ export function InquiryRequestForm({
           onChange={(next) => set('phone', next)}
           type="tel"
           inputMode="tel"
-          placeholder="연락처를 입력해주세요"
+          placeholder={L.placeholders.phone}
           error={hasError('phone')}
         />
       </FieldRow>
 
       <FieldRow
-        label="문의 제목"
+        label={L.fields.title}
         required
         span={2}
         description={descriptions?.title}
@@ -471,7 +599,7 @@ export function InquiryRequestForm({
         <InputBase
           value={value.title}
           onChange={(next) => set('title', next)}
-          placeholder="제목을 입력해주세요"
+          placeholder={L.placeholders.title}
           maxLength={60}
           error={hasError('title')}
         />
@@ -479,7 +607,7 @@ export function InquiryRequestForm({
 
       {/* span 없이 — 본문 3열을 한 줄로 전부 쓴다 */}
       <FieldRow
-        label="문의 내용"
+        label={L.fields.content}
         required
         description={descriptions?.content}
         error={errors?.content}
@@ -487,7 +615,7 @@ export function InquiryRequestForm({
         <Textarea
           value={value.content}
           onChange={(next) => set('content', next)}
-          placeholder="문의 내용을 입력해주세요"
+          placeholder={L.placeholders.content}
           rows={6}
           maxLength={1000}
           showCounter
@@ -496,7 +624,7 @@ export function InquiryRequestForm({
       </FieldRow>
 
       <FieldRow
-        label="개인정보 수집 및 이용 안내"
+        label={L.fields.privacy}
         required
         description={descriptions?.privacy}
         error={errors?.privacy}

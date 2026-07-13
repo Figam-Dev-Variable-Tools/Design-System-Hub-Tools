@@ -61,14 +61,24 @@ const meta = {
     rowKey: (row) => row.id,
     striped: false,
     bordered: false,
-    compact: false,
-    emptyText: '데이터가 없습니다.',
+    density: 'comfortable',
+    stickyHeader: false,
   },
   argTypes: {
     columns: { control: false },
     rows: { control: false },
     rowKey: { control: false },
     onRowClick: { control: false },
+    density: {
+      control: 'inline-radio',
+      options: ['comfortable', 'compact'],
+      description: 'AdminTable·DefinitionList와 같은 밀도 축(기존 compact boolean의 상위호환)',
+    },
+    compact: { control: false, description: '@deprecated — density="compact"를 쓴다' },
+    stickyHeader: { control: 'boolean', description: '헤더 고정 — maxHeight와 함께 쓴다' },
+    maxHeight: { control: false, description: '표 영역 최대 높이(세로 스크롤)' },
+    emptyText: { control: 'text', description: '@deprecated — labels.empty를 쓴다' },
+    labels: { control: false, description: '캡션·빈 표 문구·빈 셀 표기·정렬 버튼 이름' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -94,13 +104,102 @@ export const States: Story = {
         <Table<Person> columns={columns} rows={people.slice(0, 3)} rowKey={(row) => row.id} bordered />
       </div>
       <div>
-        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--ds-color-secondary)' }}>compact</p>
-        <Table<Person> columns={columns} rows={people.slice(0, 3)} rowKey={(row) => row.id} compact />
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--ds-color-secondary)' }}>
+          density=&quot;compact&quot;
+        </p>
+        <Table<Person>
+          columns={columns}
+          rows={people.slice(0, 3)}
+          rowKey={(row) => row.id}
+          density="compact"
+        />
       </div>
       <div>
         <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--ds-color-secondary)' }}>empty</p>
         <Table<Person> columns={columns} rows={[]} rowKey={(row) => row.id} />
       </div>
+    </div>
+  ),
+}
+
+/**
+ * 헤더 고정 — 세로로 긴 목록에서 스크롤해도 컬럼의 뜻을 잃지 않는다.
+ * 스크롤될 높이가 있어야 의미가 있으므로 maxHeight와 짝으로 쓴다.
+ */
+export const StickyHeader: Story = {
+  render: () => (
+    <Table<Person>
+      columns={columns}
+      // 스크롤이 생기도록 같은 사람들을 여러 번 쌓는다(행 키는 회차로 구분)
+      rows={[0, 1, 2, 3].flatMap((round) =>
+        people.map((person) => ({ ...person, id: `${person.id}-${round}` })),
+      )}
+      rowKey={(row) => row.id}
+      stickyHeader
+      maxHeight={280}
+      striped
+    />
+  ),
+}
+
+/**
+ * 값이 없는 셀 — 기본은 빈 칸이다(지금까지의 렌더).
+ * labels.emptyCell로 '-' 같은 표기를 켜면 빈 칸이 실수인지 값이 없는 것인지 구별된다.
+ */
+export const EmptyCells: Story = {
+  render: () => {
+    const holes: Person[] = [
+      { id: 'h1', name: '김서연', role: '', status: '재직', joinedAt: '2021-03-15' },
+      { id: 'h2', name: '이준호', role: '프론트엔드 개발자', status: '재직', joinedAt: '' },
+    ]
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div>
+          <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--ds-color-secondary)' }}>
+            기본 — 빈 칸
+          </p>
+          <Table<Person> columns={columns} rows={holes} rowKey={(row) => row.id} bordered />
+        </div>
+        <div>
+          <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--ds-color-secondary)' }}>
+            labels.emptyCell=&quot;-&quot;
+          </p>
+          <Table<Person>
+            columns={columns}
+            rows={holes}
+            rowKey={(row) => row.id}
+            bordered
+            labels={{ emptyCell: '-' }}
+          />
+        </div>
+      </div>
+    )
+  },
+}
+
+/**
+ * 문구 오버라이드 — 빈 표 문구·빈 셀 표기와, 화면에는 보이지 않는 이름(캡션·정렬 버튼)까지 연다.
+ * caption을 주면 표가 스크린리더에서 이름을 갖는다(화면에는 보이지 않는다).
+ */
+export const Labels: Story = {
+  render: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <Table<Person>
+        columns={columns}
+        rows={people.slice(0, 3)}
+        rowKey={(row) => row.id}
+        labels={{
+          caption: 'Team members',
+          emptyCell: '—',
+          sortBy: (column) => `Sort by ${column}`,
+        }}
+      />
+      <Table<Person>
+        columns={columns}
+        rows={[]}
+        rowKey={(row) => row.id}
+        labels={{ caption: 'Team members', empty: 'No data' }}
+      />
     </div>
   ),
 }

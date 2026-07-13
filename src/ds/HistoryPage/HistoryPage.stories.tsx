@@ -83,6 +83,13 @@ const meta = {
     showDescription: { control: 'boolean' },
     showRail: { control: 'boolean' },
     eraSuffix: { control: 'text' },
+    // 정렬 축 — 기본(undefined)은 넘긴 배열 순서 그대로다
+    order: {
+      control: 'inline-radio',
+      options: [undefined, 'asc', 'desc'],
+      description: '연대 정렬(기본: 배열 순서 유지)',
+    },
+    labels: { control: 'object' },
     groups: { control: false },
     title: { control: false },
     subtitle: { control: false },
@@ -135,4 +142,49 @@ export const Loading: Story = {
 /** 빈 상태 — 공용 EmptyState */
 export const Empty: Story = {
   args: { groups: [] },
+}
+
+/** 최신순 — 같은 데이터를 내림차순으로 세운다(기본은 배열 순서 그대로). */
+export const NewestFirst: Story = {
+  args: { order: 'desc' },
+}
+
+/**
+ * Labels — 영문 오버라이드.
+ * 연대 머리글 접미사(eraSuffix)와 항목 시점의 '년'(yearSuffix)이 모두 열려 있고,
+ * 연·월을 잇는 방식 자체는 formatDate로 갈아끼운다('May 2021').
+ *
+ * 개별 prop(title·subtitle·eraSuffix)을 넘기지 않아야 labels가 지배한다 —
+ * 그래서 meta의 args 대신 직접 렌더한다.
+ */
+export const Labels: Story = {
+  render: () => (
+    <HistoryPage
+      groups={[
+        { year: '2019', image: mockImage('2019', 'sage'), items: [{ month: 'May', title: 'Founded in Seoul' }] },
+        {
+          year: '2021',
+          image: mockImage('2021', 'sage'),
+          items: [
+            { month: 'March', title: 'Certified as a pre-social enterprise' },
+            { month: 'April', title: 'Women-owned business certification' },
+          ],
+        },
+        { year: '2023', image: mockImage('2023', 'sage'), items: [{ month: 'January', title: 'Renamed to Taesan Inc.' }] },
+        { year: '2026', image: mockImage('2026', 'sage'), items: [{ month: 'July', title: 'Website relaunch' }] },
+      ]}
+      labels={{
+        title: (
+          <>
+            Taesan, bringing <Highlight>nature</Highlight> into space.
+          </>
+        ),
+        subtitle: 'Landscape and civil engineering, from planning to maintenance.',
+        eraSuffix: 's',
+        yearSuffix: '',
+        formatDate: ({ year, month }) => (month != null ? `${month} ${year}` : year),
+        empty: { title: 'No history yet.', description: 'Milestones will appear here by era.' },
+      }}
+    />
+  ),
 }

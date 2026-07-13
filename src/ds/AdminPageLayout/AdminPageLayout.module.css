@@ -181,11 +181,8 @@
   top: var(--ds-spacing-6);
 }
 
-/* ── 하단 sticky 액션 바 — 그림자 없이 1px 보더 + 큰 radius ── */
+/* ── 하단 액션 바 — 그림자 없이 1px 보더 + 큰 radius ── */
 .footer {
-  position: sticky;
-  bottom: var(--ds-spacing-4);
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -195,6 +192,13 @@
   background: var(--ds-color-bg);
   border: var(--ds-border-width) solid var(--ds-color-border);
   border-radius: var(--ds-radius-lg);
+}
+
+/* 화면 아래에 붙는다 — 긴 폼에서 [저장]을 놓치지 않게(기본) */
+.footerSticky {
+  position: sticky;
+  bottom: var(--ds-spacing-4);
+  z-index: 1;
 }
 
 /* ── 1440 미만 — 우측 aside를 붙일 자리가 없으면 본문 아래로 내린다 ── */

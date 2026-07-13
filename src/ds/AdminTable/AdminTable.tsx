@@ -19,6 +19,18 @@ import {
 } from 'lucide-react'
 import { Placeholder } from '../../shared/placeholders'
 import { downloadCsv, downloadExcelXml, toCsv, type ExportColumn } from '../../shared/tableExport'
+import {
+  mergeLabels,
+  resolveLabel,
+  type BulkLabels,
+  type ColumnLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type Formatters,
+  type LabelFn,
+  type RowScopedActionLabels,
+  type TableToolbarLabels,
+} from '../../shared/labels'
 import styles from './AdminTable.module.css'
 import { Badge } from '../Badge/Badge'
 import { Button } from '../Button/Button'
@@ -114,6 +126,130 @@ export type AdminBulkAction = {
   onAction: (ids: string[]) => void
 }
 
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   화면에 나오는 모든 글자를 한 통로로 연다. 흩어져 있던 기본 문구(KIND_SPEC.header,
+   툴바 버튼, 메모 모달, 일괄 선택 바 …)를 DEFAULT_ADMIN_TABLE_LABELS 한 곳으로 모았다.
+   우선순위: 개별 prop(emptyText …) > labels.* > 기본값. */
+
+/** 행 이름을 끼워 넣는 문구 — 공용 RowScopedActionLabels에 표 전용 문구를 얹는다 */
+type AdminTableRowLabelsResolved = Required<
+  Pick<
+    RowScopedActionLabels,
+    'edit' | 'delete' | 'more' | 'reorder' | 'thumbnailAlt' | 'thumbnailEmpty'
+  >
+> & {
+  /** drag 핸들 툴팁 — 순서를 바꿀 수 있을 때 */
+  reorderHint: string
+  /** drag 핸들 툴팁 — 정렬 중이라 순서를 바꿀 수 없을 때 */
+  reorderDisabledBySort: string
+  /** drag 핸들 툴팁 — onReorder를 넘기지 않았을 때 */
+  reorderUnsupported: string
+  /** 제목 옆 새 창 링크의 접근성 이름 */
+  externalLink: LabelFn<string>
+  /** selectCell 버튼의 접근성 이름 — 인자가 셋이라 객체 하나로 받는다 */
+  selectCell: LabelFn<{ row: string; column: string; current: string }>
+}
+
+/** 메모 셀 + 메모 모달 */
+type AdminTableMemoLabelsResolved = {
+  /** 메모가 비었을 때 셀 버튼에 적히는 글자 */
+  empty: string
+  /** 메모가 비었을 때 셀 버튼의 title */
+  emptyTitle: string
+  edit: LabelFn<string>
+  create: LabelFn<string>
+  dialogTitle: LabelFn<string>
+  /** 행을 특정할 수 없을 때의 모달 제목 */
+  dialogFallbackTitle: string
+  placeholder: string
+  cancel: string
+  save: string
+}
+
+type AdminTableLabelsResolved = {
+  /** kind별 기본 컬럼 헤더 — col.header를 주지 않은 컬럼에만 쓰인다 */
+  columns: Record<AdminColumnKind, string>
+  toolbar: Required<TableToolbarLabels>
+  bulk: Required<BulkLabels>
+  /** 페이지 크기 Select 옵션 */
+  pageSizeOption: LabelFn<number>
+  row: AdminTableRowLabelsResolved
+  memo: AdminTableMemoLabelsResolved
+  /** actionLabel을 주면 빈 표에 CTA 버튼이 뜬다(onEmptyAction과 짝) */
+  empty: EmptyLabels & { title: string; description: string }
+  loading: string
+}
+
+export const DEFAULT_ADMIN_TABLE_LABELS: AdminTableLabelsResolved = {
+  columns: {
+    select: '',
+    drag: '',
+    index: '순번',
+    thumbnail: '이미지',
+    thumbTitle: '상품',
+    title: 'Title',
+    titleTags: '제목',
+    text: '내용',
+    type: 'Type',
+    category: '카테고리',
+    price: '가격',
+    number: '수량',
+    status: '상태',
+    selectCell: '상태',
+    badge: '상태',
+    date: '일자',
+    user: '작성자',
+    memo: '메모',
+    actions: '관리',
+    kebab: '',
+  },
+  toolbar: {
+    csv: 'CSV',
+    excel: 'Excel',
+    columnPicker: '컬럼',
+    columnPickerTitle: '컬럼 표시',
+  },
+  bulk: {
+    selectedCount: (count) => `선택 ${count}건`,
+    delete: '선택 삭제',
+  },
+  pageSizeOption: (size) => `${size}개씩`,
+  row: {
+    edit: (row) => `${row} 수정`,
+    delete: (row) => `${row} 삭제`,
+    more: (row) => `${row} 더보기`,
+    reorder: (row) => `${row} 순서 이동`,
+    thumbnailAlt: (row) => `${row} 썸네일`,
+    thumbnailEmpty: '이미지 없음',
+    reorderHint: '드래그하거나 ↑ ↓ 키로 순서를 바꿉니다',
+    reorderDisabledBySort: '정렬 중에는 순서를 바꿀 수 없습니다',
+    reorderUnsupported: '순서 변경을 지원하지 않습니다',
+    externalLink: (title) => `${title} 새 창으로 열기`,
+    selectCell: ({ row, column, current }) => `${row} ${column} 변경 — 현재 ${current}`,
+  },
+  memo: {
+    empty: '메모',
+    emptyTitle: '메모 없음',
+    edit: (row) => `${row} 메모 편집`,
+    create: (row) => `${row} 메모 작성`,
+    dialogTitle: (row) => `메모 — ${row}`,
+    dialogFallbackTitle: '메모',
+    placeholder: '이 행에 대한 메모를 남기세요',
+    cancel: '취소',
+    save: '저장',
+  },
+  empty: {
+    title: '데이터가 없습니다.',
+    description: '필터를 바꾸거나 새 항목을 등록해 보세요.',
+  },
+  loading: '불러오는 중',
+} as const
+
+export type AdminTableLabels = DeepPartialOneLevel<AdminTableLabelsResolved>
+
+/** 컬럼 헤더만 따로 갈아끼울 때 — labels.columns와 같은 모양 */
+export type AdminTableColumnLabels = ColumnLabels<AdminColumnKind>
+
 export type AdminTableProps<T> = {
   columns: AdminColumn<T>[]
   rows: T[]
@@ -149,14 +285,28 @@ export type AdminTableProps<T> = {
   exportable?: boolean
   exportFilename?: string
   loading?: boolean
+  /** @deprecated labels.empty.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   emptyText?: string
   density?: 'comfortable' | 'compact'
   /** 빈 상태의 보조 문구 — 필터 개념이 없는 표에서는 꺼서 제목만 남긴다 */
   showEmptyDescription?: boolean
-  /** 빈 상태 보조 문구 — 다음 행동을 안내한다 */
+  /** @deprecated labels.empty.description 을 쓰세요 */
   emptyDescription?: string
-  /** 로딩 오버레이 문구 — 스크린리더가 읽는 이름이기도 하다 */
+  /** @deprecated labels.loading 을 쓰세요 */
   loadingLabel?: string
+  /**
+   * 빈 상태 그림 — 데이터 0건('empty')과 검색 결과 0건('search')·오류('error')를 구분한다.
+   * 기본 'empty'(= 지금 화면 그대로).
+   */
+  emptyKind?: 'empty' | 'search' | 'error'
+  /** 빈 표의 CTA — labels.empty.actionLabel과 짝이어야 버튼이 뜬다 */
+  onEmptyAction?: () => void
+  /** 짝수 행 줄무늬 — 컬럼이 많은 긴 표에서 가로 추적을 돕는다. 기본 false(= 지금 화면 그대로) */
+  striped?: boolean
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: AdminTableLabels
+  /** 숫자·통화 포맷(문구가 아니라 포맷이다) — price/number 셀의 기본 표기를 바꾼다 */
+  formatters?: Formatters
   /** actions 셀 수정 아이콘 — 넘기지 않으면 공용 RowActions의 기본 아이콘(연필) */
   editIcon?: ReactNode
   /** actions 셀 삭제 아이콘 — 넘기지 않으면 공용 RowActions의 기본 아이콘(휴지통) */
@@ -180,34 +330,35 @@ type KindSpec = {
   /** 이 폭 아래로는 짜부라지지 않고 표가 가로 스크롤된다 */
   minWidth: number
   align: 'left' | 'center' | 'right'
-  header: string
 }
 
 /**
  * kind별 기본 비율/최소폭 — 고정폭 컬럼은 px, 나머지는 남는 공간을 ratio로 배분한다.
  * 어떤 조합이든 비율이 깨지지 않고, 최소폭 합보다 좁아지면 가로 스크롤된다.
+ *
+ * 헤더 문구는 여기 두지 않는다 — 갈아끼울 수 있어야 하므로 DEFAULT_ADMIN_TABLE_LABELS.columns가 갖는다.
  */
 const KIND_SPEC: Record<AdminColumnKind, KindSpec> = {
-  select: { fixed: 44, ratio: null, minWidth: 44, align: 'center', header: '' },
-  drag: { fixed: 40, ratio: null, minWidth: 40, align: 'center', header: '' },
-  index: { fixed: 56, ratio: null, minWidth: 56, align: 'center', header: '순번' },
-  thumbnail: { fixed: 72, ratio: null, minWidth: 72, align: 'center', header: '이미지' },
-  thumbTitle: { fixed: null, ratio: 3, minWidth: 240, align: 'left', header: '상품' },
-  title: { fixed: null, ratio: 3, minWidth: 180, align: 'left', header: 'Title' },
-  titleTags: { fixed: null, ratio: 3, minWidth: 200, align: 'left', header: '제목' },
-  text: { fixed: null, ratio: 2, minWidth: 140, align: 'left', header: '내용' },
-  type: { fixed: null, ratio: 1, minWidth: 96, align: 'left', header: 'Type' },
-  category: { fixed: null, ratio: 1, minWidth: 96, align: 'left', header: '카테고리' },
-  price: { fixed: 120, ratio: null, minWidth: 120, align: 'right', header: '가격' },
-  number: { fixed: 90, ratio: null, minWidth: 90, align: 'center', header: '수량' },
-  status: { fixed: 90, ratio: null, minWidth: 90, align: 'center', header: '상태' },
-  selectCell: { fixed: 120, ratio: null, minWidth: 120, align: 'center', header: '상태' },
-  badge: { fixed: 110, ratio: null, minWidth: 110, align: 'center', header: '상태' },
-  date: { fixed: 120, ratio: null, minWidth: 120, align: 'center', header: '일자' },
-  user: { fixed: 110, ratio: null, minWidth: 110, align: 'center', header: '작성자' },
-  memo: { fixed: 120, ratio: null, minWidth: 120, align: 'left', header: '메모' },
-  actions: { fixed: 96, ratio: null, minWidth: 96, align: 'center', header: '관리' },
-  kebab: { fixed: 48, ratio: null, minWidth: 48, align: 'center', header: '' },
+  select: { fixed: 44, ratio: null, minWidth: 44, align: 'center' },
+  drag: { fixed: 40, ratio: null, minWidth: 40, align: 'center' },
+  index: { fixed: 56, ratio: null, minWidth: 56, align: 'center' },
+  thumbnail: { fixed: 72, ratio: null, minWidth: 72, align: 'center' },
+  thumbTitle: { fixed: null, ratio: 3, minWidth: 240, align: 'left' },
+  title: { fixed: null, ratio: 3, minWidth: 180, align: 'left' },
+  titleTags: { fixed: null, ratio: 3, minWidth: 200, align: 'left' },
+  text: { fixed: null, ratio: 2, minWidth: 140, align: 'left' },
+  type: { fixed: null, ratio: 1, minWidth: 96, align: 'left' },
+  category: { fixed: null, ratio: 1, minWidth: 96, align: 'left' },
+  price: { fixed: 120, ratio: null, minWidth: 120, align: 'right' },
+  number: { fixed: 90, ratio: null, minWidth: 90, align: 'center' },
+  status: { fixed: 90, ratio: null, minWidth: 90, align: 'center' },
+  selectCell: { fixed: 120, ratio: null, minWidth: 120, align: 'center' },
+  badge: { fixed: 110, ratio: null, minWidth: 110, align: 'center' },
+  date: { fixed: 120, ratio: null, minWidth: 120, align: 'center' },
+  user: { fixed: 110, ratio: null, minWidth: 110, align: 'center' },
+  memo: { fixed: 120, ratio: null, minWidth: 120, align: 'left' },
+  actions: { fixed: 96, ratio: null, minWidth: 96, align: 'center' },
+  kebab: { fixed: 48, ratio: null, minWidth: 48, align: 'center' },
 }
 
 /**
@@ -244,15 +395,21 @@ const NON_EXPORTABLE_KINDS: AdminColumnKind[] = [
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
+/** 메모 모달 입력 높이 — 한 화면에 다 보이면서 모달을 키우지 않는 줄 수 */
+const MEMO_ROWS = 4
+/** 메모 길이 상한 — 셀에 미리보기로 접히는 한 줄 메모라 200자를 넘길 이유가 없다 */
+const MEMO_MAX_LENGTH = 200
+
 type SortDir = 'asc' | 'desc'
 type SortState = { key: string; dir: SortDir } | null
 
 type ColLayout = { fixed: number | null; ratio: number; minWidth: number }
 
-/** ₩1,234,000 */
-function formatPrice(value: unknown): string {
-  return `₩${Number(value ?? 0).toLocaleString('ko-KR')}`
-}
+/** 기본 숫자 포맷 — formatters.number로 갈아끼운다 */
+const defaultNumberFormat = (value: number): string => value.toLocaleString('ko-KR')
+
+/** 기본 통화 포맷(₩1,234,000) — formatters.price로 갈아끼운다 */
+const defaultPriceFormat = (value: number): string => `₩${value.toLocaleString('ko-KR')}`
 
 /** 문자열은 localeCompare, 숫자는 수치 비교 */
 function compareValues(a: unknown, b: unknown): number {
@@ -316,11 +473,18 @@ export function AdminTable<T>({
   exportable = false,
   exportFilename = 'table',
   loading = false,
-  emptyText = '데이터가 없습니다.',
+  // 기본 문구는 DEFAULT_ADMIN_TABLE_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다.
+  emptyText,
   density = 'comfortable',
   showEmptyDescription = true,
-  emptyDescription = '필터를 바꾸거나 새 항목을 등록해 보세요.',
-  loadingLabel = '불러오는 중',
+  emptyDescription,
+  loadingLabel,
+  emptyKind = 'empty',
+  onEmptyAction,
+  striped = false,
+  labels,
+  formatters,
   editIcon,
   deleteIcon,
   kebabIcon,
@@ -329,6 +493,10 @@ export function AdminTable<T>({
   excelIcon,
   columnPickerIcon,
 }: AdminTableProps<T>) {
+  const L = mergeLabels(DEFAULT_ADMIN_TABLE_LABELS, labels)
+  const formatNumber = formatters?.number ?? defaultNumberFormat
+  const formatPrice = formatters?.price ?? defaultPriceFormat
+
   const [sort, setSort] = useState<SortState>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   // columnVisibility를 주지 않으면 컴포넌트가 직접 들고 있는다(비제어)
@@ -368,7 +536,7 @@ export function AdminTable<T>({
   /** 컬럼 피커·내보내기 헤더에 쓸 문자열 라벨(header가 ReactNode일 수 있다) */
   const columnLabel = (col: AdminColumn<T>): string => {
     if (typeof col.header === 'string' && col.header !== '') return col.header
-    const fallback = KIND_SPEC[col.kind].header
+    const fallback = L.columns[col.kind]
     return fallback !== '' ? fallback : col.key
   }
 
@@ -609,10 +777,10 @@ export function AdminTable<T>({
   /** 썸네일 상자 — 이미지가 없으면 공용 대체 그림 */
   const thumbBox = (src: string | undefined, row: T): ReactNode =>
     src != null ? (
-      <img className={styles.thumb} src={src} alt={`${rowLabel(row)} 썸네일`} />
+      <img className={styles.thumb} src={src} alt={L.row.thumbnailAlt(rowLabel(row))} />
     ) : (
       // 썸네일 없는 행 — 공용 대체 이미지(Image·ImageCard와 같은 그림)
-      <span className={styles.thumbEmpty} role="img" aria-label="이미지 없음">
+      <span className={styles.thumbEmpty} role="img" aria-label={L.row.thumbnailEmpty}>
         <Placeholder kind="image" size="fill" />
       </span>
     )
@@ -650,7 +818,7 @@ export function AdminTable<T>({
             href={href}
             target="_blank"
             rel="noreferrer"
-            aria-label={`${text} 새 창으로 열기`}
+            aria-label={L.row.externalLink(text)}
           >
             <ExternalLink size={13} />
           </a>
@@ -679,13 +847,13 @@ export function AdminTable<T>({
             type="button"
             className={[styles.grip, styles.inlineAction].join(' ')}
             disabled={disabled}
-            aria-label={`${rowLabel(row)} 순서 이동`}
+            aria-label={L.row.reorder(rowLabel(row))}
             title={
               onReorder == null
-                ? '순서 변경을 지원하지 않습니다'
+                ? L.row.reorderUnsupported
                 : disabled
-                  ? '정렬 중에는 순서를 바꿀 수 없습니다'
-                  : '드래그하거나 ↑ ↓ 키로 순서를 바꿉니다'
+                  ? L.row.reorderDisabledBySort
+                  : L.row.reorderHint
             }
             // 핸들을 눌렀을 때만 행이 draggable이 된다 — 텍스트 선택을 막지 않는다
             onMouseDown={() => {
@@ -748,15 +916,15 @@ export function AdminTable<T>({
         )
 
       case 'price':
-        return <span className={styles.price}>{formatPrice(raw)}</span>
+        return <span className={styles.price}>{formatPrice(Number(raw ?? 0))}</span>
 
       case 'number': {
         const num = Number(raw ?? 0)
         // 0이면 톤 배지로(예: 재고 0 → error) — tone 미지정 시 그냥 숫자
         if (num === 0 && col.tone != null) {
-          return <Badge variant={col.tone(row)} appearance="soft" size="sm" label="0" />
+          return <Badge variant={col.tone(row)} appearance="soft" size="sm" label={formatNumber(0)} />
         }
-        return <span className={styles.number}>{num.toLocaleString('ko-KR')}</span>
+        return <span className={styles.number}>{formatNumber(num)}</span>
       }
 
       case 'status':
@@ -788,7 +956,11 @@ export function AdminTable<T>({
               type="button"
               className={styles.selectCell}
               aria-haspopup="menu"
-              aria-label={`${rowLabel(row)} ${columnLabel(col)} 변경 — 현재 ${label}`}
+              aria-label={L.row.selectCell({
+                row: rowLabel(row),
+                column: columnLabel(col),
+                current: label,
+              })}
               disabled={options.length === 0}
             >
               <span className={styles.selectCellValue}>{label}</span>
@@ -823,14 +995,16 @@ export function AdminTable<T>({
           <button
             type="button"
             className={[styles.memo, filled ? styles.memoFilled : styles.inlineAction].join(' ')}
-            aria-label={`${rowLabel(row)} 메모 ${filled ? '편집' : '작성'}`}
-            title={filled ? memo : '메모 없음'}
+            aria-label={
+              filled ? L.memo.edit(rowLabel(row)) : L.memo.create(rowLabel(row))
+            }
+            title={filled ? memo : L.memo.emptyTitle}
             onClick={() => openMemo(row, memo)}
           >
             <span className={styles.memoIcon} aria-hidden="true">
               <Pencil size={13} />
             </span>
-            <span className={styles.memoText}>{filled ? memo : '메모'}</span>
+            <span className={styles.memoText}>{filled ? memo : L.memo.empty}</span>
           </button>
         )
       }
@@ -844,7 +1018,7 @@ export function AdminTable<T>({
               type="button"
               className={[styles.kebab, styles.inlineAction].join(' ')}
               aria-haspopup="menu"
-              aria-label={`${rowLabel(row)} 더보기`}
+              aria-label={L.row.more(rowLabel(row))}
             >
               {kebabIcon ?? <Ellipsis size={16} />}
             </button>
@@ -864,7 +1038,7 @@ export function AdminTable<T>({
                 size="sm"
                 onEdit={onEdit != null ? () => onEdit(row) : undefined}
                 onDelete={onDelete != null ? () => onDelete(row) : undefined}
-                labels={{ edit: `${label} 수정`, delete: `${label} 삭제` }}
+                labels={{ edit: L.row.edit(label), delete: L.row.delete(label) }}
               />
             </span>
           )
@@ -878,7 +1052,7 @@ export function AdminTable<T>({
               <button
                 type="button"
                 className={styles.iconButton}
-                aria-label={`${label} 수정`}
+                aria-label={L.row.edit(label)}
                 onClick={() => onEdit(row)}
               >
                 {editIcon ?? <Pencil size={15} />}
@@ -888,7 +1062,7 @@ export function AdminTable<T>({
               <button
                 type="button"
                 className={[styles.iconButton, styles.danger].join(' ')}
-                aria-label={`${label} 삭제`}
+                aria-label={L.row.delete(label)}
                 onClick={() => onDelete(row)}
               >
                 {deleteIcon ?? <Trash2 size={15} />}
@@ -924,7 +1098,7 @@ export function AdminTable<T>({
         />
       )
     }
-    return col.header ?? KIND_SPEC[col.kind].header
+    return col.header ?? L.columns[col.kind]
   }
 
   const cellStyle = (col: AdminColumn<T>): CSSProperties => {
@@ -947,6 +1121,7 @@ export function AdminTable<T>({
   const tableClass = [
     styles.table,
     density === 'compact' ? styles.compact : '',
+    striped ? styles.striped : '',
     edges.left ? styles.edgeLeft : '',
     edges.right ? styles.edgeRight : '',
   ]
@@ -968,7 +1143,7 @@ export function AdminTable<T>({
                 variant="secondary"
                 appearance="outline"
                 size="sm"
-                label="CSV"
+                label={L.toolbar.csv}
                 showIcon
                 icon={csvIcon ?? <Download size={14} />}
                 onClick={handleExportCsv}
@@ -977,7 +1152,7 @@ export function AdminTable<T>({
                 variant="secondary"
                 appearance="outline"
                 size="sm"
-                label="Excel"
+                label={L.toolbar.excel}
                 showIcon
                 icon={excelIcon ?? <FileSpreadsheet size={14} />}
                 onClick={handleExportExcel}
@@ -989,13 +1164,13 @@ export function AdminTable<T>({
               open={pickerOpen}
               onOpenChange={setPickerOpen}
               placement="bottom-end"
-              title="컬럼 표시"
+              title={L.toolbar.columnPickerTitle}
               trigger={
                 <Button
                   variant="secondary"
                   appearance="outline"
                   size="sm"
-                  label="컬럼"
+                  label={L.toolbar.columnPicker}
                   showIcon
                   icon={columnPickerIcon ?? <Columns3 size={14} />}
                 />
@@ -1024,8 +1199,15 @@ export function AdminTable<T>({
       <div className={styles.tableWrap} ref={wrapRef}>
         {isEmpty ? (
           <EmptyState
-            title={emptyText}
-            description={showEmptyDescription ? emptyDescription : undefined}
+            kind={emptyKind}
+            title={resolveLabel(emptyText, L.empty.title) ?? DEFAULT_ADMIN_TABLE_LABELS.empty.title}
+            description={
+              showEmptyDescription
+                ? resolveLabel(emptyDescription, L.empty.description)
+                : undefined
+            }
+            actionLabel={L.empty.actionLabel}
+            onAction={onEmptyAction}
             compact
           />
         ) : (
@@ -1099,7 +1281,7 @@ export function AdminTable<T>({
             </tbody>
           </table>
         )}
-        {loading && <Loading overlay label={loadingLabel} />}
+        {loading && <Loading overlay label={resolveLabel(loadingLabel, L.loading)} />}
       </div>
 
       <div className={styles.footer}>
@@ -1110,7 +1292,7 @@ export function AdminTable<T>({
                 value={String(pageSize)}
                 options={pageSizeOptions.map((size) => ({
                   value: String(size),
-                  label: `${size}개씩`,
+                  label: L.pageSizeOption(size),
                 }))}
                 onChange={(value) => onPageSizeChange(Number(value))}
               />
@@ -1118,7 +1300,7 @@ export function AdminTable<T>({
           )}
           {showBulk && (
             <div className={styles.bulk}>
-              <span className={styles.selectedCount}>선택 {selectedIds.length}건</span>
+              <span className={styles.selectedCount}>{L.bulk.selectedCount(selectedIds.length)}</span>
               {bulkActions.map((action) => (
                 <Button
                   key={action.key}
@@ -1136,7 +1318,7 @@ export function AdminTable<T>({
                   variant="error"
                   appearance="outline"
                   size="sm"
-                  label="선택 삭제"
+                  label={L.bulk.delete}
                   showIcon
                   icon={<Trash2 size={14} />}
                   onClick={() => onBulkDelete(selectedIds)}
@@ -1152,7 +1334,9 @@ export function AdminTable<T>({
       <Modal
         open={memoRow != null}
         onClose={closeMemo}
-        title={memoRow != null ? `메모 — ${rowLabel(memoRow)}` : '메모'}
+        title={
+          memoRow != null ? L.memo.dialogTitle(rowLabel(memoRow)) : L.memo.dialogFallbackTitle
+        }
         size="sm"
         footer={
           <>
@@ -1160,20 +1344,20 @@ export function AdminTable<T>({
               variant="secondary"
               appearance="outline"
               size="sm"
-              label="취소"
+              label={L.memo.cancel}
               onClick={closeMemo}
             />
-            <Button variant="primary" size="sm" label="저장" onClick={saveMemo} />
+            <Button variant="primary" size="sm" label={L.memo.save} onClick={saveMemo} />
           </>
         }
       >
         <Textarea
           value={memoDraft}
           onChange={setMemoDraft}
-          rows={4}
-          maxLength={200}
+          rows={MEMO_ROWS}
+          maxLength={MEMO_MAX_LENGTH}
           showCounter
-          placeholder="이 행에 대한 메모를 남기세요"
+          placeholder={L.memo.placeholder}
         />
       </Modal>
     </div>

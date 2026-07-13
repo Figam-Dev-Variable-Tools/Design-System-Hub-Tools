@@ -159,6 +159,12 @@ const meta = {
     // 피드 행 ON/OFF — 기본값은 지금까지의 피드 카드 그대로다
     showFeedThumbnail: { control: 'boolean' },
     showFeedMeta: { control: 'boolean' },
+    // 변형 축 — 기본값(auto · split · card)이 지금까지의 대시보드다
+    feedColumns: { control: 'inline-radio', options: ['auto', 1, 2, 3, 4] },
+    statsLayout: { control: 'inline-radio', options: ['split', 'chart-first', 'stacked'] },
+    feedChrome: { control: 'inline-radio', options: ['card', 'plain'] },
+    labels: { control: 'object' },
+    formatters: { control: false },
     // 아이콘 슬롯 — ReactNode라 컨트롤로는 다루지 않는다(FeedTextOnly 스토리 참고)
     moreIcon: { control: false },
   },
@@ -237,6 +243,62 @@ export const StatsOnly: Story = {
   args: {
     todoItems: [],
     feeds: [],
+  },
+}
+
+/**
+ * 차트 우선 — 통계 영역을 8:4로 나눠 추이를 크게 본다(기본은 6:6 split).
+ * 피드는 3장이지만 2열로 접어(feedColumns=2) 마지막 한 장이 아래 줄을 넓게 쓴다.
+ */
+export const ChartFirst: Story = {
+  args: {
+    statsLayout: 'chart-first',
+    feedColumns: 2,
+    feeds: [RECENT_ORDERS, SELL_REQUESTS, { ...RECENT_ORDERS, key: 'inquiries', title: '문의 접수', count: 4 }],
+  },
+}
+
+/**
+ * Labels — 영문 오버라이드.
+ * 피드 제목·더보기·빈 문구는 데이터(feed.*)가, 단위·구분자는 labels가 갖는다.
+ * 숫자 표기는 포맷이므로 formatters로 연다.
+ */
+export const Labels: Story = {
+  args: {
+    title: 'Dashboard',
+    description: 'Everything that needs your attention today.',
+    tabs: [
+      { value: 'used', label: 'Used' },
+      { value: 'rental', label: 'Rental' },
+      { value: 'install', label: 'Installation' },
+    ],
+    todoTitle: "Today's tasks",
+    todoItems: [
+      { key: 'new-order', label: 'New orders', count: 1 },
+      { key: 'cancel', label: 'Cancellations', count: 0 },
+      { key: 'return', label: 'Returns', count: 0 },
+    ],
+    feeds: [
+      { ...RECENT_ORDERS, title: 'Recent orders', moreLabel: 'View all' },
+      {
+        ...SELL_REQUESTS,
+        title: 'Sell requests',
+        moreLabel: 'View all',
+        items: [],
+        emptyText: undefined,
+      },
+    ],
+    statsTitle: 'Analytics',
+    chartTitle: 'Visitors · Page views',
+    labels: {
+      feed: {
+        countAria: (count) => `${count} items`,
+        metaSeparator: '•',
+        more: 'More',
+        empty: 'Nothing to show yet',
+      },
+    },
+    formatters: { number: (value) => value.toLocaleString('en-US') },
   },
 }
 

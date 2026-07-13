@@ -1,6 +1,16 @@
 import { Fragment, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import {
+  mergeLabels,
+  resolveLabel,
+  type BulkLabels,
+  type ConfirmDialogLabels,
+  type EmptyLabels,
+  type LoadingLabels,
+  type SearchLabels,
+  type TotalLabels,
+} from '../../shared/labels'
 import styles from './AdminListPage.module.css'
 import { AdminPageLayout } from '../AdminPageLayout/AdminPageLayout'
 import { AdminListView } from '../AdminListView/AdminListView'
@@ -88,8 +98,20 @@ export type AdminListSearchMode = 'panel' | 'inline' | false
  *   page  : AdminPageLayout(헤더·탭·좌측 레일·툴바·본문). 페이지 컨테이너(패딩 40)를 겸한다.
  *   plain : 골격 없이 조각(검색 패널 · 탭 · 툴바 · 본문)만 세로로 쌓는다.
  *           바깥이 이미 PageContainer인 '끼워 넣는 목록 프리셋'용 — 패딩이 두 번 먹지 않게.
+ *   card  : plain + 카드 껍데기(보더·radius). 모달·탭 패널 안에 얹는 목록이
+ *           div를 덧대지 않아도 되게 한다.
  */
-export type AdminListChrome = 'page' | 'plain'
+export type AdminListChrome = 'page' | 'plain' | 'card'
+
+/**
+ * 행 선택 축 —
+ *   multi : 체크박스 다중 선택(기본, 지금까지의 동작)
+ *   single: 한 번에 한 건만 — 새로 고른 행이 이전 선택을 대체한다(선택 컬럼은 그대로 둔다)
+ *   none  : 선택 없음 — 선택 컬럼과 일괄 처리 바가 통째로 사라진다(읽기 전용 목록)
+ *
+ * 지금까지 이 축은 columns 배열의 kind='select' 선언에 묻혀 있어 prop 하나로 표현할 수 없었다.
+ */
+export type AdminListSelection = 'multi' | 'single' | 'none'
 
 export type AdminListDeleteConfirm = {
   title: string
@@ -97,6 +119,54 @@ export type AdminListDeleteConfirm = {
   description?: string | ((ids: string[]) => string)
   /** 확인 버튼 라벨 (기본 CrudDialog의 '삭제') */
   confirmLabel?: string
+}
+
+/**
+ * 셸이 직접 그리는 문구 — 타입은 전부 src/shared/labels.ts의 공용 타입을 그대로 쓴다(재정의 금지).
+ *
+ * 자식(AdminTable · SearchPanel · ListToolbar · CrudDialog · EmptyState)의 문구는
+ * 그 자식들이 오늘 이미 갖고 있는 개별 prop(emptyText · totalLabel · confirmLabel …)으로 흘려보낸다.
+ * 자식들이 자기 labels 통로를 열면, 여기의 Pick<>을 통째 타입으로 넓히고 그대로 통과시키면 된다
+ * (같은 문구에 새 이름을 만들지 않는다).
+ */
+export type AdminListPageLabels = {
+  /** 카드형 로딩 오버레이 + 표 로딩 오버레이 — 기본 '불러오는 중' */
+  loading?: LoadingLabels['loading']
+  /** 헤더 등록 버튼 — 기본 '등록' */
+  create?: string
+  /** 툴바 건수 — TotalLabels.count(통째 교체)는 ListToolbar가 열어야 닿는다(지금은 prefix/unit만) */
+  total?: Pick<TotalLabels, 'prefix' | 'unit'>
+  /** 검색 — 나머지(reset·submit·expand…)는 SearchPanel이 열어야 닿는다 */
+  search?: Pick<SearchLabels, 'searchPlaceholder'>
+  /** 카드형 선택 바 — 표 하단 선택 바는 AdminTable이 그린다(같은 문구를 두 번 선언하지 않는다) */
+  bulk?: BulkLabels
+  /** 삭제 확인창 — 개별 prop deleteConfirm이 이긴다 */
+  deleteDialog?: ConfirmDialogLabels
+  /** 데이터가 0건일 때 — actionLabel(CTA)은 AdminTable이 열어야 닿는다 */
+  empty?: Pick<EmptyLabels, 'title' | 'description'>
+  /** 탭·검색으로 걸러져 0건일 때 — 개별 prop이 없는 새 표면이라 걸러진 상태에서는 이쪽이 먼저 쓰인다 */
+  emptyFiltered?: Pick<EmptyLabels, 'title' | 'description'>
+}
+
+/*
+ * 기본 문구 값의 단일 출처 —
+ * Button.label처럼 string이 필수인 자리에서 최종 폴백으로도 쓰이므로 상수로 뽑는다(같은 값을 두 번 적지 않는다).
+ */
+const DEFAULT_CREATE_LABEL = '등록'
+const DEFAULT_BULK_DELETE_LABEL = '선택 삭제'
+
+/**
+ * 문구 기본값.
+ * bulk.selectedCount는 일부러 비워 둔다 — 넘기지 않으면 셸이 지금까지처럼 '선택 <strong>3</strong>건'을
+ * 그리고(숫자만 강조), 함수를 주면 그 문자열로 통째 교체한다.
+ * empty/emptyFiltered도 비워 둔다 — 빈 상태 기본 문구는 AdminTable이 단일 출처다.
+ */
+export const DEFAULT_ADMIN_LIST_PAGE_LABELS: AdminListPageLabels = {
+  loading: '불러오는 중',
+  create: DEFAULT_CREATE_LABEL,
+  total: { prefix: '총', unit: '건' },
+  bulk: { delete: DEFAULT_BULK_DELETE_LABEL },
+  deleteDialog: { cancelLabel: '취소' },
 }
 
 export type AdminListPageProps<T> = {
@@ -126,6 +196,10 @@ export type AdminListPageProps<T> = {
   headerActions?: ReactNode
   /** 있으면 헤더 우측에 등록 버튼 */
   onCreate?: () => void
+  /**
+   * 등록 버튼 문구 (기본 '등록').
+   * @deprecated labels.create를 쓴다(개별 prop이 이긴다 — 기존 화면은 그대로 동작한다)
+   */
   createLabel?: string
   /** 등록 버튼 아이콘 (기본 Plus) */
   createIcon?: ReactNode
@@ -155,6 +229,10 @@ export type AdminListPageProps<T> = {
   /** inline 모드 검색어 — 주지 않으면 비제어 */
   keyword?: string
   onKeywordChange?: (keyword: string) => void
+  /**
+   * 한 줄 검색 입력의 플레이스홀더.
+   * @deprecated labels.search.searchPlaceholder를 쓴다(개별 prop이 이긴다)
+   */
   searchPlaceholder?: string
   /** inline 모드의 클라이언트 필터 — 없으면 검색어가 rows를 좁히지 않는다(서버 검색 전제) */
   matchKeyword?: (row: T, keyword: string) => boolean
@@ -166,9 +244,15 @@ export type AdminListPageProps<T> = {
   /** 선택된 정렬 — 주지 않으면 비제어(첫 옵션) */
   sort?: string
   onSortChange?: (value: string) => void
-  /** 건수 앞 문구 (기본 '총'). null이면 접두사 없이 숫자만 — "135건" */
+  /**
+   * 건수 앞 문구 (기본 '총'). null이면 접두사 없이 숫자만 — "135건"
+   * @deprecated labels.total.prefix를 쓴다(개별 prop이 이긴다)
+   */
   totalLabel?: string | null
-  /** 건수 단위 (기본 '건') */
+  /**
+   * 건수 단위 (기본 '건')
+   * @deprecated labels.total.unit을 쓴다(개별 prop이 이긴다)
+   */
   totalUnit?: string
   /** 툴바 우측 끝 추가 액션 */
   toolbarActions?: ReactNode
@@ -179,6 +263,8 @@ export type AdminListPageProps<T> = {
   orderRows?: (rows: T[], sort: string | null) => T[]
 
   /* ── 표 ── */
+  /** 행 선택 축 (기본 multi) */
+  selection?: AdminListSelection
   /** 선택된 행 — 주지 않으면 비제어 */
   selectedIds?: string[]
   onSelectChange?: (ids: string[]) => void
@@ -216,6 +302,11 @@ export type AdminListPageProps<T> = {
   onPageSizeChange?: (size: number) => void
   pageSizeOptions?: number[]
   density?: 'compact' | 'comfortable'
+  /**
+   * 빈 표 문구 (기본 AdminTable의 '데이터가 없습니다.').
+   * @deprecated labels.empty.title을 쓴다(개별 prop이 이긴다).
+   * 탭·검색으로 걸러져 0건인 상태는 labels.emptyFiltered가 따로 맡는다 — 이 prop 하나로는 두 상태를 가를 수 없었다.
+   */
   emptyText?: string
 
   /* ── 본문 갈아끼우기 ── */
@@ -236,10 +327,26 @@ export type AdminListPageProps<T> = {
    */
   renderBody?: (rows: T[]) => ReactNode
 
-  /** 있으면 선택 삭제·행 삭제가 확인창을 거친다 */
+  /**
+   * 있으면 선택 삭제·행 삭제가 확인창을 거친다.
+   * @deprecated labels.deleteDialog를 쓴다(개별 prop이 이긴다). labels.deleteDialog.title만 줘도 확인창이 열린다.
+   */
   deleteConfirm?: AdminListDeleteConfirm
   /** 좌측 레일(카테고리 트리 등) */
   side?: ReactNode
+  /** 좌측 레일 폭 (기본 240) */
+  sideWidth?: number
+  /**
+   * 우측 레일 — '목록 + 우측 요약·미리보기' 화면.
+   * 레이아웃에는 있던 자리인데 셸이 통과시키지 않아 그런 화면은 셸을 버리고 레이아웃을 직접 조립하고 있었다.
+   */
+  aside?: ReactNode
+  /** 우측 레일 폭 (기본 360) */
+  asideWidth?: number
+  /** 우측 레일을 스크롤에 고정 (기본 true) */
+  asideSticky?: boolean
+  /** 콘텐츠 최대폭 — 1920 규격(full=1600 / lg=1200 / md=768). 기본 full */
+  maxWidth?: 'md' | 'lg' | 'full'
   /**
    * 표 아래 슬롯 — '핸들을 드래그하거나 화살표 키로 순번을 바꿉니다' 같은 안내문 자리.
    * 이런 한 줄 때문에 화면이 셸을 못 쓰고 표를 직접 조립하던 것을 막는다.
@@ -247,6 +354,8 @@ export type AdminListPageProps<T> = {
   footerNote?: ReactNode
 
   show?: AdminListPageShow
+  /** 문구 통로 — 개별 prop > labels.* > 기본값 */
+  labels?: AdminListPageLabels
 }
 
 /** 오너 규격 — 한 화면 20행, 페이지 크기 20/50/100 */
@@ -258,6 +367,28 @@ const TITLE_KINDS: AdminColumnKind[] = ['title', 'titleTags', 'thumbTitle']
 
 /** 행 액션 컬럼 — show.rowActions=false면 이것만 빠진다 */
 const ROW_ACTION_KINDS: AdminColumnKind[] = ['actions', 'kebab']
+
+/** 선택 컬럼 — selection='none'이면 이것만 빠진다 */
+const SELECT_KIND: AdminColumnKind = 'select'
+
+/** 검색 조건이 하나라도 걸려 있는가 — '데이터 0건'과 '걸러져서 0건'을 가르는 판단 */
+function hasAnyValue(values: SearchValues): boolean {
+  return Object.values(values).some((value) => {
+    if (value == null) return false
+    if (typeof value === 'string') return value.trim() !== ''
+    if (Array.isArray(value)) return value.length > 0
+    // daterange — 시작·끝 중 하나라도 있으면 조건이 걸린 것이다
+    return value.start != null || value.end != null
+  })
+}
+
+/** 단일 선택 — 새로 고른 행이 이전 선택을 대체한다(체크박스 UI는 그대로 두고 결과만 한 건으로 좁힌다) */
+function keepOne(prev: string[], next: string[]): string[] {
+  if (next.length <= 1) return next
+  const added = next.filter((id) => !prev.includes(id))
+  // 새로 추가된 게 없으면(전체 선택 등) 마지막 행 하나만 남긴다
+  return [added.at(-1) ?? next[next.length - 1]]
+}
 
 /**
  * show 기본값 — 전부 true.
@@ -318,7 +449,7 @@ export function AdminListPage<T>({
   description,
   headerActions,
   onCreate,
-  createLabel = '등록',
+  createLabel,
   createIcon,
   tabs = [],
   tab,
@@ -339,10 +470,11 @@ export function AdminListPage<T>({
   sortOptions = [],
   sort,
   onSortChange,
-  totalLabel = '총',
-  totalUnit = '건',
+  totalLabel,
+  totalUnit,
   toolbarActions,
   orderRows,
+  selection = 'multi',
   selectedIds,
   onSelectChange,
   bulkActions = [],
@@ -374,9 +506,23 @@ export function AdminListPage<T>({
   footerNote,
   deleteConfirm,
   side,
+  sideWidth,
+  aside,
+  asideWidth,
+  asideSticky,
+  maxWidth = 'full',
   show,
+  labels,
 }: AdminListPageProps<T>) {
   const on = resolveShow(show)
+  const L = mergeLabels(DEFAULT_ADMIN_LIST_PAGE_LABELS, labels)
+
+  // 개별 prop > labels.* > 기본값 (기존 화면은 개별 prop만 쓰므로 화면이 바뀌지 않는다)
+  const createText = resolveLabel(createLabel, L.create) ?? DEFAULT_CREATE_LABEL
+  const bulkDeleteText = L.bulk?.delete ?? DEFAULT_BULK_DELETE_LABEL
+  const totalPrefix = resolveLabel<string | null>(totalLabel, L.total?.prefix)
+  const totalUnitText = resolveLabel(totalUnit, L.total?.unit)
+  const searchPlaceholderText = resolveLabel(searchPlaceholder, L.search?.searchPlaceholder)
 
   // 제어값을 주면 그 값이 이긴다 — 안 주면 셸이 직접 들고 있는다
   const [innerTab, setInnerTab] = useState(tabs[0]?.value ?? '')
@@ -400,8 +546,10 @@ export function AdminListPage<T>({
 
   // ── 상태 변경 ─────────────────────────────────────────────────────────
   const changeSelection = (ids: string[]) => {
-    if (selectedIds == null) setInnerSelected(ids)
-    onSelectChange?.(ids)
+    // 선택 축이 single이면 결과를 한 건으로 좁힌다(표는 다중 선택 UI를 그대로 쓴다)
+    const next = selection === 'single' ? keepOne(selected, ids) : ids
+    if (selectedIds == null) setInnerSelected(next)
+    onSelectChange?.(next)
   }
 
   const clearSelection = () => changeSelection([])
@@ -486,6 +634,23 @@ export function AdminListPage<T>({
   const filtered = rows.filter((row) => inTab(row) && inKeyword(row))
   const ordered = orderRows != null ? orderRows(filtered, sortValue === '' ? null : sortValue) : filtered
 
+  /*
+   * 빈 상태 문구 —
+   * '데이터가 0건'과 '탭·검색으로 걸러져 0건'은 다른 문장이어야 한다(필터가 걸린 표에 "등록해 보세요"는 거짓말이다).
+   * 걸러진 상태에는 개별 prop이 애초에 없었으므로(emptyText 하나뿐이었다) labels.emptyFiltered가 먼저 온다.
+   */
+  const firstTab = tabs[0]?.value ?? ''
+  const narrowed =
+    (searchable && query !== '') ||
+    (on.tabs && matchTab != null && tabValue !== firstTab) ||
+    (search === 'panel' && on.search && hasAnyValue(values))
+
+  const emptyGroup = narrowed ? (L.emptyFiltered ?? L.empty) : L.empty
+  const emptyTitle = narrowed
+    ? resolveLabel(L.emptyFiltered?.title, emptyText, L.empty?.title)
+    : resolveLabel(emptyText, L.empty?.title)
+  const emptyDescription = emptyGroup?.description
+
   // totalPages를 주면 rows는 이미 서버가 잘라 보낸 한 페이지다 — 여기서 또 자르지 않는다
   const serverPaged = totalPages != null
   const pageCount = totalPages ?? Math.max(1, Math.ceil(ordered.length / size))
@@ -504,9 +669,15 @@ export function AdminListPage<T>({
   }))
 
   // ── 삭제 · 일괄 처리 ──────────────────────────────────────────────────
+  // 개별 prop(deleteConfirm) > labels.deleteDialog. 제목이 있어야 확인창을 띄운다(제목 없는 확인창은 없다)
+  const dialogTitle = resolveLabel(deleteConfirm?.title, L.deleteDialog?.title)
+  const dialogDescription = resolveLabel(deleteConfirm?.description, L.deleteDialog?.description)
+  const dialogConfirmLabel = resolveLabel(deleteConfirm?.confirmLabel, L.deleteDialog?.confirmLabel)
+  const dialogCancelLabel = L.deleteDialog?.cancelLabel
+
   const confirmDelete = (ids: string[]) => {
     if (ids.length === 0) return
-    if (deleteConfirm != null) {
+    if (dialogTitle != null) {
       setPendingDelete(ids)
       return
     }
@@ -524,9 +695,12 @@ export function AdminListPage<T>({
     setPendingDelete(null)
   }
 
+  // 선택이 없는 목록에는 일괄 처리도 없다 — 대상이 되는 선택 자체가 만들어지지 않는다
+  const bulkEnabled = on.bulk && selection !== 'none'
+
   // 일괄 처리 후 선택은 비운다 — 화면에서 사라졌거나 상태가 바뀐 행이 선택된 채 남지 않게
   // (확인창을 여는 버튼은 대상 건수를 잃으므로 clearSelectionOnBulk=false로 끈다)
-  const tableBulkActions: AdminBulkAction[] = on.bulk
+  const tableBulkActions: AdminBulkAction[] = bulkEnabled
     ? bulkActions.map((action) => ({
         ...action,
         onAction: (ids: string[]) => {
@@ -538,9 +712,12 @@ export function AdminListPage<T>({
 
   // ── 컬럼 ──────────────────────────────────────────────────────────────
   const declared = typeof columns === 'function' ? columns({ confirmDelete }) : columns
-  const shown = on.rowActions
+  const withActions = on.rowActions
     ? declared
     : declared.filter((col) => !ROW_ACTION_KINDS.includes(col.kind))
+  // selection='none'이면 체크박스 열이 통째로 빠진다(빈 열이 남지 않는다)
+  const shown =
+    selection === 'none' ? withActions.filter((col) => col.kind !== SELECT_KIND) : withActions
 
   // onRowOpen은 제목 컬럼의 onClick으로 내려간다 — 컬럼이 onClick을 직접 선언했으면 그쪽이 이긴다
   const titleIndex = shown.findIndex(
@@ -557,7 +734,7 @@ export function AdminListPage<T>({
       <Button
         variant="primary"
         size="md"
-        label={createLabel}
+        label={createText}
         showLeftIcon
         leftIcon={createIcon ?? <Plus size={16} aria-hidden="true" />}
         onClick={onCreate}
@@ -605,7 +782,7 @@ export function AdminListPage<T>({
           ? {
               value: keywordValue,
               onChange: changeKeyword,
-              placeholder: searchPlaceholder,
+              placeholder: searchPlaceholderText,
               onSearch: handleInlineSearch,
               disabled: loading,
             }
@@ -618,8 +795,8 @@ export function AdminListPage<T>({
       }
       total={on.count ? totalCount : undefined}
       // null = 접두사 없이 숫자만("135건") — ListToolbar는 undefined일 때 접두사를 생략한다
-      totalLabel={totalLabel ?? undefined}
-      totalUnit={totalUnit}
+      totalLabel={totalPrefix ?? undefined}
+      totalUnit={totalUnitText}
       actions={toolbarActions}
     />
   ) : undefined
@@ -635,7 +812,7 @@ export function AdminListPage<T>({
       selectedIds={selected}
       onSelectChange={changeSelection}
       bulkActions={tableBulkActions}
-      onBulkDelete={on.bulk && onBulkDelete != null ? confirmDelete : undefined}
+      onBulkDelete={bulkEnabled && onBulkDelete != null ? confirmDelete : undefined}
       onEdit={onEdit}
       onDelete={onDelete}
       onToggleStatus={onToggleStatus}
@@ -655,7 +832,9 @@ export function AdminListPage<T>({
       exportable={exportable && on.export}
       exportFilename={exportFilename}
       loading={loading}
-      emptyText={emptyText}
+      loadingLabel={L.loading}
+      emptyText={emptyTitle}
+      emptyDescription={emptyDescription}
       // AdminTable은 레이아웃의 density 변수를 읽지 않는다 — 같은 값을 명시적으로 넘긴다
       density={density}
     />
@@ -665,12 +844,19 @@ export function AdminListPage<T>({
    * 카드형 선택 바 — 일괄 처리 바는 AdminTable 안에만 있다(카드 그리드에는 없다).
    * 카드형에서도 선택은 되므로 같은 버튼을 공용 Button으로 그리드 위에 얹어 액션을 잃지 않게 한다.
    */
-  const hasBulk = tableBulkActions.length > 0 || (on.bulk && onBulkDelete != null)
+  const hasBulk = tableBulkActions.length > 0 || (bulkEnabled && onBulkDelete != null)
   const cardBulkBar =
     cardMode && viewValue === 'card' && hasBulk && selected.length > 0 ? (
       <div className={styles.cardBulkBar}>
         <span className={styles.cardBulkCount}>
-          선택 <strong>{selected.length}</strong>건
+          {/* 함수를 주면 문구를 통째로 교체한다. 없으면 지금까지처럼 숫자만 강조한다 */}
+          {L.bulk?.selectedCount != null ? (
+            L.bulk.selectedCount(selected.length)
+          ) : (
+            <>
+              선택 <strong>{selected.length}</strong>건
+            </>
+          )}
         </span>
         <div className={styles.cardBulkButtons}>
           {tableBulkActions.map((action) => (
@@ -685,12 +871,12 @@ export function AdminListPage<T>({
               onClick={() => action.onAction(selected)}
             />
           ))}
-          {on.bulk && onBulkDelete != null && (
+          {bulkEnabled && onBulkDelete != null && (
             <Button
               variant="error"
               appearance="outline"
               size="sm"
-              label="선택 삭제"
+              label={bulkDeleteText}
               showLeftIcon
               leftIcon={<Trash2 size={14} aria-hidden="true" />}
               onClick={() => confirmDelete(selected)}
@@ -709,8 +895,8 @@ export function AdminListPage<T>({
           view={viewValue}
           onViewChange={changeView}
           total={on.count ? totalCount : undefined}
-          totalLabel={totalLabel ?? undefined}
-          totalUnit={totalUnit}
+          totalLabel={totalPrefix ?? undefined}
+          totalUnit={totalUnitText}
           toolbar={viewToolbar}
           renderBoard={() => table}
           renderCards={() =>
@@ -720,10 +906,11 @@ export function AdminListPage<T>({
           totalPages={on.pagination ? pageCount : undefined}
           onPageChange={on.pagination ? changePage : undefined}
           empty={!loading && ordered.length === 0}
-          emptyText={emptyText}
+          emptyText={emptyTitle}
+          emptyDescription={emptyDescription}
         />
         {/* 게시물형은 AdminTable이 자체 오버레이를 갖는다 — 카드형만 여기서 덮는다 */}
-        {loading && viewValue === 'card' && <Loading overlay label="불러오는 중" />}
+        {loading && viewValue === 'card' && <Loading overlay label={L.loading} />}
       </div>
     </>
   )
@@ -739,17 +926,18 @@ export function AdminListPage<T>({
   )
 
   const dialog =
-    pendingDelete != null && deleteConfirm != null ? (
+    pendingDelete != null && dialogTitle != null ? (
       <CrudDialog
         open
         mode="delete"
-        title={deleteConfirm.title}
+        title={dialogTitle}
         description={
-          typeof deleteConfirm.description === 'function'
-            ? deleteConfirm.description(pendingDelete)
-            : deleteConfirm.description
+          typeof dialogDescription === 'function'
+            ? dialogDescription(pendingDelete)
+            : dialogDescription
         }
-        confirmLabel={deleteConfirm.confirmLabel}
+        confirmLabel={dialogConfirmLabel}
+        cancelLabel={dialogCancelLabel}
         onCancel={() => setPendingDelete(null)}
         onConfirm={runDelete}
       />
@@ -763,10 +951,11 @@ export function AdminListPage<T>({
    */
   const panelLayout = search === 'panel'
 
-  // 골격 없이 쓰는 프리셋 — 바깥(AdminSuite)이 이미 PageContainer라 패딩을 두 번 먹지 않게 한다
-  if (chrome === 'plain') {
+  // 골격 없이 쓰는 프리셋 — 바깥(AdminSuite)이 이미 PageContainer라 패딩을 두 번 먹지 않게 한다.
+  // card는 여기에 카드 껍데기(보더·radius)만 더한다 — 모달·탭 패널 안에서 화면이 div를 덧대지 않게.
+  if (chrome === 'plain' || chrome === 'card') {
     return (
-      <div className={styles.plain}>
+      <div className={[styles.plain, chrome === 'card' ? styles.card : ''].filter(Boolean).join(' ')}>
         {panel}
         {tabsNode}
         {listToolbar}
@@ -784,6 +973,11 @@ export function AdminListPage<T>({
       headerActions={actions}
       tabs={tabsNode}
       side={side}
+      sideWidth={sideWidth}
+      aside={aside}
+      asideWidth={asideWidth}
+      asideSticky={asideSticky}
+      maxWidth={maxWidth}
       toolbar={panelLayout ? panel : listToolbar}
       density={density}
     >

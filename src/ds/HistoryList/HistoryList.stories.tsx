@@ -134,3 +134,44 @@ export const Minimal: Story = {
   },
   render: (args) => <HistoryListDemo {...args} initialRows={HISTORY.slice(0, 8)} />,
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글 · 탭 · 정렬 · 행 액션 접근성 이름 · 빈 칸 문자 · 삭제 확인창까지 전부 labels가 소유한다.
+ * 넘기지 않은 키는 기본 문구를 지킨다(mergeLabels — 부분 오버라이드).
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Company history',
+      description: 'Manage visibility and cover images for each milestone.',
+      create: 'Add milestone',
+      columns: {
+        index: 'No.',
+        year: 'Year',
+        month: 'Month',
+        title: 'Title',
+        description: 'Description',
+        image: 'Cover',
+        visible: 'Visible',
+        createdAt: 'Created',
+        actions: 'Manage',
+      },
+      tabs: { all: 'All', visible: 'Visible', hidden: 'Hidden' },
+      sort: { recent: 'Newest', year: 'By year' },
+      rowActions: {
+        edit: (title) => `Edit ${title}`,
+        delete: (title) => `Delete ${title}`,
+      },
+      search: { searchPlaceholder: 'Search by title' },
+      empty: { title: 'No milestones yet.' },
+      emptyCell: '—',
+      deleteDialog: {
+        title: 'Delete the selected milestones?',
+        description: (ids) => `${ids.length} milestone(s) will be removed from the list.`,
+        confirmLabel: 'Delete',
+      },
+    },
+  },
+  render: (args) => <HistoryListDemo {...args} initialRows={HISTORY} />,
+}

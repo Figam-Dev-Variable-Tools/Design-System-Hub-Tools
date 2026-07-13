@@ -113,3 +113,20 @@ export const CustomIcons: Story = {
     deniedIcon: <CircleSlash size={14} />,
   },
 }
+
+/**
+ * Labels: 영문 오버라이드 — note가 없는 항목의 상태 문구(동의/미동의)가 labels 통로로 화면까지 닿는다.
+ * 필수 동의 항목은 '미동의'가 곧 경고라, tone으로 배지 색까지 함께 올린다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: { status: { agreed: 'Agreed', denied: 'Not agreed' } },
+    tone: { denied: 'error' },
+    items: [
+      { label: 'Terms of service', agreed: true },
+      { label: 'Privacy policy', agreed: true },
+      { label: 'Marketing emails', agreed: false },
+      { label: 'SMS promotions', agreed: false, note: 'Opted out' },
+    ],
+  },
+}

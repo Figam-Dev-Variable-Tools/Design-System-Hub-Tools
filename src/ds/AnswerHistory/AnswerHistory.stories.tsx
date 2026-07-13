@@ -167,3 +167,38 @@ export const CustomLabels: Story = {
   },
   render: (args) => <AnswerHistoryDemo {...args} />,
 }
+
+/**
+ * Labels: 영문 오버라이드 — 버전 접두·작성/수정 메타·모달 제목까지 labels 통로로 화면까지 닿는다.
+ * 기존 개별 prop(latestLabel·viewLabel·restoreLabel)이 labels보다 우선하므로, 여기서는 비워 둔다.
+ */
+export const Labels: Story = {
+  args: {
+    latestLabel: undefined,
+    viewLabel: undefined,
+    restoreLabel: undefined,
+    labels: {
+      versionPrefix: 'v',
+      latest: 'Current',
+      actions: { view: 'View version', restore: 'Restore' },
+      meta: {
+        created: (at) => `Created ${at}`,
+        updated: (at) => `Updated ${at}`,
+      },
+      empty: {
+        title: 'No answer history yet.',
+        description: 'Versions appear here once an answer is posted.',
+      },
+      modal: {
+        title: (version) => `Version v${version}`,
+        close: 'Close',
+        restore: (restoreLabel) => `${restoreLabel} this version`,
+        meta: (v) => `${v.author} · created ${v.createdAt}`,
+        note: (note) => `Change note: ${note}`,
+      },
+    },
+    onViewVersion: () => {},
+    onRestore: () => {},
+  },
+  render: (args) => <AnswerHistoryDemo {...args} />,
+}

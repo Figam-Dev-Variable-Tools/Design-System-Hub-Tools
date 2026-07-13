@@ -1,5 +1,17 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import {
+  mergeLabels,
+  resolveLabel,
+  type ColumnLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type RowScopedActionLabels,
+  type SearchLabels,
+  type StatusLabels,
+  type TabLabels,
+  type TotalLabels,
+} from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
 import type { AdminColumn, AdminColumnTone } from '../AdminTable/AdminTable'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
@@ -12,6 +24,19 @@ export type InquiryManageStatus = 'pending' | 'answered' | 'hold'
 
 /** 탭 값 — 상태 3종 + '전체' */
 export type InquiryManageTab = 'all' | InquiryManageStatus
+
+/** 정렬 축 — 툴바 [최신순 ▾] */
+export type InquiryManageSortKey = 'latest' | 'oldest' | 'name'
+
+/** 표 컬럼 — labels.columns의 키이자 AdminTable 컬럼 key */
+export type InquiryManageColumnKey =
+  | 'no'
+  | 'applicant'
+  | 'phone'
+  | 'email'
+  | 'appliedAt'
+  | 'status'
+  | 'manage'
 
 export type InquiryManageRow = {
   id: string
@@ -51,15 +76,76 @@ export type InquiryManageListShow = {
   rowActions?: boolean
 }
 
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   컬럼 머리글·상태 배지·탭·정렬·관리 열 접근성 이름을 한 통로로 연다.
+   우선순위: 개별 prop(title·emptyText·sortOptions …) > labels.* > 기본값. */
+type InquiryManageListLabelsResolved = {
+  title: string
+  description: string
+  columns: Record<InquiryManageColumnKey, string>
+  /** 배지·탭이 함께 쓰는 상태 문구 */
+  status: Record<InquiryManageStatus, string>
+  /** 상태 탭 앞의 '전체' — 나머지 탭은 labels.status를 따라간다 */
+  tabs: { all: string }
+  /** 툴바 정렬 Select 옵션 — sortOptions prop을 주면 그쪽이 이긴다 */
+  sort: Record<InquiryManageSortKey, string>
+  /** '관리' 열 아이콘 버튼 — 툴팁이자 접근성 이름이다(신청자명을 끼워 넣는다) */
+  rowActions: Required<Pick<RowScopedActionLabels, 'view' | 'delete'>>
+  search: SearchLabels
+  /**
+   * 건수 표기 — 레퍼런스는 접두사 없는 "3건".
+   * count(통짜 교체)는 셸(AdminListPage)에 축이 없어 열지 않는다 — prefix·unit만 흐른다.
+   */
+  toolbar: Pick<TotalLabels, 'prefix' | 'unit'>
+  empty: EmptyLabels
+}
+
+export const DEFAULT_INQUIRY_MANAGE_LIST_LABELS: InquiryManageListLabelsResolved = {
+  title: '시공 문의 내역',
+  description: '시공 문의 챗봇을 통해 접수된 신청 내역을 조회·관리합니다.',
+  columns: {
+    no: '순번',
+    applicant: '신청자',
+    phone: '연락처',
+    email: '이메일',
+    appliedAt: '신청일',
+    status: '상태',
+    manage: '관리',
+  },
+  status: { pending: '대기중', answered: '답변완료', hold: '보류' },
+  tabs: { all: '전체' },
+  sort: { latest: '최신순', oldest: '오래된순', name: '신청자순' },
+  rowActions: {
+    view: (applicant) => `${applicant} 상세보기`,
+    delete: (applicant) => `${applicant} 삭제`,
+  },
+  search: { searchPlaceholder: '신청자, 연락처, 이메일로 검색' },
+  // 접두사를 비워 "3건"으로 찍는다 — 셸 기본값('총')이 끼어들지 않게
+  toolbar: { prefix: '', unit: '건' },
+  empty: { title: '접수된 시공 문의가 없습니다.' },
+} as const
+
+export type InquiryManageListLabels = DeepPartialOneLevel<InquiryManageListLabelsResolved>
+
+/** 컬럼 머리글만 갈아끼울 때 — labels.columns와 같은 모양 */
+export type InquiryManageColumnLabels = ColumnLabels<InquiryManageColumnKey>
+/** 상태 문구만 갈아끼울 때 — labels.status와 같은 모양 */
+export type InquiryManageStatusLabels = StatusLabels<InquiryManageStatus>
+/** 탭 라벨만 갈아끼울 때 */
+export type InquiryManageTabLabels = TabLabels<InquiryManageStatus>
+
 export type InquiryManageListProps = {
   rows: InquiryManageRow[]
   show?: InquiryManageListShow
+  /** @deprecated labels.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   title?: string
+  /** @deprecated labels.description 을 쓰세요 */
   description?: string
   /** 헤더 우측 액션(엑셀 다운로드 등) */
   headerActions?: ReactNode
+  /** @deprecated labels.search.searchPlaceholder 를 쓰세요 */
   searchPlaceholder?: string
-  /** 정렬 옵션 — 미지정 시 최신순/오래된순/신청자순 */
+  /** 정렬 옵션 — 미지정 시 최신순/오래된순/신청자순. 문구만 바꿀 거면 labels.sort */
   sortOptions?: SelectOption[]
   /** 초기 정렬 값. 기본 'latest' */
   defaultSort?: string
@@ -70,8 +156,15 @@ export type InquiryManageListProps = {
   onColumnVisibilityChange?: (next: Record<string, boolean>) => void
   /** 표 우상단 '컬럼' 피커 버튼. 기본 false */
   columnPicker?: boolean
+  /** 표 밀도 — 셸·표에 같은 값이 내려간다(기본 compact: 행 44px) */
+  density?: 'compact' | 'comfortable'
+  /** 상태 배지 톤 — 넘긴 키만 기본 톤을 덮어쓴다(대기중=error가 기본) */
+  statusTone?: Partial<Record<InquiryManageStatus, AdminColumnTone>>
   loading?: boolean
+  /** @deprecated labels.empty.title 을 쓰세요 */
   emptyText?: string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: InquiryManageListLabels
   /** 눈 아이콘 · 신청자 클릭 — 상세보기 */
   onView?: (row: InquiryManageRow) => void
   /** 휴지통 아이콘 — 단건 삭제 */
@@ -85,14 +178,11 @@ export type InquiryManageListProps = {
   onSelectChange?: (ids: string[]) => void
 }
 
-/** 상태 → 배지 문구 */
-const STATUS_LABEL: Record<InquiryManageStatus, string> = {
-  pending: '대기중',
-  answered: '답변완료',
-  hold: '보류',
-}
+/** @deprecated DEFAULT_INQUIRY_MANAGE_LIST_LABELS.status 를 쓰세요 (기존 이름 유지용 alias) */
+export const STATUS_LABEL: Record<InquiryManageStatus, string> =
+  DEFAULT_INQUIRY_MANAGE_LIST_LABELS.status
 
-/** 상태 → 배지 톤(AdminTable badge는 soft로 그린다) */
+/** 상태 → 배지 톤 기본값 — statusTone prop으로 키 단위 교체한다(AdminTable badge는 soft로 그린다) */
 const STATUS_TONE: Record<InquiryManageStatus, AdminColumnTone> = {
   pending: 'error',
   answered: 'success',
@@ -102,20 +192,11 @@ const STATUS_TONE: Record<InquiryManageStatus, AdminColumnTone> = {
 /** 탭 순서 — 전체 뒤로 상태 3종. 건수는 셸이 matchesTab으로 rows에서 센다 */
 const TAB_ORDER: InquiryManageStatus[] = ['pending', 'answered', 'hold']
 
-const TAB_ITEMS: CategoryTabItem[] = [
-  { value: 'all', label: '전체', fixed: true },
-  ...TAB_ORDER.map((status) => ({ value: status, label: STATUS_LABEL[status], fixed: true })),
-]
+const SORT_ORDER: InquiryManageSortKey[] = ['latest', 'oldest', 'name']
 
 function matchesTab(row: InquiryManageRow, tab: string): boolean {
   return tab === 'all' || row.status === tab
 }
-
-const DEFAULT_SORT_OPTIONS: SelectOption[] = [
-  { value: 'latest', label: '최신순' },
-  { value: 'oldest', label: '오래된순' },
-  { value: 'name', label: '신청자순' },
-]
 
 const DEFAULT_PAGE_SIZE = 10
 
@@ -164,18 +245,23 @@ function orderRows(rows: InquiryManageRow[], sort: string | null): InquiryManage
 export function InquiryManageList({
   rows,
   show = {},
-  title = '시공 문의 내역',
-  description = '시공 문의 챗봇을 통해 접수된 신청 내역을 조회·관리합니다.',
+  // 카피의 기본값은 DEFAULT_INQUIRY_MANAGE_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  title,
+  description,
   headerActions,
-  searchPlaceholder = '신청자, 연락처, 이메일로 검색',
-  sortOptions = DEFAULT_SORT_OPTIONS,
+  searchPlaceholder,
+  sortOptions,
   defaultSort = 'latest',
   pageSize = DEFAULT_PAGE_SIZE,
   columnVisibility,
   onColumnVisibilityChange,
   columnPicker = false,
+  density = 'compact',
+  statusTone,
   loading = false,
-  emptyText = '접수된 시공 문의가 없습니다.',
+  emptyText,
+  labels,
   onView,
   onDelete,
   onBulkDelete,
@@ -187,6 +273,19 @@ export function InquiryManageList({
 }: InquiryManageListProps) {
   // 셸의 show로 그대로 넘기지 못하는 두 축만 먼저 푼다 — 정렬 Select(셸엔 없는 축)와 체크박스 열
   const { toolbar = true, sort = true, bulk = true } = show
+
+  const L = mergeLabels(DEFAULT_INQUIRY_MANAGE_LIST_LABELS, labels)
+  // 톤은 문구가 아니다 — 키마다 덮어쓰고 넘기지 않은 키는 기본 톤을 지킨다
+  const tone: Record<InquiryManageStatus, AdminColumnTone> = { ...STATUS_TONE, ...statusTone }
+
+  const tabItems: CategoryTabItem[] = [
+    { value: 'all', label: L.tabs.all, fixed: true },
+    ...TAB_ORDER.map((status) => ({ value: status, label: L.status[status], fixed: true })),
+  ]
+
+  // 정렬 후보 — sortOptions를 통째로 주면 그쪽이 이긴다(값까지 바꾸는 축이므로)
+  const sorts: SelectOption[] =
+    sortOptions ?? SORT_ORDER.map((key) => ({ value: key, label: L.sort[key] }))
 
   // 정렬 Select — 셸에는 '초기 정렬값' 규격이 없다(첫 옵션으로 시작한다).
   // defaultSort를 지키려면 값은 여기서 들고 있어야 한다(변경 시 페이지 되돌리기는 셸이 한다).
@@ -206,11 +305,11 @@ export function InquiryManageList({
   if (bulk) columns.push({ kind: 'select', key: 'select' })
 
   columns.push(
-    { kind: 'index', key: 'no', header: '순번' },
+    { kind: 'index', key: 'no', header: L.columns.no },
     {
       kind: 'title',
       key: 'applicant',
-      header: '신청자',
+      header: L.columns.applicant,
       ratio: 1.2,
       // 신청자는 이 표의 이름 열 — 굵게 강조하고 좁아지면 말줄임
       render: (row) => (
@@ -223,26 +322,26 @@ export function InquiryManageList({
     {
       kind: 'text',
       key: 'phone',
-      header: '연락처',
+      header: L.columns.phone,
       ratio: 1,
       render: (row) => <span className={styles.phone}>{row.phone}</span>,
     },
-    { kind: 'text', key: 'email', header: '이메일', ratio: 1.8 },
+    { kind: 'text', key: 'email', header: L.columns.email, ratio: 1.8 },
     // 정렬은 툴바 [최신순 ▾]이 단일 소스다 — 표 헤더 정렬을 함께 열면
     // 페이지에 잘린 행만 다시 정렬돼 순서가 거짓말이 된다
-    { kind: 'date', key: 'appliedAt', header: '신청일' },
+    { kind: 'date', key: 'appliedAt', header: L.columns.appliedAt },
     {
       kind: 'badge',
       key: 'status',
-      header: '상태',
-      value: (row) => STATUS_LABEL[row.status],
-      tone: (row) => STATUS_TONE[row.status],
+      header: L.columns.status,
+      value: (row) => L.status[row.status],
+      tone: (row) => tone[row.status],
     },
     {
       // show.rowActions가 꺼지면 셸이 이 열만 빼 준다
       kind: 'actions',
       key: 'manage',
-      header: '관리',
+      header: L.columns.manage,
       // 기본 actions 셀은 [연필][휴지통]이다 — 이 화면은 [눈][휴지통]이라 RowActions로 갈아끼운다
       render: (row) => (
         <RowActions
@@ -250,8 +349,8 @@ export function InquiryManageList({
           onView={onView != null ? () => onView(row) : undefined}
           onDelete={onDelete != null ? () => onDelete(row) : undefined}
           labels={{
-            view: `${row.applicant} 상세보기`,
-            delete: `${row.applicant} 삭제`,
+            view: L.rowActions.view(row.applicant),
+            delete: L.rowActions.delete(row.applicant),
           }}
         />
       ),
@@ -270,20 +369,21 @@ export function InquiryManageList({
       columns={columns}
       rowKey={(row) => row.id}
       loading={loading}
-      title={title}
-      description={description}
+      title={resolveLabel(title, L.title)}
+      description={resolveLabel(description, L.description)}
       headerActions={headerActions}
-      tabs={TAB_ITEMS}
+      tabs={tabItems}
       onTabChange={(value) => onTabChange?.(value as InquiryManageTab)}
       matchTab={matchesTab}
       search="inline"
-      searchPlaceholder={searchPlaceholder}
+      searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
       matchKeyword={matchesKeyword}
       // 이 화면의 onSearch는 한 글자마다 나간다(엔터 확정이 아니다) — 검색어 축을 그대로 흘린다
       onKeywordChange={(value) => onSearch?.(value)}
-      // 레퍼런스 표기는 접두사 없는 "3건" — 셸 기본값('총')을 빈 문자열로 지운다
-      totalLabel=""
-      sortOptions={sortable ? sortOptions : []}
+      // 레퍼런스 표기는 접두사 없는 "3건" — 기본값이 빈 접두사라 셸 기본값('총')이 끼어들지 않는다
+      totalLabel={L.toolbar.prefix}
+      totalUnit={L.toolbar.unit}
+      sortOptions={sortable ? sorts : []}
       sort={sortable ? sortValue : undefined}
       onSortChange={(value) => {
         setSortValue(value)
@@ -295,12 +395,13 @@ export function InquiryManageList({
       onPageChange={onPageChange}
       pageSize={pageSize}
       columnPicker={columnPicker}
+      density={density}
       // 열 ON/OFF는 셸 → AdminTable로 그대로 내려간다(피커에서 다시 켤 수 있다)
       columnVisibility={columnVisibility}
       onColumnVisibilityChange={onColumnVisibilityChange}
       // 이 화면엔 표 우상단 CSV/Excel이 없다(내보내기는 headerActions로 붙인다)
       exportable={false}
-      emptyText={emptyText}
+      emptyText={resolveLabel(emptyText, L.empty.title)}
       show={{
         header: show.header,
         tabs: show.tabs,

@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react'
 import { Download, SlidersHorizontal } from 'lucide-react'
+import {
+  mergeLabels,
+  resolveLabel,
+  type ColumnLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type Formatters,
+  type SearchLabels,
+} from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
 import type { AdminColumn, AdminColumnTone } from '../AdminTable/AdminTable'
 import { Button } from '../Button/Button'
@@ -33,6 +42,54 @@ export type CustomerListTab = {
   count?: number
 }
 
+/** 표 컬럼 — labels.columns의 키이자 AdminTable 컬럼 key */
+export type CustomerColumnKey =
+  | 'nickname'
+  | 'email'
+  | 'memberType'
+  | 'joinPath'
+  | 'joinedAt'
+  | 'orderCount'
+  | 'totalPurchase'
+  | 'memo'
+
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   컬럼 머리글과 툴바 [필터] 버튼이 닫혀 있었다(exportLabel만 열려 있었다).
+   금액의 '원'은 문구가 아니라 포맷이므로 labels가 아니라 formatters로 연다.
+   우선순위: 개별 prop(title·exportLabel …) > labels.* > 기본값. */
+type CustomerListLabelsResolved = {
+  title: string
+  description: string
+  columns: Record<CustomerColumnKey, string>
+  /** 헤더·툴바 버튼 */
+  toolbar: { export: string; filter: string }
+  search: SearchLabels
+  empty: EmptyLabels
+}
+
+export const DEFAULT_CUSTOMER_LIST_LABELS: CustomerListLabelsResolved = {
+  title: '고객 목록',
+  description: '가입한 일반회원·아티스트회원을 조회하고 메모를 관리합니다.',
+  columns: {
+    nickname: '닉네임 · 연락처',
+    email: '이메일',
+    memberType: '회원 유형',
+    joinPath: '가입 경로',
+    joinedAt: '가입일',
+    orderCount: '주문',
+    totalPurchase: '누적 구매금액',
+    memo: '메모',
+  },
+  toolbar: { export: '엑셀 다운로드', filter: '필터' },
+  search: { searchPlaceholder: '닉네임 · 계정 · 연락처로 검색' },
+  empty: { title: '조회된 고객이 없습니다.' },
+} as const
+
+export type CustomerListLabels = DeepPartialOneLevel<CustomerListLabelsResolved>
+
+/** 컬럼 머리글만 갈아끼울 때 — labels.columns와 같은 모양 */
+export type CustomerColumnLabels = ColumnLabels<CustomerColumnKey>
+
 /**
  * 섹션·요소 ON/OFF — 기본값은 전부 true.
  * false면 그 영역이 DOM에서 완전히 사라진다(빈 자리·여백·구분선이 남지 않는다).
@@ -56,16 +113,25 @@ export type CustomerListShow = {
 export type CustomerListProps = {
   rows: CustomerRow[]
 
+  /** @deprecated labels.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   title?: string
+  /** @deprecated labels.description 을 쓰세요 */
   description?: string
 
   /* ── 문구 — 같은 화면을 다른 도메인(고객/파트너/작가)에 쓸 때 라벨만 갈아끼운다 ── */
-  /** 헤더 우측 내보내기 버튼 라벨 */
+  /** @deprecated labels.toolbar.export 를 쓰세요 */
   exportLabel?: string
-  /** 툴바 검색 입력 placeholder */
+  /** @deprecated labels.search.searchPlaceholder 를 쓰세요 */
   searchPlaceholder?: string
   /** 툴바 우측 건수 단위 — '5명' / '5건' */
   countUnit?: string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: CustomerListLabels
+  /**
+   * 숫자·통화 포맷(문구가 아니라 포맷이다) — 주문 건수·누적 구매금액 셀의 표기를 바꾼다.
+   * 기본 price는 통화 기호 없이 '1,284,000원'(레퍼런스 표기).
+   */
+  formatters?: Pick<Formatters, 'number' | 'price'>
 
   /* ── 아이콘 슬롯 — 프로덕트마다 아이콘 세트가 달라 lucide 기본값만 갈아끼우게 연다 ── */
   /** [엑셀 다운로드] 버튼 아이콘 */
@@ -108,6 +174,7 @@ export type CustomerListProps = {
   pageSizeOptions?: number[]
 
   loading?: boolean
+  /** @deprecated labels.empty.title 을 쓰세요 */
   emptyText?: string
   density?: 'compact' | 'comfortable'
 
@@ -135,9 +202,11 @@ function normalize(value: string): string {
   return value.toLowerCase().replace(/-/g, '')
 }
 
-/** 1,284,000원 — 통화 기호 없이 '원'만(레퍼런스 표기) */
-function formatKrw(value: number): string {
-  return `${Math.round(value).toLocaleString('ko-KR')}원`
+/** 기본 포맷 — 문구가 아니라 포맷이므로 formatters prop으로 갈아끼운다 */
+const DEFAULT_FORMATTERS: Required<Pick<Formatters, 'number' | 'price'>> = {
+  number: (value) => value.toLocaleString('ko-KR'),
+  // 1,284,000원 — 통화 기호 없이 '원'만(레퍼런스 표기)
+  price: (value) => `${Math.round(value).toLocaleString('ko-KR')}원`,
 }
 
 /** 탭 필터 — '전체'는 거르지 않는다 */
@@ -164,11 +233,15 @@ function matchesKeyword(row: CustomerRow, keyword: string): boolean {
  */
 export function CustomerList({
   rows,
-  title = '고객 목록',
-  description = '가입한 일반회원·아티스트회원을 조회하고 메모를 관리합니다.',
-  exportLabel = '엑셀 다운로드',
-  searchPlaceholder = '닉네임 · 계정 · 연락처로 검색',
+  // 카피의 기본값은 DEFAULT_CUSTOMER_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  title,
+  description,
+  exportLabel,
+  searchPlaceholder,
   countUnit = '명',
+  labels,
+  formatters,
   exportIcon,
   filterIcon,
   tabs = DEFAULT_TABS,
@@ -190,12 +263,15 @@ export function CustomerList({
   onPageSizeChange,
   pageSizeOptions = PAGE_SIZE_OPTIONS,
   loading = false,
-  emptyText = '조회된 고객이 없습니다.',
+  emptyText,
   density = 'compact',
   show,
 }: CustomerListProps) {
   // [필터]는 이 화면만의 툴바 액션이다 — 셸의 show에는 없는 축이라 여기서 푼다(기본 ON)
   const showFilter = show?.filter ?? true
+
+  const L = mergeLabels(DEFAULT_CUSTOMER_LIST_LABELS, labels)
+  const F = { ...DEFAULT_FORMATTERS, ...formatters }
 
   // 탭 건수는 셸이 matchesTab으로 rows에서 센다 — count를 주면 그 값(서버 총계)이 이긴다
   const tabItems: CategoryTabItem[] = tabs.map((item) => ({ ...item, fixed: true }))
@@ -204,7 +280,7 @@ export function CustomerList({
     {
       kind: 'title',
       key: 'nickname',
-      header: '닉네임 · 연락처',
+      header: L.columns.nickname,
       ratio: 3,
       sortable: true,
       // 정렬 키는 닉네임 — 표시는 2줄(닉네임 + 연락처)
@@ -227,7 +303,7 @@ export function CustomerList({
     {
       kind: 'text',
       key: 'email',
-      header: '이메일',
+      header: L.columns.email,
       ratio: 3,
       sortable: true,
       render: (row) => (
@@ -239,40 +315,40 @@ export function CustomerList({
     {
       kind: 'type',
       key: 'memberType',
-      header: '회원 유형',
+      header: L.columns.memberType,
       tone: memberTypeTone,
     },
     {
       kind: 'category',
       key: 'joinPath',
-      header: '가입 경로',
+      header: L.columns.joinPath,
       tone: () => 'secondary',
     },
-    { kind: 'date', key: 'joinedAt', header: '가입일', sortable: true },
+    { kind: 'date', key: 'joinedAt', header: L.columns.joinedAt, sortable: true },
     {
       kind: 'number',
       key: 'orderCount',
-      header: '주문',
+      header: L.columns.orderCount,
       sortable: true,
       // 0건은 흐리게 — 구매 이력이 있는 고객만 눈에 들어오게
       render: (row) => (
         <span className={[styles.num, row.orderCount === 0 ? styles.zero : ''].filter(Boolean).join(' ')}>
-          {row.orderCount.toLocaleString('ko-KR')}
+          {F.number(row.orderCount)}
         </span>
       ),
     },
     {
       kind: 'price',
       key: 'totalPurchase',
-      header: '누적 구매금액',
+      header: L.columns.totalPurchase,
       sortable: true,
       render: (row) => (
         <span className={[styles.num, row.totalPurchase === 0 ? styles.zero : ''].filter(Boolean).join(' ')}>
-          {formatKrw(row.totalPurchase)}
+          {F.price(row.totalPurchase)}
         </span>
       ),
     },
-    { kind: 'memo', key: 'memo', header: '메모' },
+    { kind: 'memo', key: 'memo', header: L.columns.memo },
   ]
 
   /*
@@ -286,15 +362,15 @@ export function CustomerList({
       rows={rows}
       columns={columns}
       rowKey={(row) => row.id}
-      title={title}
-      description={description}
+      title={resolveLabel(title, L.title)}
+      description={resolveLabel(description, L.description)}
       headerActions={
         onExport != null ? (
           <Button
             variant="secondary"
             appearance="outline"
             size="md"
-            label={exportLabel}
+            label={resolveLabel(exportLabel, L.toolbar.export) ?? L.toolbar.export}
             showIcon
             icon={exportIcon ?? <Download size={16} />}
             onClick={onExport}
@@ -308,7 +384,7 @@ export function CustomerList({
       search="inline"
       keyword={keyword}
       onKeywordChange={onKeywordChange}
-      searchPlaceholder={searchPlaceholder}
+      searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
       matchKeyword={matchesKeyword}
       // 레퍼런스 표기는 접두사 없는 "5명" — 셸 기본값('총')을 빈 문자열로 지운다
       totalLabel=""
@@ -319,7 +395,7 @@ export function CustomerList({
             variant="secondary"
             appearance="outline"
             size="md"
-            label="필터"
+            label={L.toolbar.filter}
             showIcon
             icon={filterIcon ?? <SlidersHorizontal size={16} />}
             onClick={onFilter}
@@ -339,7 +415,7 @@ export function CustomerList({
       onPageSizeChange={onPageSizeChange}
       pageSizeOptions={pageSizeOptions}
       loading={loading}
-      emptyText={emptyText}
+      emptyText={resolveLabel(emptyText, L.empty.title)}
       density={density}
       show={{
         header: show?.header,

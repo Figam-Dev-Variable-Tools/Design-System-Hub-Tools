@@ -171,9 +171,26 @@ const meta = {
     // ON/OFF · 문구 — 기본값은 지금까지의 상단 바 그대로다
     showViewSwitch: { control: 'boolean' },
     showTotal: { control: 'boolean' },
-    totalLabel: { control: 'text' },
-    totalUnit: { control: 'text' },
-    emptyDescription: { control: 'text' },
+    totalLabel: { control: 'text', description: '@deprecated — labels.total.prefix를 쓰세요' },
+    totalUnit: { control: 'text', description: '@deprecated — labels.total.unit을 쓰세요' },
+    emptyText: { control: 'text', description: '@deprecated — labels.empty.title을 쓰세요' },
+    emptyDescription: { control: 'text', description: '@deprecated — labels.empty.description을 쓰세요' },
+    // 새 변형 축 — 기본값은 전부 지금 화면 그대로다
+    emptyKind: {
+      control: 'inline-radio',
+      options: ['empty', 'search', 'error'],
+      description: '검색 결과 0건과 데이터 0건이 같은 그림으로 나오지 않게 한다',
+    },
+    viewSwitchSize: { control: 'inline-radio', options: ['sm', 'md'] },
+    showViewSwitchLabel: { control: 'boolean', description: '끄면 아이콘 전용(접근성 이름은 남는다)' },
+    paginationAlign: {
+      control: 'inline-radio',
+      options: ['start', 'center', 'end'],
+      description: '사이트형(center·기본) / 어드민형(start)',
+    },
+    onEmptyAction: { control: false },
+    labels: { control: 'object' },
+    formatters: { control: false },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -336,6 +353,103 @@ export const CustomEmptyCopy: Story = {
         emptyText="검색 결과가 없습니다."
         emptyDescription="다른 키워드로 다시 검색해 보세요."
         renderBoard={() => null}
+        renderCards={() => null}
+      />
+    </Canvas>
+  ),
+}
+
+/**
+ * Labels: 영문 오버라이드 — 건수 표기('전체 12건')와 빈 상태가 labels 통로로 화면까지 닿는다.
+ * 숫자 로케일은 문구가 아니라 formatters로 연다.
+ */
+export const Labels: Story = {
+  render: () => (
+    <Canvas>
+      <AdminListView
+        view="card"
+        onViewChange={() => {}}
+        total={1204}
+        labels={{
+          total: { prefix: 'Showing', unit: ' items' },
+          empty: { title: 'No products yet', description: 'Add your first product to get started.' },
+        }}
+        formatters={{ number: (value) => value.toLocaleString('en-US') }}
+        renderBoard={() => null}
+        renderCards={() =>
+          PRODUCTS.slice(0, 4).map((product) => (
+            <AdminCard
+              key={product.id}
+              thumbnail={product.thumbnail}
+              title={product.name}
+              subtitle={product.category}
+              meta={[{ label: 'Price', value: formatPrice(product.price) }]}
+              labels={{
+                thumbnailAlt: (title) => `${title} thumbnail`,
+                thumbnailEmpty: 'No image',
+                actions: { view: (t) => `View ${t}`, edit: (t) => `Edit ${t}`, delete: (t) => `Delete ${t}` },
+                status: { active: 'On sale', inactive: 'Paused' },
+              }}
+              onEdit={() => {}}
+              onDelete={() => {}}
+            />
+          ))
+        }
+      />
+    </Canvas>
+  ),
+}
+
+/**
+ * 검색 결과 0건 — emptyKind="search"라야 '데이터 없음'과 다른 그림이 나온다.
+ * CTA는 labels.empty.actionLabel + onEmptyAction 짝으로 붙는다.
+ */
+export const EmptySearchWithAction: Story = {
+  render: () => (
+    <Canvas>
+      <AdminListView
+        view="card"
+        onViewChange={() => {}}
+        total={0}
+        empty
+        emptyKind="search"
+        labels={{
+          empty: {
+            title: '검색 결과가 없습니다.',
+            description: '다른 키워드로 다시 검색해 보세요.',
+            actionLabel: '검색 조건 초기화',
+          },
+        }}
+        onEmptyAction={() => {}}
+        renderBoard={() => null}
+        renderCards={() => null}
+      />
+    </Canvas>
+  ),
+}
+
+/** 좁은 툴바 — ViewSwitch를 sm·아이콘 전용으로 줄이고 페이지네이션을 좌측(어드민형)으로 */
+export const CompactToolbar: Story = {
+  render: () => (
+    <Canvas>
+      <AdminListView
+        view="board"
+        onViewChange={() => {}}
+        total={PRODUCTS.length}
+        viewSwitchSize="sm"
+        showViewSwitchLabel={false}
+        paginationAlign="start"
+        page={1}
+        totalPages={3}
+        onPageChange={() => {}}
+        renderBoard={() => (
+          <ProductTable
+            columns={PRODUCT_COLUMNS}
+            rows={PRODUCTS.slice(0, 6)}
+            rowKey={(row) => row.id}
+            emptyText={PRODUCT_EMPTY_TEXT}
+          />
+        )}
         renderCards={() => null}
       />
     </Canvas>

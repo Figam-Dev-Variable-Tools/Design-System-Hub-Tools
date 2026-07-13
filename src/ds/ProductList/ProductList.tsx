@@ -6,6 +6,16 @@ import {
   toCsv,
   type ExportColumn,
 } from '../../shared/tableExport'
+import {
+  mergeLabels,
+  resolveLabel,
+  type ColumnLabels,
+  type ConfirmDialogLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type LabelFn,
+  type StatusLabels,
+} from '../../shared/labels'
 import styles from './ProductList.module.css'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
 import { type AdminBulkAction, type AdminColumn } from '../AdminTable/AdminTable'
@@ -32,6 +42,143 @@ export type ProductRow = {
   updatedAt?: string
   createdBy?: string
 }
+
+/** 표·내보내기 공용 컬럼 — labels.columns의 키이자 AdminTable 컬럼 key */
+export type ProductColumnKey =
+  | 'index'
+  | 'thumbnail'
+  | 'name'
+  | 'code'
+  | 'category'
+  | 'price'
+  | 'salePrice'
+  | 'stock'
+  | 'active'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'createdBy'
+  | 'actions'
+
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   컬럼 머리글(표와 CSV/Excel이 함께 쓴다)·검색 9조건·판매상태·재고 배지·일괄 버튼·
+   카드 meta·확인창 2종을 한 통로로 연다.
+   검색 조건은 label/placeholder를 '한 단계'로 편다 — 2단계로 파면 mergeLabels가 그룹을 통째로
+   교체해 placeholder만 넘겨도 label 기본값이 사라진다.
+   우선순위: 개별 prop(emptyText·soldOutLabel·searchPlaceholder) > labels.* > 기본값. */
+type ProductListLabelsResolved = {
+  /** 표 머리글이자 내보내기 머리글(같은 값을 두 곳에 적지 않는다) */
+  columns: Record<ProductColumnKey, string>
+  /** 판매상태 — 검색 Select·내보내기 값이 함께 쓴다(화면 토글은 값이 없다) */
+  status: { active: string; inactive: string }
+  /** 검색 패널 조건 — <키> = 라벨, <키>Placeholder = 입력 힌트 */
+  search: {
+    name: string
+    namePlaceholder: string
+    code: string
+    codePlaceholder: string
+    category: string
+    active: string
+    priceMin: string
+    priceMax: string
+    stockMin: string
+    stockMax: string
+    period: string
+  }
+  /** 재고·할인 배지 — 표 재고 셀과 카드 썸네일 오버레이가 함께 쓴다 */
+  stock: {
+    soldOut: string
+    low: string
+    /** 할인율 뒤에 붙는다 — `30% 할인` */
+    discount: LabelFn<number>
+  }
+  tabs: { all: string }
+  /** 선택 시 뜨는 일괄 처리 버튼 */
+  bulk: { activate: string; deactivate: string; category: string; clear: string }
+  /** 목록 툴바(ToolbarActions) — 내보내기 메뉴와 건수 접두사 */
+  toolbar: { exportCsv: string; exportExcel: string; totalLabel: string }
+  /** 카드 meta 라벨 */
+  card: { price: string; stock: string; createdAt: string }
+  empty: EmptyLabels
+  /** 값이 없는 칸(수정일·등록자)에 찍히는 문자 */
+  emptyCell: string
+  /** 할인가가 없을 때 셀에 찍히는 문자 — 값이 '아직 없다'가 아니라 '해당 없음'이라 em dash다 */
+  noSalePrice: string
+  /** 카테고리 변경 확인창 — 대상 건수를 받는다 */
+  categoryDialog: ConfirmDialogLabels<number> & { fieldLabel: string; placeholder: string }
+  /** 삭제 확인창 */
+  deleteDialog: ConfirmDialogLabels<number>
+}
+
+export const DEFAULT_PRODUCT_LIST_LABELS: ProductListLabelsResolved = {
+  columns: {
+    index: '순번',
+    thumbnail: '이미지',
+    name: '상품명',
+    code: '상품코드',
+    category: '카테고리',
+    price: '가격',
+    salePrice: '할인가',
+    stock: '재고',
+    active: '판매상태',
+    createdAt: '등록일',
+    updatedAt: '수정일',
+    createdBy: '등록자',
+    actions: '관리',
+  },
+  status: { active: '판매중', inactive: '판매중지' },
+  search: {
+    name: '상품명',
+    namePlaceholder: '상품명 입력',
+    code: '상품코드',
+    codePlaceholder: 'P-0000',
+    category: '카테고리',
+    active: '판매상태',
+    priceMin: '가격(최저)',
+    priceMax: '가격(최고)',
+    stockMin: '재고(최소)',
+    stockMax: '재고(최대)',
+    period: '등록기간',
+  },
+  stock: {
+    soldOut: '품절',
+    low: '재고 부족',
+    discount: (rate) => `${rate}% 할인`,
+  },
+  tabs: { all: '전체' },
+  bulk: {
+    activate: '판매중 전환',
+    deactivate: '판매중지',
+    category: '카테고리 변경',
+    clear: '선택 해제',
+  },
+  toolbar: {
+    exportCsv: 'CSV로 내보내기',
+    exportExcel: 'Excel로 내보내기',
+    totalLabel: '전체',
+  },
+  card: { price: '가격', stock: '재고', createdAt: '등록일' },
+  empty: { title: '등록된 상품이 없습니다.' },
+  emptyCell: '-',
+  noSalePrice: '—',
+  categoryDialog: {
+    title: '카테고리 변경',
+    description: (count) => `선택한 ${count}건의 카테고리를 변경합니다.`,
+    confirmLabel: '변경',
+    fieldLabel: '카테고리',
+    placeholder: '카테고리 선택',
+  },
+  deleteDialog: {
+    title: '선택한 상품을 삭제할까요?',
+    description: (count) => `상품 ${count}건이 목록에서 제거됩니다.`,
+  },
+} as const
+
+export type ProductListLabels = DeepPartialOneLevel<ProductListLabelsResolved>
+
+/** 컬럼 머리글만 갈아끼울 때 — labels.columns와 같은 모양 */
+export type ProductColumnLabels = ColumnLabels<ProductColumnKey>
+/** 판매상태 문구만 갈아끼울 때 — labels.status와 같은 모양 */
+export type ProductStatusLabels = StatusLabels<'active' | 'inactive'>
 
 export type ProductListProps = {
   rows: ProductRow[]
@@ -79,29 +226,34 @@ export type ProductListProps = {
 
   // ── 카피 ────────────────────────────────────────────────────────────
   // 같은 표를 '상품'이 아닌 품목(자재·도서 …)에도 쓰려면 문구만 갈아끼우면 되게 한다.
-  /** 목록이 비었을 때 — 표·카드 그리드가 함께 쓴다 */
+  /** @deprecated labels.empty.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   emptyText?: string
-  /** 검색 패널의 상품명 입력 힌트 */
+  /** @deprecated labels.search.namePlaceholder 를 쓰세요 */
   searchPlaceholder?: string
-  /** 재고 0 배지 문구 — 표 재고 셀과 카드 오버레이가 함께 쓴다 */
+  /** @deprecated labels.stock.soldOut 을 쓰세요 */
   soldOutLabel?: string
   /** 카드 '재고' 값의 단위 */
   countUnit?: string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: ProductListLabels
+
+  // ── 수치 축 ──────────────────────────────────────────────────────────
+  /** 이 수량 이하면 '재고 부족' 경고. 기본 10 — 품목마다 기준이 다르다 */
+  lowStockThreshold?: number
+  /** 한 페이지 행/카드 수. 기본 10 (카드형·게시물형이 같은 페이지를 공유한다) */
+  pageSize?: number
+  /** 표 밀도 — 기본 comfortable(썸네일이 있는 행이라 표 기본 밀도를 지킨다) */
+  density?: 'compact' | 'comfortable'
 }
 
-/** 한 페이지 행/카드 수 — 카드형·게시물형이 같은 페이지를 공유한다 */
-const PAGE_SIZE = 10
+/** 한 페이지 행/카드 수 기본값 — 카드형·게시물형이 같은 페이지를 공유한다 */
+const DEFAULT_PAGE_SIZE = 10
 
-/** 이 수량 이하면 '재고 부족' 경고 */
-const LOW_STOCK = 10
+/** 이 수량 이하면 '재고 부족' 경고 — lowStockThreshold prop으로 바꾼다 */
+const DEFAULT_LOW_STOCK = 10
 
 /** 카테고리 탭의 '전체' 센티넬 — 카테고리명과 겹치지 않게 */
 const ALL = '__all__'
-
-const ACTIVE_OPTIONS = [
-  { label: '판매중', value: 'true' },
-  { label: '판매중지', value: 'false' },
-]
 
 /** ₩1,234,000 */
 function formatPrice(value: number): string {
@@ -115,31 +267,51 @@ function discountRate(row: ProductRow): number {
 }
 
 /** 카드 썸네일 좌상단 오버레이 배지 — 재고/할인처럼 "눈에 먼저 띄어야 할" 것만 */
-function badgesOf(row: ProductRow, soldOutLabel: string): AdminCardBadge[] {
+function badgesOf(
+  row: ProductRow,
+  stock: ProductListLabelsResolved['stock'],
+  lowStock: number,
+): AdminCardBadge[] {
   const badges: AdminCardBadge[] = []
-  if (row.stock === 0) badges.push({ label: soldOutLabel, tone: 'error' })
-  else if (row.stock <= LOW_STOCK) badges.push({ label: '재고 부족', tone: 'warning' })
-  if (row.salePrice != null) badges.push({ label: `${discountRate(row)}% 할인`, tone: 'primary' })
+  if (row.stock === 0) badges.push({ label: stock.soldOut, tone: 'error' })
+  else if (row.stock <= lowStock) badges.push({ label: stock.low, tone: 'warning' })
+  if (row.salePrice != null) {
+    badges.push({ label: stock.discount(discountRate(row)), tone: 'primary' })
+  }
   return badges
 }
 
-/** 내보내기 컬럼 — 썸네일/체크박스처럼 값이 없는 컬럼은 제외 */
-const EXPORT_COLUMNS: ExportColumn<ProductRow>[] = [
-  { key: 'code', header: '상품코드', value: (row) => row.code },
-  { key: 'name', header: '상품명', value: (row) => row.name },
-  { key: 'category', header: '카테고리', value: (row) => row.category },
-  // 가격·재고는 숫자로 내보내야 엑셀에서 합계가 된다(₩ 문자열 금지)
-  { key: 'price', header: '가격', value: (row) => row.price },
-  { key: 'salePrice', header: '할인가', value: (row) => row.salePrice ?? '' },
-  { key: 'stock', header: '재고', value: (row) => row.stock },
-  { key: 'active', header: '판매상태', value: (row) => (row.active ? '판매중' : '판매중지') },
-  { key: 'createdAt', header: '등록일', value: (row) => row.createdAt },
-  { key: 'updatedAt', header: '수정일', value: (row) => row.updatedAt ?? '' },
-  { key: 'createdBy', header: '등록자', value: (row) => row.createdBy ?? '' },
-]
+/**
+ * 내보내기 컬럼 — 썸네일/체크박스처럼 값이 없는 컬럼은 제외.
+ * 머리글은 표와 같은 labels.columns를 쓴다(같은 값을 두 곳에 적으면 두 값이 갈라진다).
+ */
+function exportColumnsOf(L: ProductListLabelsResolved): ExportColumn<ProductRow>[] {
+  return [
+    { key: 'code', header: L.columns.code, value: (row) => row.code },
+    { key: 'name', header: L.columns.name, value: (row) => row.name },
+    { key: 'category', header: L.columns.category, value: (row) => row.category },
+    // 가격·재고는 숫자로 내보내야 엑셀에서 합계가 된다(₩ 문자열 금지)
+    { key: 'price', header: L.columns.price, value: (row) => row.price },
+    { key: 'salePrice', header: L.columns.salePrice, value: (row) => row.salePrice ?? '' },
+    { key: 'stock', header: L.columns.stock, value: (row) => row.stock },
+    {
+      key: 'active',
+      header: L.columns.active,
+      value: (row) => (row.active ? L.status.active : L.status.inactive),
+    },
+    { key: 'createdAt', header: L.columns.createdAt, value: (row) => row.createdAt },
+    { key: 'updatedAt', header: L.columns.updatedAt, value: (row) => row.updatedAt ?? '' },
+    { key: 'createdBy', header: L.columns.createdBy, value: (row) => row.createdBy ?? '' },
+  ]
+}
 
 /** 값을 골라야 하는 확인창(카테고리) + 삭제 확인창 — 둘 다 대상 id를 따로 들고 있는다 */
 type DialogKind = 'category' | 'delete'
+
+/** 확인창 설명 — 문자열이면 그대로, 함수면 대상 건수를 끼워 넣는다 */
+function dialogText(description: string | LabelFn<number> | undefined, count: number): string | undefined {
+  return typeof description === 'function' ? description(count) : description
+}
 
 /**
  * ProductList — 상품 목록 화면 프리셋.
@@ -176,37 +348,67 @@ export function ProductList({
   activeIcon,
   inactiveIcon,
   categoryIcon,
-  emptyText = '등록된 상품이 없습니다.',
-  searchPlaceholder = '상품명 입력',
-  soldOutLabel = '품절',
+  // 카피의 기본값은 DEFAULT_PRODUCT_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  emptyText,
+  searchPlaceholder,
+  soldOutLabel,
   countUnit = '개',
+  labels,
+  lowStockThreshold = DEFAULT_LOW_STOCK,
+  pageSize = DEFAULT_PAGE_SIZE,
+  density = 'comfortable',
 }: ProductListProps) {
+  const L = mergeLabels(DEFAULT_PRODUCT_LIST_LABELS, labels)
+
+  // 하위호환 카피 prop — 개별 prop > labels.* > 기본값. 쓰는 자리가 둘 이상이라 한 번만 푼다
+  const soldOut = resolveLabel(soldOutLabel, L.stock.soldOut) ?? L.stock.soldOut
+  const namePlaceholder =
+    resolveLabel(searchPlaceholder, L.search.namePlaceholder) ?? L.search.namePlaceholder
+
+  // 표 머리글과 같은 문구로 내보낸다 — 같은 값을 두 곳에 적으면 두 값이 갈라진다
+  const exportColumns = exportColumnsOf(L)
+
   // ── 검색 조건 — 값·초기화·엔터는 셸이 굴린다. 여기서는 조건 목록만 선언한다 ──
   const fields = useMemo<SearchFieldDef[]>(
     () => [
-      { kind: 'text', key: 'name', label: '상품명', placeholder: searchPlaceholder, span: 2 },
-      { kind: 'text', key: 'code', label: '상품코드', placeholder: 'P-0000' },
+      {
+        kind: 'text',
+        key: 'name',
+        label: L.search.name,
+        placeholder: namePlaceholder,
+        span: 2,
+      },
+      { kind: 'text', key: 'code', label: L.search.code, placeholder: L.search.codePlaceholder },
       {
         kind: 'select',
         key: 'category',
-        label: '카테고리',
+        label: L.search.category,
         options: categories.map((category) => ({ label: category, value: category })),
       },
-      { kind: 'select', key: 'active', label: '판매상태', options: ACTIVE_OPTIONS },
+      {
+        kind: 'select',
+        key: 'active',
+        label: L.search.active,
+        options: [
+          { label: L.status.active, value: 'true' },
+          { label: L.status.inactive, value: 'false' },
+        ],
+      },
       // 가격·재고는 min/max 두 칸으로 범위를 만든다(SearchPanel의 number 필드 재사용)
-      { kind: 'number', key: 'priceMin', label: '가격(최저)' },
-      { kind: 'number', key: 'priceMax', label: '가격(최고)' },
-      { kind: 'number', key: 'stockMin', label: '재고(최소)' },
-      { kind: 'number', key: 'stockMax', label: '재고(최대)' },
+      { kind: 'number', key: 'priceMin', label: L.search.priceMin },
+      { kind: 'number', key: 'priceMax', label: L.search.priceMax },
+      { kind: 'number', key: 'stockMin', label: L.search.stockMin },
+      { kind: 'number', key: 'stockMax', label: L.search.stockMax },
       {
         kind: 'daterange',
         key: 'period',
-        label: '등록기간',
+        label: L.search.period,
         presets: ['today', '7d', '30d', '90d'],
         span: 2,
       },
     ],
-    [categories, searchPlaceholder],
+    [categories, namePlaceholder, L.search, L.status],
   )
 
   const [tab, setTab] = useState<string>(ALL)
@@ -226,7 +428,7 @@ export function ProductList({
   )
 
   const tabItems: CategoryTabItem[] = [
-    { label: '전체', value: ALL, count: rows.length, fixed: true },
+    { label: L.tabs.all, value: ALL, count: rows.length, fixed: true },
     ...categories.map((category) => ({
       label: category,
       value: category,
@@ -240,11 +442,11 @@ export function ProductList({
 
   // ── 내보내기 — 현재 탭으로 걸러진 전체 행(현재 페이지가 아니라) ─────────
   const handleExportCsv = () => {
-    downloadCsv(exportFilename, toCsv(filtered, EXPORT_COLUMNS))
+    downloadCsv(exportFilename, toCsv(filtered, exportColumns))
   }
 
   const handleExportExcel = () => {
-    downloadExcelXml(exportFilename, filtered, EXPORT_COLUMNS)
+    downloadExcelXml(exportFilename, filtered, exportColumns)
   }
 
   // ── 일괄 처리 ────────────────────────────────────────────────────────
@@ -284,14 +486,14 @@ export function ProductList({
   if (onBulkActive != null) {
     bulkActions.push({
       key: 'activate',
-      label: '판매중 전환',
+      label: L.bulk.activate,
       tone: 'primary',
       icon: activeIcon ?? <CheckCheck size={14} aria-hidden="true" />,
       onAction: (ids) => bulkActive(ids, true),
     })
     bulkActions.push({
       key: 'deactivate',
-      label: '판매중지',
+      label: L.bulk.deactivate,
       tone: 'secondary',
       icon: inactiveIcon ?? <Ban size={14} aria-hidden="true" />,
       onAction: (ids) => bulkActive(ids, false),
@@ -300,7 +502,7 @@ export function ProductList({
   if (canBulkCategory) {
     bulkActions.push({
       key: 'category',
-      label: '카테고리 변경',
+      label: L.bulk.category,
       tone: 'secondary',
       icon: categoryIcon ?? <Tags size={14} aria-hidden="true" />,
       onAction: (ids) => openCategory(ids),
@@ -310,7 +512,7 @@ export function ProductList({
     // 표 헤더 체크박스 말고도 한 번에 푸는 길을 남겨 둔다(기존 바에 있던 버튼)
     bulkActions.push({
       key: 'clear',
-      label: '선택 해제',
+      label: L.bulk.clear,
       tone: 'secondary',
       onAction: () => setSelectedIds([]),
     })
@@ -319,31 +521,36 @@ export function ProductList({
   // ── 컬럼 ─────────────────────────────────────────────────────────────
   const columns: AdminColumn<ProductRow>[] = [
     { kind: 'select', key: 'select', pinned: 'left' },
-    { kind: 'index', key: 'index', value: (row) => seqOf.get(row.id) },
-    { kind: 'thumbnail', key: 'thumbnail', header: '이미지', value: (row) => row.thumbnail },
-    { kind: 'title', key: 'name', header: '상품명', sortable: true, onClick: onRowOpen },
+    { kind: 'index', key: 'index', header: L.columns.index, value: (row) => seqOf.get(row.id) },
+    {
+      kind: 'thumbnail',
+      key: 'thumbnail',
+      header: L.columns.thumbnail,
+      value: (row) => row.thumbnail,
+    },
+    { kind: 'title', key: 'name', header: L.columns.name, sortable: true, onClick: onRowOpen },
     {
       kind: 'text',
       key: 'code',
-      header: '상품코드',
+      header: L.columns.code,
       ratio: 1,
       sortable: true,
       onClick: onRowOpen,
       render: (row) => <span className={styles.code}>{row.code}</span>,
     },
-    { kind: 'category', key: 'category', header: '카테고리', sortable: true },
-    { kind: 'price', key: 'price', header: '가격', sortable: true },
+    { kind: 'category', key: 'category', header: L.columns.category, sortable: true },
+    { kind: 'price', key: 'price', header: L.columns.price, sortable: true },
     {
       kind: 'price',
       key: 'salePrice',
-      header: '할인가',
+      header: L.columns.salePrice,
       sortable: true,
       // 정렬은 숫자로(할인 없음 = 0) — 문자열이 섞이면 수치 비교가 깨진다
       value: (row) => row.salePrice ?? 0,
       // 화면에는 0원이 아니라 '—'
       render: (row) =>
         row.salePrice == null ? (
-          <span className={styles.none}>—</span>
+          <span className={styles.none}>{L.noSalePrice}</span>
         ) : (
           <span className={styles.sale}>{formatPrice(row.salePrice)}</span>
         ),
@@ -351,14 +558,14 @@ export function ProductList({
     {
       kind: 'number',
       key: 'stock',
-      header: '재고',
+      header: L.columns.stock,
       sortable: true,
       // 품절/재고 부족은 숫자가 아니라 톤 배지로 즉시 읽히게
       render: (row) => {
         if (row.stock === 0) {
-          return <Badge variant="error" appearance="soft" size="sm" label={soldOutLabel} />
+          return <Badge variant="error" appearance="soft" size="sm" label={soldOut} />
         }
-        if (row.stock <= LOW_STOCK) {
+        if (row.stock <= lowStockThreshold) {
           return (
             <Badge
               variant="warning"
@@ -371,17 +578,22 @@ export function ProductList({
         return <span className={styles.number}>{row.stock.toLocaleString('ko-KR')}</span>
       },
     },
-    { kind: 'status', key: 'active', header: '판매상태' },
-    { kind: 'date', key: 'createdAt', header: '등록일', sortable: true },
+    { kind: 'status', key: 'active', header: L.columns.active },
+    { kind: 'date', key: 'createdAt', header: L.columns.createdAt, sortable: true },
     {
       kind: 'date',
       key: 'updatedAt',
-      header: '수정일',
+      header: L.columns.updatedAt,
       sortable: true,
-      value: (row) => row.updatedAt ?? '-',
+      value: (row) => row.updatedAt ?? L.emptyCell,
     },
-    { kind: 'user', key: 'createdBy', header: '등록자', value: (row) => row.createdBy ?? '-' },
-    { kind: 'actions', key: 'actions', header: '관리', pinned: 'right' },
+    {
+      kind: 'user',
+      key: 'createdBy',
+      header: L.columns.createdBy,
+      value: (row) => row.createdBy ?? L.emptyCell,
+    },
+    { kind: 'actions', key: 'actions', header: L.columns.actions, pinned: 'right' },
   ]
 
   // ── 카드형 본문 — 그리드 배치와 키는 셸이 잡는다 ────────────────────────
@@ -390,11 +602,11 @@ export function ProductList({
       thumbnail={row.thumbnail}
       title={row.name}
       subtitle={`${row.category} · ${row.code}`}
-      badges={badgesOf(row, soldOutLabel)}
+      badges={badgesOf(row, { ...L.stock, soldOut }, lowStockThreshold)}
       meta={[
-        { label: '가격', value: formatPrice(row.salePrice ?? row.price) },
-        { label: '재고', value: `${row.stock.toLocaleString('ko-KR')}${countUnit}` },
-        { label: '등록일', value: row.createdAt },
+        { label: L.card.price, value: formatPrice(row.salePrice ?? row.price) },
+        { label: L.card.stock, value: `${row.stock.toLocaleString('ko-KR')}${countUnit}` },
+        { label: L.card.createdAt, value: row.createdAt },
       ]}
       active={row.active}
       onToggleActive={onToggleActive != null ? (next) => onToggleActive(row.id, next) : undefined}
@@ -433,15 +645,15 @@ export function ProductList({
             <ToolbarActions
               size="sm"
               exportMenu={[
-                { label: 'CSV로 내보내기', onSelect: handleExportCsv },
-                { label: 'Excel로 내보내기', onSelect: handleExportExcel },
+                { label: L.toolbar.exportCsv, onSelect: handleExportCsv },
+                { label: L.toolbar.exportExcel, onSelect: handleExportExcel },
               ]}
               onRefresh={onRefresh}
               refreshing={loading}
             />
           ) : undefined
         }
-        totalLabel="전체"
+        totalLabel={L.toolbar.totalLabel}
         selectedIds={selectedIds}
         onSelectChange={setSelectedIds}
         bulkActions={bulkActions}
@@ -456,10 +668,9 @@ export function ProductList({
         columnPicker={columnPicker}
         // 내보내기는 표 우상단이 아니라 목록 툴바(ToolbarActions)가 갖는다
         exportable={false}
-        pageSize={PAGE_SIZE}
-        emptyText={emptyText}
-        // 썸네일이 있는 행이라 표 기본 밀도를 지킨다
-        density="comfortable"
+        pageSize={pageSize}
+        emptyText={resolveLabel(emptyText, L.empty.title)}
+        density={density}
         show={{ tabs: showTabs, search: showSearch, toolbar: false }}
       />
 
@@ -467,9 +678,10 @@ export function ProductList({
         <CrudDialog
           open
           mode="edit"
-          title="카테고리 변경"
-          description={`선택한 ${targetIds.length}건의 카테고리를 변경합니다.`}
-          confirmLabel="변경"
+          title={L.categoryDialog.title}
+          description={dialogText(L.categoryDialog.description, targetIds.length)}
+          confirmLabel={L.categoryDialog.confirmLabel}
+          cancelLabel={L.categoryDialog.cancelLabel}
           onCancel={() => setDialog(null)}
           onConfirm={() => {
             if (categoryDraft == null) return
@@ -478,10 +690,10 @@ export function ProductList({
         >
           <div className={styles.field}>
             <Select
-              label="카테고리"
+              label={L.categoryDialog.fieldLabel}
               value={categoryDraft}
               options={categories.map((category) => ({ label: category, value: category }))}
-              placeholder="카테고리 선택"
+              placeholder={L.categoryDialog.placeholder}
               onChange={setCategoryDraft}
             />
           </div>
@@ -492,8 +704,10 @@ export function ProductList({
         <CrudDialog
           open
           mode="delete"
-          title="선택한 상품을 삭제할까요?"
-          description={`상품 ${targetIds.length}건이 목록에서 제거됩니다.`}
+          title={L.deleteDialog.title}
+          description={dialogText(L.deleteDialog.description, targetIds.length)}
+          confirmLabel={L.deleteDialog.confirmLabel}
+          cancelLabel={L.deleteDialog.cancelLabel}
           onCancel={() => setDialog(null)}
           onConfirm={() => finish(() => onBulkDelete?.(targetIds))}
         />

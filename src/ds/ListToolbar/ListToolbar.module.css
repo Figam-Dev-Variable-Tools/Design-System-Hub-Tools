@@ -17,6 +17,15 @@
   color: var(--ds-color-text);
 }
 
+/* appearance='plain' — 카드 크롬만 벗긴다(내부 배치는 그대로).
+   이미 카드 안(AdminListView.toolbar 슬롯)에 넣을 때 보더가 두 겹으로 겹치지 않게. */
+.plain {
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
 /* ── 좌: 필터 Select + 검색 ── */
 .left {
   display: flex;

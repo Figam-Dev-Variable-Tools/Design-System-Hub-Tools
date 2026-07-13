@@ -5,22 +5,51 @@ import {
   LinearScale,
   BarElement,
   ArcElement,
+  LineElement,
+  PointElement,
+  Filler,
   Tooltip,
   Legend,
   type ChartOptions,
   type Plugin,
 } from 'chart.js'
-import { Bar, Doughnut } from 'react-chartjs-2'
+import { Bar, Doughnut, Line } from 'react-chartjs-2'
 import { useTokenColors } from '../Chart/useTokenColors'
+import { EmptyState } from '../EmptyState/EmptyState'
+import {
+  mergeLabels,
+  resolveLabel,
+  type DeepPartialOneLevel,
+} from '../../shared/labels'
 import styles from './AdminChart.module.css'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
+// line/area(LineElement·PointElement·Filler)는 kind 축이 늘어나면서 함께 등록한다
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  LineElement,
+  PointElement,
+  Filler,
+  Tooltip,
+  Legend,
+)
 
 /** useTokenColors가 돌려주는 배열의 순서 (primary, secondary, error, success) */
 const TONE_INDEX = { primary: 0, secondary: 1, error: 2, success: 3 } as const
 
 /** 차트 크롬(격자·축·툴팁)에 쓰는 부가 토큰 — useTokenColors와 동일한 방식으로 ref에서 읽는다 */
 const CHROME_TOKENS = ['warning', 'border', 'text', 'bg'] as const
+
+/** 축 눈금 글자 — 본문보다 확실히 작아 데이터가 주인공으로 남는 크기(chart.js는 px 숫자만 받는다) */
+const AXIS_FONT_SIZE = 11
+/** 값 축 눈금 개수 상한 — 5개를 넘으면 격자가 데이터보다 촘촘해진다 */
+const Y_TICK_LIMIT = 5
+/** area 채움 농도(%) — 선은 또렷하게 두고 면은 배경으로 물러나는 정도 */
+const AREA_FILL_PERCENT = 14
+/** 선의 곡률 — 0은 각지고 1은 과장된다. 추세를 왜곡하지 않는 최소한의 완만함 */
+const LINE_TENSION = 0.3
 
 type Chrome = { warning: string; border: string; text: string; bg: string }
 
@@ -48,14 +77,47 @@ export type AdminChartSeries = {
   tone?: 'primary' | 'secondary' | 'success' | 'warning' | 'error'
 }
 
+/** 차트 종류 — line/area는 기간 추세용(막대로 그리던 매출 추이를 제 모양으로 그린다) */
+export type AdminChartKind = 'bar' | 'donut' | 'line' | 'area'
+
+/* ── 문구(copy) ─────────────────────────────────────────────────────────────
+   화면 문구(title·centerLabel)는 이미 열려 있었지만 <canvas>에는 접근성 이름도, 빈 상태 문구도
+   없었다(스크린리더에 아무것도 읽히지 않고, 데이터가 없으면 빈 격자만 남았다). 그 둘을 연다.
+
+   NOTE: 이 컴포넌트만 통로 이름이 `labels`가 아니라 `copy`다 — `labels`는 이미 x축 카테고리
+   **데이터**(string[])가 쓰고 있고, 그건 DashboardScreen·ProductDetail·AdminSuite가 호출하는
+   공개 API라 개명하면 호출부가 깨진다. 이름을 통일하려면 데이터 쪽을 `categories`로 옮겨야 하는데
+   그건 이 폴더 밖의 결정이라 보고만 한다.
+   우선순위: 개별 prop(title·centerLabel) > copy.* > 기본값. */
+type AdminChartLabelsResolved = {
+  /** <canvas>의 접근성 이름 — 없으면 title을 쓰고, 그것도 없으면 이름을 붙이지 않는다 */
+  ariaLabel?: string
+  /** 차트 요약(대체 텍스트) — 시각장애 사용자에게 데이터를 서술한다 */
+  ariaDescription?: string
+  /** series/labels가 비었을 때 */
+  empty: string
+  /** 차트 제목 — title prop의 상위호환 자리 */
+  title?: string
+  /** 도넛 가운데 총합 아래 문구 — centerLabel prop의 상위호환 자리 */
+  centerCaption?: string
+}
+
+export const DEFAULT_ADMIN_CHART_LABELS: AdminChartLabelsResolved = {
+  empty: '표시할 데이터가 없습니다',
+} as const
+
+export type AdminChartLabels = DeepPartialOneLevel<AdminChartLabelsResolved>
+
 export type AdminChartProps = {
-  kind: 'bar' | 'donut'
+  kind: AdminChartKind
   labels: string[]
   series: AdminChartSeries[]
+  /** @deprecated labels.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   title?: string
   showLegend?: boolean
   height?: number
   stacked?: boolean
+  /** @deprecated labels.centerCaption 을 쓰세요 */
   centerLabel?: string
   valueFormat?: (n: number) => string
   /** 호버 툴팁 — 대시보드 썸네일처럼 읽기만 하는 자리에서는 꺼서 인터랙션을 죽인다 */
@@ -64,6 +126,18 @@ export type AdminChartProps = {
   showGrid?: boolean
   /** 도넛 가운데 총합 — 합계가 이미 옆 표에 있으면 꺼서 중복을 없앤다(bar에는 영향 없음) */
   showCenterTotal?: boolean
+  /**
+   * 막대 방향 — horizontal은 카테고리 라벨이 긴 랭킹(상품명·유입경로)용.
+   * bar에만 적용된다(donut/line/area에는 영향 없음). 기본 'vertical'(= 지금 화면 그대로).
+   */
+  orientation?: 'vertical' | 'horizontal'
+  /** 범례 위치 — 좁은 카드에 도넛을 넣을 때 right로 옮겨 세로 공간을 아낀다. 기본 'bottom' */
+  legendPosition?: 'top' | 'right' | 'bottom'
+  /**
+   * 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop(title·centerLabel)이 우선한다.
+   * 다른 컴포넌트의 `labels`와 같은 역할이다(이름이 다른 이유는 위 NOTE 참고).
+   */
+  copy?: AdminChartLabels
 }
 
 /** 계열 tone → 실제 색. tone이 없으면 인덱스 순서대로 팔레트를 돌려쓴다. */
@@ -120,7 +194,11 @@ export function AdminChart({
   showTooltip = true,
   showGrid = true,
   showCenterTotal = true,
+  orientation = 'vertical',
+  legendPosition = 'bottom',
+  copy,
 }: AdminChartProps) {
+  const C = mergeLabels(DEFAULT_ADMIN_CHART_LABELS, copy)
   const scopeRef = useRef<HTMLDivElement>(null)
   const palette = useTokenColors(scopeRef)
   const chrome = useChromeColors(scopeRef)
@@ -128,13 +206,20 @@ export function AdminChart({
   const format = (n: number) => (valueFormat ? valueFormat(n) : n.toLocaleString('ko-KR'))
   const ready = palette.length > 0 && chrome != null
 
+  const heading = resolveLabel(title, C.title)
+  const centerCaption = resolveLabel(centerLabel, C.centerCaption)
+  // 캔버스는 스스로 이름을 갖지 못한다 — 이름을 안 주면 제목이라도 읽히게 한다
+  const canvasLabel = resolveLabel(C.ariaLabel, heading)
+  // 계열이 없거나 모든 계열이 빈 배열이면 격자만 남는다 — 그건 빈 상태다
+  const isEmpty = series.length === 0 || series.every((s) => s.data.length === 0)
+
   const renderChart = () => {
     if (!ready || chrome == null) return null
 
     // 공통 옵션 — 툴팁/범례 색을 토큰에 맞춰 프리셋 전환에 따라간다
     const legend = {
       display: showLegend,
-      position: 'bottom' as const,
+      position: legendPosition,
       labels: {
         color: chrome.text,
         boxWidth: 8,
@@ -198,37 +283,101 @@ export function AdminChart({
           }}
           options={options}
           // 가운데 총합은 플러그인이 그린다 — 끄면 플러그인 자체를 붙이지 않는다(빈 텍스트 그리기 금지)
-          plugins={showCenterTotal ? [centerTextPlugin(format(total), centerLabel, chrome)] : []}
+          plugins={showCenterTotal ? [centerTextPlugin(format(total), centerCaption, chrome)] : []}
         />
       )
     }
 
-    // 바 — 격자선 최소(가로선만), 축 라벨은 작게
+    if (kind === 'line' || kind === 'area') {
+      // 선/영역 — 기간 추세용. 격자·축·툴팁 크롬은 막대와 같게 두어 대시보드에서 나란히 읽힌다.
+      const options: ChartOptions<'line'> = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend, tooltip },
+        scales: {
+          x: {
+            stacked,
+            grid: { display: false },
+            border: { color: chrome.border },
+            ticks: { color: chrome.border, font: { size: AXIS_FONT_SIZE }, padding: 6 },
+          },
+          y: {
+            stacked,
+            beginAtZero: true,
+            border: { display: false },
+            grid: { display: showGrid, color: chrome.border, lineWidth: 1, tickLength: 0 },
+            ticks: {
+              color: chrome.border,
+              font: { size: AXIS_FONT_SIZE },
+              padding: 8,
+              maxTicksLimit: Y_TICK_LIMIT,
+              callback: (value) => format(Number(value)),
+            },
+          },
+        },
+      }
+
+      return (
+        <Line
+          data={{
+            labels,
+            datasets: series.map((s, i) => {
+              const color = toneColor(s.tone, i, palette, chrome)
+              return {
+                label: s.label,
+                data: s.data,
+                borderColor: color,
+                // area만 면을 채운다 — 같은 색을 옅게 깔아 선과 한 계열로 읽히게 한다
+                backgroundColor:
+                  kind === 'area'
+                    ? `color-mix(in srgb, ${color} ${AREA_FILL_PERCENT}%, transparent)`
+                    : color,
+                fill: kind === 'area',
+                borderWidth: 2,
+                tension: LINE_TENSION,
+                pointRadius: 0,
+                // 점은 평소엔 숨기고 hover에서만 띄운다 — 90일치를 그려도 선이 지저분해지지 않는다
+                pointHoverRadius: 4,
+                pointBackgroundColor: color,
+              }
+            }),
+          }}
+          options={options}
+        />
+      )
+    }
+
+    // 바 — 격자선 최소(값 축만), 축 라벨은 작게
+    const horizontal = orientation === 'horizontal'
+    // 가로 막대는 값 축이 x로 바뀐다 — 격자·눈금 포맷도 그 축을 따라가야 한다
+    const valueAxis = {
+      stacked,
+      beginAtZero: true,
+      border: { display: false },
+      grid: { display: showGrid, color: chrome.border, lineWidth: 1, tickLength: 0 },
+      ticks: {
+        color: chrome.border,
+        font: { size: AXIS_FONT_SIZE },
+        padding: 8,
+        maxTicksLimit: Y_TICK_LIMIT,
+        callback: (value: string | number) => format(Number(value)),
+      },
+    }
+    const categoryAxis = {
+      stacked,
+      grid: { display: false },
+      border: { color: chrome.border },
+      ticks: { color: chrome.border, font: { size: AXIS_FONT_SIZE }, padding: 6 },
+    }
+
     const options: ChartOptions<'bar'> = {
       responsive: true,
       maintainAspectRatio: false,
+      indexAxis: horizontal ? 'y' : 'x',
       plugins: { legend, tooltip },
       scales: {
-        x: {
-          stacked,
-          grid: { display: false },
-          border: { color: chrome.border },
-          ticks: { color: chrome.border, font: { size: 11 }, padding: 6 },
-        },
-        y: {
-          stacked,
-          beginAtZero: true,
-          border: { display: false },
-          // 세로 격자선은 처음부터 없다(x.grid.display=false) — showGrid는 가로선만 다룬다
-          grid: { display: showGrid, color: chrome.border, lineWidth: 1, tickLength: 0 },
-          ticks: {
-            color: chrome.border,
-            font: { size: 11 },
-            padding: 8,
-            maxTicksLimit: 5,
-            callback: (value) => format(Number(value)),
-          },
-        },
+        x: horizontal ? valueAxis : categoryAxis,
+        y: horizontal ? categoryAxis : valueAxis,
       },
     }
 
@@ -252,9 +401,16 @@ export function AdminChart({
 
   return (
     <div ref={scopeRef} className={styles.root}>
-      {title != null && title !== '' && <h3 className={styles.title}>{title}</h3>}
-      <div className={styles.canvas} style={{ height }}>
-        {renderChart()}
+      {heading != null && heading !== '' && <h3 className={styles.title}>{heading}</h3>}
+      <div
+        className={styles.canvas}
+        style={{ height }}
+        // 캔버스는 그림이라 스크린리더가 읽을 것이 없다 — 이름과 요약을 여기서 준다
+        role={isEmpty ? undefined : 'img'}
+        aria-label={isEmpty ? undefined : canvasLabel}
+        aria-description={isEmpty ? undefined : C.ariaDescription}
+      >
+        {isEmpty ? <EmptyState kind="empty" title={C.empty} compact /> : renderChart()}
       </div>
     </div>
   )

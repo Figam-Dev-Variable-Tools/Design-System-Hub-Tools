@@ -64,6 +64,10 @@ const meta = {
     removeImageLabel: { control: 'text' },
     imageHint: { control: 'text' },
     savingLabel: { control: 'text' },
+    labels: { control: 'object' },
+    // 페이지 리듬 — 다른 폼(PortfolioForm·CompanyForm)과 같은 축
+    density: { control: 'inline-radio', options: ['compact', 'comfortable'] },
+    maxWidth: { control: 'inline-radio', options: ['md', 'lg', 'full'] },
     // 아이콘 슬롯은 ReactNode라 컨트롤을 붙이지 않는다
     removeImageIcon: { control: false },
   },
@@ -173,4 +177,45 @@ export const CustomCopy: Story = {
     removeImageLabel: '사진 지우기',
     submitLabel: '등록하기',
   },
+}
+
+/**
+ * Labels — 영문 오버라이드. 섹션 제목·필드 라벨·플레이스홀더·이미지 블록·액션까지 전부 열려 있다.
+ * meta의 title(개별 prop)은 labels보다 우선하므로 이 스토리에서는 넘기지 않는다.
+ */
+export const Labels: Story = {
+  args: {
+    value: FILLED_CATEGORY,
+    labels: {
+      title: 'New category',
+      description: 'Basic information shown in the catalog and the top menu.',
+      sections: { info: 'Category details' },
+      sectionDescriptions: { info: 'Shown in the catalog list and the top navigation.' },
+      fields: {
+        name: 'Category name',
+        image: 'Category image',
+        description: 'Description',
+        active: 'Active',
+      },
+      placeholders: {
+        name: 'e.g. Living room',
+        description: 'Describe what belongs in this category.',
+      },
+      helpers: {
+        image: 'If you do not use an image, an icon is shown instead.',
+        active: 'When off, this category is hidden from the catalog and the menu.',
+      },
+      image: {
+        useImage: 'Use image',
+        on: 'ON',
+        off: 'OFF',
+        hint: 'Recommended 640×640 · JPG/PNG · up to 2MB',
+        removeLabel: 'Remove image',
+        emojiGroup: 'Category icon',
+      },
+      actions: { submit: 'Save', cancel: 'Cancel', saving: 'Saving…' },
+    },
+  },
+  // meta args의 title(개별 prop)이 labels를 이기므로 이 스토리에서만 걷어낸다
+  render: ({ title: _title, ...args }) => <CategoryFormDemo key="labels" {...args} />,
 }

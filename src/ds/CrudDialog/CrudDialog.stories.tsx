@@ -85,8 +85,9 @@ const meta = {
     showWarning: { control: 'boolean', description: '삭제 경고 문구(delete 모드)' },
     showIcon: { control: 'boolean', description: '삭제 경고 아이콘(delete 모드)' },
     icon: { control: false, description: '경고 아이콘(기본 Placeholder kind="delete")' },
-    loadingLabel: { control: 'text', description: '처리 중 확인 버튼 라벨' },
-    warningText: { control: 'text', description: '경고 문구' },
+    loadingLabel: { control: 'text', description: '처리 중 확인 버튼 라벨(@deprecated — labels.loadingLabel)' },
+    warningText: { control: 'text', description: '경고 문구(@deprecated — labels.warningText)' },
+    labels: { control: false, description: '문구 통로 — 개별 prop(title·confirmLabel …)이 이긴다' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -150,6 +151,29 @@ export const DeleteWarnings: Story = {
         />
       </div>
     </div>
+  ),
+}
+
+/**
+ * 문구 오버라이드 — 제목·설명·버튼·경고까지 labels 한 통로로 연다.
+ * 개별 prop(title …)을 함께 넘기면 그쪽이 이기므로, 여기서는 labels만 넘긴다.
+ */
+export const Labels: Story = {
+  args: { title: undefined, description: undefined, children: null },
+  render: () => (
+    <CrudDialog
+      open
+      inline
+      mode="delete"
+      labels={{
+        title: 'Delete this product?',
+        description: '‘Winter Wool Coat’ will be removed from the list.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        loadingLabel: 'Deleting…',
+        warningText: 'Deleted data cannot be restored.',
+      }}
+    />
   ),
 }
 

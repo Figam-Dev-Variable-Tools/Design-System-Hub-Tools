@@ -132,11 +132,18 @@
   min-width: 0;
 }
 
-/* 위에 누적 목록이 있을 때만 — '읽는 곳'과 '쓰는 곳'을 1px 선으로 가른다 */
+/* 위에 누적 목록이 있을 때(composer='bottom') — '읽는 곳'과 '쓰는 곳'을 1px 선으로 가른다 */
 .composerDivided {
   gap: var(--ds-spacing-2);
   padding-top: var(--ds-spacing-4);
   border-top: var(--ds-border-width) solid var(--ds-color-border);
+}
+
+/* composer='top' — 목록이 아래에 있으니 선도 아래로 간다(가르는 뜻은 같다) */
+.composerDividedBelow {
+  gap: var(--ds-spacing-2);
+  padding-bottom: var(--ds-spacing-4);
+  border-bottom: var(--ds-border-width) solid var(--ds-color-border);
 }
 
 /* Textarea 프리미티브의 max-width(480px) 제한 해제 — 카드 폭을 따르게 */

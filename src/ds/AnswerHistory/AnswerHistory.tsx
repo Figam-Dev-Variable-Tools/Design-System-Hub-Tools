@@ -1,10 +1,16 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { History, RotateCcw } from 'lucide-react'
-import { Badge } from '../Badge/Badge'
+import { Badge, type BadgeProps } from '../Badge/Badge'
 import { Button } from '../Button/Button'
 import { EmptyState } from '../EmptyState/EmptyState'
 import { Modal } from '../Modal/Modal'
+import {
+  mergeLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type LabelFn,
+} from '../../shared/labels'
 import styles from './AnswerHistory.module.css'
 
 export type AnswerVersion = {
@@ -15,6 +21,55 @@ export type AnswerVersion = {
   /** 변경 내용(수정 사유) */
   changeNote?: string
   content: string
+}
+
+export type AnswerHistoryLabels = {
+  /** 버전 접두 — 'v' + 3 → v3 */
+  versionPrefix: string
+  /** 최신 버전 배지 */
+  latest: string
+  actions: {
+    view: string
+    /** 복원 — 모달 확인 버튼은 modal.restore가 이 문구를 받아 조립한다 */
+    restore: string
+  }
+  meta: {
+    created: LabelFn<string>
+    updated: LabelFn<string>
+  }
+  empty: EmptyLabels
+  modal: {
+    title: LabelFn<number>
+    close: string
+    /** 확인 버튼 — 인자는 actions.restore로 해석된 문구다 */
+    restore: LabelFn<string>
+    meta: (version: AnswerVersion) => string
+    note: LabelFn<string>
+  }
+}
+
+/** EmptyLabels의 title/description은 옵셔널(공용 타입)이라 최종 기본값을 이름으로 둔다 */
+const DEFAULT_EMPTY_TITLE = '답변 이력이 없습니다.'
+
+export const DEFAULT_ANSWER_HISTORY_LABELS: AnswerHistoryLabels = {
+  versionPrefix: 'v',
+  latest: '현재 버전',
+  actions: { view: '이전 버전 보기', restore: '복원' },
+  meta: {
+    created: (at) => `작성 ${at}`,
+    updated: (at) => `수정 ${at}`,
+  },
+  empty: {
+    title: DEFAULT_EMPTY_TITLE,
+    description: '답변이 등록되면 버전별 이력이 여기에 쌓입니다.',
+  },
+  modal: {
+    title: (version) => `버전 v${version} 내용`,
+    close: '닫기',
+    restore: (restoreLabel) => `이 버전으로 ${restoreLabel}`,
+    meta: (v) => `${v.author} · 작성 ${v.createdAt}`,
+    note: (note) => `변경 내용: ${note}`,
+  },
 }
 
 export type AnswerHistoryProps = {
@@ -32,15 +87,31 @@ export type AnswerHistoryProps = {
   /** '이전 버전 보기' 아이콘 (기본 History) */
   viewIcon?: ReactNode
 
-  /** 이력이 0건일 때 빈 상태 제목 */
+  /** '현재 버전' 배지 톤 (기본 primary) — 강조 규약이 다른 화면에 맞춘다 */
+  latestTone?: BadgeProps['variant']
+
+  /** 문구 — 개별 prop(emptyTitle·latestLabel·viewLabel·restoreLabel …)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<AnswerHistoryLabels>
+
+  /**
+   * @deprecated labels.empty.title을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   emptyTitle?: string
-  /** 이력이 0건일 때 빈 상태 설명 */
+  /**
+   * @deprecated labels.empty.description을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   emptyDescription?: string
-  /** 최신 버전 배지 문구 (기본 '현재 버전') */
+  /**
+   * @deprecated labels.latest를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   latestLabel?: string
-  /** 보기 버튼 문구 (기본 '이전 버전 보기') */
+  /**
+   * @deprecated labels.actions.view를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   viewLabel?: string
-  /** 복원 버튼 문구 (기본 '복원') — 모달의 확인 버튼은 '이 버전으로 {restoreLabel}' */
+  /**
+   * @deprecated labels.actions.restore를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   restoreLabel?: string
 }
 
@@ -63,16 +134,33 @@ export function AnswerHistory({
   showLatestBadge = true,
   showMeta = true,
   viewIcon,
-  emptyTitle = '답변 이력이 없습니다.',
-  emptyDescription = '답변이 등록되면 버전별 이력이 여기에 쌓입니다.',
-  latestLabel = '현재 버전',
-  viewLabel = '이전 버전 보기',
-  restoreLabel = '복원',
+  latestTone = 'primary',
+  labels,
+  emptyTitle,
+  emptyDescription,
+  latestLabel,
+  viewLabel,
+  restoreLabel,
 }: AnswerHistoryProps) {
   const [viewing, setViewing] = useState<AnswerVersion | null>(null)
 
+  // 우선순위: 개별 prop > labels > 기본값.
+  // mergeLabels는 그룹 안의 undefined를 걸러내므로, 넘기지 않은 개별 prop이 기본값을 지우지 않는다.
+  const L = mergeLabels(mergeLabels(DEFAULT_ANSWER_HISTORY_LABELS, labels), {
+    latest: latestLabel,
+    actions: { view: viewLabel, restore: restoreLabel },
+    empty: { title: emptyTitle, description: emptyDescription },
+  })
+
   if (versions.length === 0) {
-    return <EmptyState kind="empty" title={emptyTitle} description={emptyDescription} compact />
+    return (
+      <EmptyState
+        kind="empty"
+        title={L.empty.title ?? DEFAULT_EMPTY_TITLE}
+        description={L.empty.description}
+        compact
+      />
+    )
   }
 
   // 최신 버전이 위로 — 원본 배열은 건드리지 않는다
@@ -103,9 +191,12 @@ export function AnswerHistory({
 
               <div className={styles.card}>
                 <div className={styles.head}>
-                  <span className={styles.version}>v{item.version}</span>
+                  <span className={styles.version}>
+                    {L.versionPrefix}
+                    {item.version}
+                  </span>
                   {isLatest && showLatestBadge && (
-                    <Badge variant="primary" appearance="soft" size="sm" label={latestLabel} />
+                    <Badge variant={latestTone} appearance="soft" size="sm" label={L.latest} />
                   )}
                   <span className={styles.author} title={item.author}>
                     {item.author}
@@ -114,13 +205,13 @@ export function AnswerHistory({
 
                 {showMeta && (
                   <div className={styles.meta}>
-                    <span className={styles.metaItem}>작성 {item.createdAt}</span>
+                    <span className={styles.metaItem}>{L.meta.created(item.createdAt)}</span>
                     {item.updatedAt != null && (
                       <>
                         <span className={styles.sep} aria-hidden="true">
                           ·
                         </span>
-                        <span className={styles.metaItem}>수정 {item.updatedAt}</span>
+                        <span className={styles.metaItem}>{L.meta.updated(item.updatedAt)}</span>
                       </>
                     )}
                   </div>
@@ -140,7 +231,7 @@ export function AnswerHistory({
                         variant="secondary"
                         appearance="outline"
                         size="sm"
-                        label={viewLabel}
+                        label={L.actions.view}
                         showLeftIcon
                         leftIcon={viewIcon ?? <History size={14} />}
                         onClick={() => view(item)}
@@ -151,7 +242,7 @@ export function AnswerHistory({
                         variant="secondary"
                         appearance="ghost"
                         size="sm"
-                        label={restoreLabel}
+                        label={L.actions.restore}
                         showLeftIcon
                         leftIcon={<RotateCcw size={14} />}
                         onClick={() => onRestore(item)}
@@ -168,7 +259,7 @@ export function AnswerHistory({
       <Modal
         open={viewing != null}
         onClose={() => setViewing(null)}
-        title={viewing == null ? undefined : `버전 v${viewing.version} 내용`}
+        title={viewing == null ? undefined : L.modal.title(viewing.version)}
         size="md"
         footer={
           <div className={styles.modalFooter}>
@@ -176,14 +267,14 @@ export function AnswerHistory({
               variant="secondary"
               appearance="outline"
               size="md"
-              label="닫기"
+              label={L.modal.close}
               onClick={() => setViewing(null)}
             />
             {onRestore != null && viewing != null && viewing.version !== latest && (
               <Button
                 variant="primary"
                 size="md"
-                label={`이 버전으로 ${restoreLabel}`}
+                label={L.modal.restore(L.actions.restore)}
                 showLeftIcon
                 leftIcon={<RotateCcw size={16} />}
                 onClick={() => {
@@ -198,11 +289,9 @@ export function AnswerHistory({
         {viewing != null && (
           <div className={styles.preview}>
             <div className={styles.previewMeta}>
-              <span className={styles.metaItem}>
-                {viewing.author} · 작성 {viewing.createdAt}
-              </span>
+              <span className={styles.metaItem}>{L.modal.meta(viewing)}</span>
               {viewing.changeNote != null && viewing.changeNote !== '' && (
-                <span className={styles.previewNote}>변경 내용: {viewing.changeNote}</span>
+                <span className={styles.previewNote}>{L.modal.note(viewing.changeNote)}</span>
               )}
             </div>
             {/* 저장된 답변 HTML을 그대로 렌더한다(에디터 자체 출력) */}

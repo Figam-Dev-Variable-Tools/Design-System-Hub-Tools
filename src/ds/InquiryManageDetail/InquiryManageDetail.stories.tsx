@@ -9,6 +9,7 @@ import {
   type InquiryManageDetailProps,
   type InquiryQa,
   type InquiryRequestFormValue,
+  type InquiryRequestFormProps,
   type InquiryRequestMessages,
 } from './InquiryManageDetail'
 
@@ -210,10 +211,22 @@ function FormDemo({
   initial = EMPTY_FORM,
   descriptions,
   errors,
+  labels,
+  categoryOptions = CATEGORY_OPTIONS,
+  title,
+  description,
+  submitLabel,
+  privacyLabel,
 }: {
   initial?: InquiryRequestFormValue
   descriptions?: InquiryRequestMessages
   errors?: InquiryRequestMessages
+  labels?: InquiryRequestFormProps['labels']
+  categoryOptions?: SelectOption[]
+  title?: string
+  description?: string
+  submitLabel?: string
+  privacyLabel?: string
 }) {
   const [value, setValue] = useState(initial)
 
@@ -222,9 +235,14 @@ function FormDemo({
       <InquiryRequestForm
         value={value}
         onChange={setValue}
-        categoryOptions={CATEGORY_OPTIONS}
+        categoryOptions={categoryOptions}
         descriptions={descriptions}
         errors={errors}
+        labels={labels}
+        title={title}
+        description={description}
+        submitLabel={submitLabel}
+        privacyLabel={privacyLabel}
         onSubmit={() => {}}
       />
     </div>
@@ -247,4 +265,83 @@ export const RequestFormWithDescriptions: Story = {
 export const RequestFormWithErrors: Story = {
   parameters: { controls: { disable: true } },
   render: () => <FormDemo descriptions={DESCRIPTIONS} errors={ERRORS} />,
+}
+
+/**
+ * Labels: 영문 오버라이드 — 섹션 제목·신청자 필드·답변 토글·확인 버튼·동의 배지 접미사까지
+ * labels 통로 하나로 화면 전체가 영문이 된다(동의 배지는 문의 신청 상세와 같은 조각을 쓴다).
+ */
+export const Labels: Story = {
+  args: {
+    title: 'Installation inquiry',
+    status: { label: 'Pending', tone: 'warning' },
+    answerDescription: 'The applicant is emailed as soon as you save.',
+    labels: {
+      sections: {
+        applicant: 'Applicant',
+        qa: 'Form answers',
+        qaDescription: 'Answers submitted through the request form.',
+        answer: 'Reply',
+        answerDescription: 'Your reply is emailed to the applicant.',
+      },
+      applicant: {
+        name: 'Name',
+        phone: 'Phone',
+        email: 'Email',
+        createdAt: 'Submitted',
+        updatedAt: 'Updated',
+        updatedBy: 'Updated by',
+      },
+      answer: {
+        field: 'Reply body',
+        placeholder: 'Write your reply',
+        answeredAt: 'Replied at',
+        answeredBy: 'Replied by',
+        toggle: 'Enable reply',
+        toggleDescription: 'When off, the applicant never sees the reply.',
+        disabledHint: 'Turn the reply on to write one.',
+      },
+      actions: { save: 'Save', list: 'Back to list', delete: 'Delete' },
+      empty: { title: 'No form answers yet' },
+      consent: { agreed: 'agreed', denied: 'not agreed' },
+    },
+  },
+}
+
+/** Labels: 영문 오버라이드 (폼) — 필드 라벨과 placeholder가 값 키와 1:1로 열린다 */
+export const RequestFormLabels: Story = {
+  parameters: { controls: { disable: true } },
+  render: () => (
+    <FormDemo
+      title="Contact us"
+      description="We reply in the order the requests arrive."
+      submitLabel="Send"
+      privacyLabel="I agree to the collection and use of my personal data."
+      categoryOptions={[
+        { value: 'cafe', label: 'Cafe · Bakery' },
+        { value: 'restaurant', label: 'Restaurant · Bar' },
+        { value: 'retail', label: 'Retail · Select shop' },
+        { value: 'etc', label: 'Other' },
+      ]}
+      labels={{
+        fields: {
+          category: 'Business type',
+          name: 'Full name',
+          email: 'Email',
+          phone: 'Phone',
+          title: 'Subject',
+          content: 'Message',
+          privacy: 'Personal data notice',
+        },
+        placeholders: {
+          category: 'Select a business type',
+          name: 'Enter your name',
+          email: 'Enter your email',
+          phone: 'Enter your phone number',
+          title: 'Enter a subject',
+          content: 'Tell us what you need',
+        },
+      }}
+    />
+  ),
 }

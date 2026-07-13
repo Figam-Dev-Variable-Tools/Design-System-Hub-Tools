@@ -14,9 +14,10 @@ import { PageContainer, PageSection } from '../PageContainer/PageContainer'
 import { RowActions } from '../RowActions/RowActions'
 import { Select, type SelectOption } from '../Select/Select'
 import { SortableHandle, SortableList } from '../SortableList/SortableList'
-import { Tab } from '../Tab/Tab'
+import { Tab, type TabProps } from '../Tab/Tab'
 import { Textarea } from '../Textarea/Textarea'
 import { Toggle } from '../Toggle/Toggle'
+import { mergeLabels, type DeepPartialOneLevel, type LabelFn } from '../../shared/labels'
 
 /** 배지/라벨 톤 — Badge variant와 1:1 */
 export type InquiryTone = 'primary' | 'secondary' | 'success' | 'warning' | 'error'
@@ -55,6 +56,207 @@ export type InquiryTemplate = {
 
 export type InquirySection = 'types' | 'automation' | 'notification' | 'status'
 
+/* ────────────────────────────────────────────────────────────
+ * 문구 — 탭·섹션·설정 행·확인창의 모든 글자가 여기 한 곳으로 모인다
+ * ──────────────────────────────────────────────────────────── */
+
+export type InquirySettingsLabels = {
+  /** 상단 탭 */
+  tabs: Record<InquirySection, string>
+  /** [문의 유형 관리] 카드 */
+  types: {
+    title: string
+    description: string
+    add: string
+    empty: string
+    emptyDescription: string
+    /** 사용 여부 배지 */
+    enabled: string
+    disabled: string
+    /** 행 액션의 접근성 이름 — 인자는 유형명 */
+    editAria: LabelFn<string>
+    deleteAria: LabelFn<string>
+  }
+  /** [자동 기능] 카드 — 행마다 제목 + 설명 */
+  automation: {
+    title: string
+    description: string
+    autoAssign: string
+    autoAssignHint: string
+    autoReply: string
+    autoReplyHint: string
+    faqSuggest: string
+    faqSuggestHint: string
+    sla: string
+    slaHint: string
+    /** NumberField 단위 */
+    slaUnit: string
+  }
+  /** [답변 템플릿] 카드 */
+  templates: {
+    title: string
+    description: string
+    add: string
+    empty: string
+    /** 유형이 지정되지 않은 템플릿 */
+    commonType: string
+  }
+  /** 템플릿 표 컬럼 머리글 */
+  columns: { title: string; typeKey: string; body: string; updatedAt: string }
+  /** [알림] 카드 — 채널마다 제목 + 설명 */
+  notification: {
+    title: string
+    description: string
+    targetPlaceholder: string
+    email: string
+    emailHint: string
+    sms: string
+    smsHint: string
+    kakao: string
+    kakaoHint: string
+    admin: string
+    adminHint: string
+  }
+  /** [문의 상태 배지] 카드 */
+  statusStyles: {
+    title: string
+    description: string
+    /** 미리보기 열을 끄면 설명도 그 문장을 뺀다 */
+    descriptionNoPreview: string
+    key: string
+    label: string
+    tone: string
+    preview: string
+  }
+  /** 톤 Select의 옵션 문구 */
+  toneOptions: Record<InquiryTone, string>
+  /** 유형 등록/수정/삭제 확인창 */
+  typeDialog: {
+    create: string
+    edit: string
+    delete: string
+    /** 인자는 삭제 대상 유형명 */
+    deleteDescription: LabelFn<string>
+    name: string
+    namePlaceholder: string
+    code: string
+    codePlaceholder: string
+    codeHint: string
+    /** 수정 모드에서는 코드를 못 바꾼다 */
+    codeHintReadonly: string
+    enabled: string
+  }
+  /** 템플릿 등록/수정/삭제 확인창 */
+  templateDialog: {
+    create: string
+    edit: string
+    delete: string
+    /** 인자는 삭제 대상 템플릿명 */
+    deleteDescription: LabelFn<string>
+    name: string
+    namePlaceholder: string
+    type: string
+    body: string
+    bodyPlaceholder: string
+  }
+}
+
+export const DEFAULT_INQUIRY_SETTINGS_LABELS: InquirySettingsLabels = {
+  tabs: {
+    types: '문의 유형',
+    automation: '자동화',
+    notification: '알림',
+    status: '상태 배지',
+  },
+  types: {
+    title: '문의 유형 관리',
+    description:
+      '접수 화면에 노출되는 유형입니다. 핸들을 끌거나 Ctrl/Cmd + ↑ ↓ 로 순서를 바꿉니다.',
+    add: '유형 추가',
+    empty: '등록된 문의 유형이 없습니다.',
+    emptyDescription: '유형을 추가해 접수 화면을 구성하세요.',
+    enabled: '사용',
+    disabled: '미사용',
+    editAria: (label) => `${label} 수정`,
+    deleteAria: (label) => `${label} 삭제`,
+  },
+  automation: {
+    title: '자동 기능',
+    description: '문의 접수 직후 자동으로 실행할 동작입니다.',
+    autoAssign: '자동 배정',
+    autoAssignHint: '담당자 규칙에 따라 새 문의를 자동으로 배정합니다.',
+    autoReply: '자동 답변',
+    autoReplyHint: '접수 확인 메시지를 즉시 발송합니다.',
+    faqSuggest: 'FAQ 추천',
+    faqSuggestHint: '문의 내용과 유사한 FAQ를 고객에게 먼저 제안합니다.',
+    sla: 'SLA 응답 목표',
+    slaHint: '접수 후 이 시간 안에 첫 답변을 목표로 합니다.',
+    slaUnit: '시간',
+  },
+  templates: {
+    title: '답변 템플릿',
+    description: '자동 답변·상담사 답변에 사용하는 문구 묶음입니다.',
+    add: '템플릿 추가',
+    empty: '등록된 답변 템플릿이 없습니다.',
+    commonType: '전체 공통',
+  },
+  columns: { title: '템플릿명', typeKey: '문의 유형', body: '본문', updatedAt: '수정일' },
+  notification: {
+    title: '알림',
+    description: '채널별로 발송 여부와 수신 대상을 지정합니다.',
+    targetPlaceholder: '수신 대상',
+    email: '이메일',
+    emailHint: '접수·답변 완료 시 메일을 발송합니다.',
+    sms: 'SMS',
+    smsHint: '답변 완료 시 문자 메시지를 발송합니다.',
+    kakao: '카카오 알림톡',
+    kakaoHint: '알림톡 템플릿으로 발송합니다.',
+    admin: '관리자 알림',
+    adminHint: '새 문의·SLA 임박을 관리자에게 알립니다.',
+  },
+  statusStyles: {
+    title: '문의 상태 배지',
+    description:
+      '상태별 노출 라벨과 배지 톤을 편집합니다. 오른쪽에서 실제 배지를 미리 볼 수 있습니다.',
+    descriptionNoPreview: '상태별 노출 라벨과 배지 톤을 편집합니다.',
+    key: '상태 코드',
+    label: '라벨',
+    tone: '톤',
+    preview: '미리보기',
+  },
+  toneOptions: {
+    primary: 'Primary',
+    secondary: 'Secondary',
+    success: 'Success',
+    warning: 'Warning',
+    error: 'Error',
+  },
+  typeDialog: {
+    create: '문의 유형 추가',
+    edit: '문의 유형 수정',
+    delete: '문의 유형을 삭제할까요?',
+    deleteDescription: (label) => `'${label}' 유형을 삭제합니다.`,
+    name: '유형명',
+    namePlaceholder: '예: 배송 문의',
+    code: '코드',
+    codePlaceholder: '비우면 자동 생성',
+    codeHint: '영문/숫자 키로 저장됩니다.',
+    codeHintReadonly: '코드는 수정할 수 없습니다.',
+    enabled: '접수 화면에 노출',
+  },
+  templateDialog: {
+    create: '답변 템플릿 추가',
+    edit: '답변 템플릿 수정',
+    delete: '답변 템플릿을 삭제할까요?',
+    deleteDescription: (title) => `'${title}' 템플릿을 삭제합니다.`,
+    name: '템플릿명',
+    namePlaceholder: '예: 배송 지연 안내',
+    type: '문의 유형',
+    body: '본문',
+    bodyPlaceholder: '고객에게 발송될 답변 문구를 입력하세요.',
+  },
+}
+
 export type InquirySettingsProps = {
   types: InquiryTypeItem[]
   onTypesChange?: (next: InquiryTypeItem[]) => void
@@ -89,24 +291,17 @@ export type InquirySettingsProps = {
    * 행의 [수정][삭제] 아이콘은 공용 RowActions가 갖고 있어 여기서 열지 않는다.
    */
   addIcon?: ReactNode
+
+  /** 문구 — 넘기지 않으면 오늘과 같은 화면이 나온다 */
+  labels?: DeepPartialOneLevel<InquirySettingsLabels>
+  /** 탭 모양 (기본 underline) — 다른 설정 화면과 시각을 맞춘다 */
+  tabVariant?: TabProps['variant']
 }
 
 const ALL_SECTIONS: InquirySection[] = ['types', 'automation', 'notification', 'status']
 
-const SECTION_LABEL: Record<InquirySection, string> = {
-  types: '문의 유형',
-  automation: '자동화',
-  notification: '알림',
-  status: '상태 배지',
-}
-
-const TONE_OPTIONS: SelectOption[] = [
-  { value: 'primary', label: 'Primary' },
-  { value: 'secondary', label: 'Secondary' },
-  { value: 'success', label: 'Success' },
-  { value: 'warning', label: 'Warning' },
-  { value: 'error', label: 'Error' },
-]
+/** 톤 Select의 값 순서 — 문구는 labels.toneOptions가 갖는다 */
+const TONE_KEYS: InquiryTone[] = ['primary', 'secondary', 'success', 'warning', 'error']
 
 const DEFAULT_TARGET_OPTIONS: SelectOption[] = [
   { value: 'customer', label: '문의 고객' },
@@ -122,16 +317,12 @@ const DEFAULT_TARGETS: InquiryNotificationTargets = {
   admin: ['manager'],
 }
 
-const NOTIFICATION_CHANNELS: {
-  key: InquiryNotificationChannel
-  title: string
-  description: string
-  icon: ReactNode
-}[] = [
-  { key: 'email', title: '이메일', description: '접수·답변 완료 시 메일을 발송합니다.', icon: <Mail size={16} /> },
-  { key: 'sms', title: 'SMS', description: '답변 완료 시 문자 메시지를 발송합니다.', icon: <Smartphone size={16} /> },
-  { key: 'kakao', title: '카카오 알림톡', description: '알림톡 템플릿으로 발송합니다.', icon: <MessageCircle size={16} /> },
-  { key: 'admin', title: '관리자 알림', description: '새 문의·SLA 임박을 관리자에게 알립니다.', icon: <Bell size={16} /> },
+/** 알림 채널 — 그리는 순서와 아이콘만 코드가 갖는다(문구는 labels.notification) */
+const NOTIFICATION_CHANNELS: { key: InquiryNotificationChannel; icon: ReactNode }[] = [
+  { key: 'email', icon: <Mail size={16} /> },
+  { key: 'sms', icon: <Smartphone size={16} /> },
+  { key: 'kakao', icon: <MessageCircle size={16} /> },
+  { key: 'admin', icon: <Bell size={16} /> },
 ]
 
 /** 유형/템플릿 다이얼로그 — 대상 없이 열리면 등록 */
@@ -203,9 +394,18 @@ export function InquirySettings({
   showTemplates = true,
   showPreview = true,
   addIcon,
+  labels,
+  tabVariant = 'underline',
 }: InquirySettingsProps) {
+  const L = mergeLabels(DEFAULT_INQUIRY_SETTINGS_LABELS, labels)
   const visibleSections = sections.length > 0 ? sections : ALL_SECTIONS
   const [section, setSection] = useState<InquirySection>(defaultSection ?? visibleSections[0])
+
+  // 톤 Select 옵션 — 문구가 바뀌면 옵션도 함께 바뀌어야 한다(모듈 상수를 그대로 쓰면 갈라진다)
+  const toneOptions: SelectOption[] = TONE_KEYS.map((value) => ({
+    value,
+    label: L.toneOptions[value],
+  }))
 
   // 수신 대상은 제어(prop) / 비제어(내부 상태) 모두 지원
   const [internalTargets, setInternalTargets] = useState<InquiryNotificationTargets>(DEFAULT_TARGETS)
@@ -281,19 +481,24 @@ export function InquirySettings({
   }
 
   const typeLabelOf = (key: string): string =>
-    types.find((item) => item.key === key)?.label ?? '전체 공통'
+    types.find((item) => item.key === key)?.label ?? L.templates.commonType
 
   const typeSelectOptions: SelectOption[] = [
-    { value: '', label: '전체 공통' },
+    { value: '', label: L.templates.commonType },
     ...types.map((item) => ({ value: item.key, label: item.label })),
   ]
 
   const templateColumns: AdminColumn<InquiryTemplate>[] = [
     { kind: 'index', key: 'index' },
-    { kind: 'title', key: 'title', header: '템플릿명', sortable: true },
-    { kind: 'category', key: 'typeKey', header: '문의 유형', value: (row) => typeLabelOf(row.typeKey) },
-    { kind: 'text', key: 'body', header: '본문', ratio: 4 },
-    { kind: 'date', key: 'updatedAt', header: '수정일', sortable: true },
+    { kind: 'title', key: 'title', header: L.columns.title, sortable: true },
+    {
+      kind: 'category',
+      key: 'typeKey',
+      header: L.columns.typeKey,
+      value: (row) => typeLabelOf(row.typeKey),
+    },
+    { kind: 'text', key: 'body', header: L.columns.body, ratio: 4 },
+    { kind: 'date', key: 'updatedAt', header: L.columns.updatedAt, sortable: true },
     { kind: 'actions', key: 'actions' },
   ]
 
@@ -309,9 +514,9 @@ export function InquirySettings({
       {visibleSections.length > 1 && (
         <div className={styles.tabs}>
           <Tab
-            items={visibleSections.map((key) => ({ value: key, label: SECTION_LABEL[key] }))}
+            items={visibleSections.map((key) => ({ value: key, label: L.tabs[key] }))}
             value={section}
-            variant="underline"
+            variant={tabVariant}
             onChange={(value) => setSection(value as InquirySection)}
           />
         </div>
@@ -320,13 +525,13 @@ export function InquirySettings({
       {/* ── 문의 유형 ── */}
       {section === 'types' && visibleSections.includes('types') && (
         <PageSection
-          title="문의 유형 관리"
-          description="접수 화면에 노출되는 유형입니다. 핸들을 끌거나 Ctrl/Cmd + ↑ ↓ 로 순서를 바꿉니다."
+          title={L.types.title}
+          description={L.types.description}
           actions={
             <Button
               variant="primary"
               size="sm"
-              label="유형 추가"
+              label={L.types.add}
               showIcon
               icon={addIcon ?? <Plus size={14} />}
               onClick={() => openTypeDialog('create', null)}
@@ -334,7 +539,7 @@ export function InquirySettings({
           }
         >
           {types.length === 0 ? (
-            <EmptyState title="등록된 문의 유형이 없습니다." description="유형을 추가해 접수 화면을 구성하세요." compact />
+            <EmptyState title={L.types.empty} description={L.types.emptyDescription} compact />
           ) : (
             <SortableList<InquiryTypeItem>
               items={types}
@@ -354,7 +559,7 @@ export function InquirySettings({
                       variant={item.enabled ? 'success' : 'secondary'}
                       appearance="soft"
                       size="sm"
-                      label={item.enabled ? '사용' : '미사용'}
+                      label={item.enabled ? L.types.enabled : L.types.disabled}
                     />
                     <Toggle
                       checked={item.enabled}
@@ -368,7 +573,10 @@ export function InquirySettings({
                       size="sm"
                       onEdit={() => openTypeDialog('edit', item)}
                       onDelete={() => openTypeDialog('delete', item)}
-                      labels={{ edit: `${item.label} 수정`, delete: `${item.label} 삭제` }}
+                      labels={{
+                        edit: L.types.editAria(item.label),
+                        delete: L.types.deleteAria(item.label),
+                      }}
                     />
                   </span>
                 </div>
@@ -381,33 +589,33 @@ export function InquirySettings({
       {/* ── 자동 기능 ── */}
       {section === 'automation' && visibleSections.includes('automation') && (
         <>
-          <PageSection title="자동 기능" description="문의 접수 직후 자동으로 실행할 동작입니다.">
+          <PageSection title={L.automation.title} description={L.automation.description}>
             <div className={styles.settingList}>
-              <SettingRow title="자동 배정" description="담당자 규칙에 따라 새 문의를 자동으로 배정합니다.">
+              <SettingRow title={L.automation.autoAssign} description={L.automation.autoAssignHint}>
                 <Toggle
                   checked={automation.autoAssign}
                   onChange={(next) => onAutomationChange?.({ ...automation, autoAssign: next })}
                 />
               </SettingRow>
-              <SettingRow title="자동 답변" description="접수 확인 메시지를 즉시 발송합니다.">
+              <SettingRow title={L.automation.autoReply} description={L.automation.autoReplyHint}>
                 <Toggle
                   checked={automation.autoReply}
                   onChange={(next) => onAutomationChange?.({ ...automation, autoReply: next })}
                 />
               </SettingRow>
-              <SettingRow title="FAQ 추천" description="문의 내용과 유사한 FAQ를 고객에게 먼저 제안합니다.">
+              <SettingRow title={L.automation.faqSuggest} description={L.automation.faqSuggestHint}>
                 <Toggle
                   checked={automation.faqSuggest}
                   onChange={(next) => onAutomationChange?.({ ...automation, faqSuggest: next })}
                 />
               </SettingRow>
-              <SettingRow title="SLA 응답 목표" description="접수 후 이 시간 안에 첫 답변을 목표로 합니다.">
+              <SettingRow title={L.automation.sla} description={L.automation.slaHint}>
                 <span className={styles.slaField}>
                   <NumberField
                     value={automation.slaHours}
                     min={1}
                     max={168}
-                    unit="시간"
+                    unit={L.automation.slaUnit}
                     onChange={(next) => onAutomationChange?.({ ...automation, slaHours: next })}
                   />
                 </span>
@@ -417,14 +625,14 @@ export function InquirySettings({
 
           {showTemplates && (
             <PageSection
-              title="답변 템플릿"
-              description="자동 답변·상담사 답변에 사용하는 문구 묶음입니다."
+              title={L.templates.title}
+              description={L.templates.description}
               actions={
                 <Button
                   variant="primary"
                   appearance="outline"
                   size="sm"
-                  label="템플릿 추가"
+                  label={L.templates.add}
                   showIcon
                   icon={addIcon ?? <Plus size={14} />}
                   onClick={() => openTemplateDialog('create', null)}
@@ -436,7 +644,7 @@ export function InquirySettings({
                 rows={templates}
                 rowKey={(row) => row.id}
                 density="compact"
-                emptyText="등록된 답변 템플릿이 없습니다."
+                emptyText={L.templates.empty}
                 onEdit={(row) => openTemplateDialog('edit', row)}
                 onDelete={(row) => openTemplateDialog('delete', row)}
               />
@@ -447,10 +655,7 @@ export function InquirySettings({
 
       {/* ── 알림 ── */}
       {section === 'notification' && visibleSections.includes('notification') && (
-        <PageSection
-          title="알림"
-          description="채널별로 발송 여부와 수신 대상을 지정합니다."
-        >
+        <PageSection title={L.notification.title} description={L.notification.description}>
           <div className={styles.settingList}>
             {NOTIFICATION_CHANNELS.map((channel) => {
               const on = notification[channel.key]
@@ -458,15 +663,15 @@ export function InquirySettings({
                 <SettingRow
                   key={channel.key}
                   icon={channel.icon}
-                  title={channel.title}
-                  description={channel.description}
+                  title={L.notification[channel.key]}
+                  description={L.notification[`${channel.key}Hint`]}
                 >
                   <span className={styles.notifyControl}>
                     <span className={styles.targetField}>
                       <MultiSelect
                         values={targets[channel.key]}
                         options={targetOptions}
-                        placeholder="수신 대상"
+                        placeholder={L.notification.targetPlaceholder}
                         disabled={!on}
                         onChange={(next) => setTargets({ ...targets, [channel.key]: next })}
                       />
@@ -486,21 +691,19 @@ export function InquirySettings({
       {/* ── 상태 배지 ── */}
       {section === 'status' && visibleSections.includes('status') && (
         <PageSection
-          title="문의 상태 배지"
+          title={L.statusStyles.title}
           description={
-            showPreview
-              ? '상태별 노출 라벨과 배지 톤을 편집합니다. 오른쪽에서 실제 배지를 미리 볼 수 있습니다.'
-              : '상태별 노출 라벨과 배지 톤을 편집합니다.'
+            showPreview ? L.statusStyles.description : L.statusStyles.descriptionNoPreview
           }
         >
           <div className={styles.statusScroll}>
             {/* showPreview가 꺼지면 미리보기 열이 빠지므로 그리드도 3열로 줄인다(빈 열 금지) */}
             <div className={styles.statusGrid}>
               <div className={[statusRowClassName, styles.statusHead].join(' ')}>
-                <span className={styles.cellText}>상태 코드</span>
-                <span className={styles.cellText}>라벨</span>
-                <span className={styles.cellText}>톤</span>
-                {showPreview && <span className={styles.cellText}>미리보기</span>}
+                <span className={styles.cellText}>{L.statusStyles.key}</span>
+                <span className={styles.cellText}>{L.statusStyles.label}</span>
+                <span className={styles.cellText}>{L.statusStyles.tone}</span>
+                {showPreview && <span className={styles.cellText}>{L.statusStyles.preview}</span>}
               </div>
               {statuses.map((status) => (
                 <div key={status.key} className={statusRowClassName}>
@@ -514,7 +717,7 @@ export function InquirySettings({
                   <span className={styles.statusField}>
                     <Select
                       value={status.tone}
-                      options={TONE_OPTIONS}
+                      options={toneOptions}
                       onChange={(tone) => updateStatus(status.key, { tone: tone as InquiryTone })}
                     />
                   </span>
@@ -541,14 +744,14 @@ export function InquirySettings({
         mode={typeDialog?.mode ?? 'create'}
         title={
           isDeleteMode
-            ? '문의 유형을 삭제할까요?'
+            ? L.typeDialog.delete
             : typeDialog?.mode === 'edit'
-              ? '문의 유형 수정'
-              : '문의 유형 추가'
+              ? L.typeDialog.edit
+              : L.typeDialog.create
         }
         description={
           isDeleteMode
-            ? `'${typeDialog?.target?.label ?? ''}' 유형을 삭제합니다.`
+            ? L.typeDialog.deleteDescription(typeDialog?.target?.label ?? '')
             : undefined
         }
         onCancel={() => setTypeDialog(null)}
@@ -556,23 +759,25 @@ export function InquirySettings({
       >
         <div className={styles.formGrid}>
           <InputBase
-            label="유형명"
+            label={L.typeDialog.name}
             required
             value={typeDraft.label}
-            placeholder="예: 배송 문의"
+            placeholder={L.typeDialog.namePlaceholder}
             onChange={(label) => setTypeDraft((prev) => ({ ...prev, label }))}
           />
           <InputBase
-            label="코드"
+            label={L.typeDialog.code}
             value={typeDraft.key}
-            placeholder="비우면 자동 생성"
+            placeholder={L.typeDialog.codePlaceholder}
             readOnly={typeDialog?.mode === 'edit'}
-            helperText={typeDialog?.mode === 'edit' ? '코드는 수정할 수 없습니다.' : '영문/숫자 키로 저장됩니다.'}
+            helperText={
+              typeDialog?.mode === 'edit' ? L.typeDialog.codeHintReadonly : L.typeDialog.codeHint
+            }
             onChange={(key) => setTypeDraft((prev) => ({ ...prev, key }))}
           />
           <Toggle
             checked={typeDraft.enabled}
-            label="접수 화면에 노출"
+            label={L.typeDialog.enabled}
             onChange={(enabled) => setTypeDraft((prev) => ({ ...prev, enabled }))}
           />
         </div>
@@ -584,14 +789,14 @@ export function InquirySettings({
         mode={templateDialog?.mode ?? 'create'}
         title={
           templateDialog?.mode === 'delete'
-            ? '답변 템플릿을 삭제할까요?'
+            ? L.templateDialog.delete
             : templateDialog?.mode === 'edit'
-              ? '답변 템플릿 수정'
-              : '답변 템플릿 추가'
+              ? L.templateDialog.edit
+              : L.templateDialog.create
         }
         description={
           templateDialog?.mode === 'delete'
-            ? `'${templateDialog?.target?.title ?? ''}' 템플릿을 삭제합니다.`
+            ? L.templateDialog.deleteDescription(templateDialog?.target?.title ?? '')
             : undefined
         }
         onCancel={() => setTemplateDialog(null)}
@@ -599,25 +804,25 @@ export function InquirySettings({
       >
         <div className={styles.formGrid}>
           <InputBase
-            label="템플릿명"
+            label={L.templateDialog.name}
             required
             value={templateDraft.title}
-            placeholder="예: 배송 지연 안내"
+            placeholder={L.templateDialog.namePlaceholder}
             onChange={(title) => setTemplateDraft((prev) => ({ ...prev, title }))}
           />
           <Select
-            label="문의 유형"
+            label={L.templateDialog.type}
             value={templateDraft.typeKey}
             options={typeSelectOptions}
             onChange={(typeKey) => setTemplateDraft((prev) => ({ ...prev, typeKey }))}
           />
           <Textarea
-            label="본문"
+            label={L.templateDialog.body}
             rows={4}
             maxLength={500}
             showCounter
             value={templateDraft.body}
-            placeholder="고객에게 발송될 답변 문구를 입력하세요."
+            placeholder={L.templateDialog.bodyPlaceholder}
             onChange={(body) => setTemplateDraft((prev) => ({ ...prev, body }))}
           />
         </div>

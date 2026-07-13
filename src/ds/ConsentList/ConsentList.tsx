@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { Check, Minus } from 'lucide-react'
-import { Badge } from '../Badge/Badge'
+import { Badge, type BadgeProps } from '../Badge/Badge'
 import { DefinitionList, type DefinitionItem } from '../DefinitionList/DefinitionList'
+import { mergeLabels, type DeepPartialOneLevel } from '../../shared/labels'
 import styles from './ConsentList.module.css'
 
 export type ConsentItem = {
@@ -10,6 +11,20 @@ export type ConsentItem = {
   agreed: boolean
   /** 상태 문구 — 생략하면 '동의' / '미동의' */
   note?: string
+}
+
+/** 이 블록이 스스로 만드는 문구는 상태 배지 둘뿐 — 항목명은 item.label이 갖는다 */
+export type ConsentListLabels = {
+  status: {
+    /** note가 없는 항목의 동의 문구 */
+    agreed: string
+    /** note가 없는 항목의 미동의 문구 */
+    denied: string
+  }
+}
+
+export const DEFAULT_CONSENT_LIST_LABELS: ConsentListLabels = {
+  status: { agreed: '동의', denied: '미동의' },
 }
 
 export type ConsentListProps = {
@@ -22,9 +37,22 @@ export type ConsentListProps = {
   agreedIcon?: ReactNode
   /** 미동의 아이콘 */
   deniedIcon?: ReactNode
-  /** note가 없는 항목의 동의 문구 — '수신' 같은 다른 말이 필요할 때만 */
+  /**
+   * 상태별 배지 톤 (기본 동의 success / 미동의 secondary).
+   * 필수 동의 항목은 '미동의'가 경고다 — denied를 error/warning으로 올려 위험을 드러낸다.
+   */
+  tone?: { agreed?: BadgeProps['variant']; denied?: BadgeProps['variant'] }
+  /** 배지 마감 (기본 soft) — outline 위주의 상세 카드에서 톤이 튀지 않게 맞춘다 */
+  appearance?: BadgeProps['appearance']
+  /** 문구 — 개별 prop(agreedLabel·deniedLabel)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<ConsentListLabels>
+  /**
+   * @deprecated labels.status.agreed를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   agreedLabel?: string
-  /** note가 없는 항목의 미동의 문구 */
+  /**
+   * @deprecated labels.status.denied를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   deniedLabel?: string
 }
 
@@ -41,9 +69,18 @@ export function ConsentList({
   columns = 1,
   agreedIcon,
   deniedIcon,
-  agreedLabel = '동의',
-  deniedLabel = '미동의',
+  tone,
+  appearance = 'soft',
+  labels,
+  agreedLabel,
+  deniedLabel,
 }: ConsentListProps) {
+  // 우선순위: 개별 prop(agreedLabel·deniedLabel) > labels > 기본값.
+  // mergeLabels는 그룹 안의 undefined를 걸러내므로, 넘기지 않은 개별 prop이 기본값을 지우지 않는다.
+  const L = mergeLabels(mergeLabels(DEFAULT_CONSENT_LIST_LABELS, labels), {
+    status: { agreed: agreedLabel, denied: deniedLabel },
+  })
+
   const rows: DefinitionItem[] = items.map((item) => ({
     label: item.label,
     value: (
@@ -54,10 +91,10 @@ export function ConsentList({
             : (deniedIcon ?? <Minus size={14} />)}
         </span>
         <Badge
-          variant={item.agreed ? 'success' : 'secondary'}
-          appearance="soft"
+          variant={item.agreed ? (tone?.agreed ?? 'success') : (tone?.denied ?? 'secondary')}
+          appearance={appearance}
           size="sm"
-          label={item.note ?? (item.agreed ? agreedLabel : deniedLabel)}
+          label={item.note ?? (item.agreed ? L.status.agreed : L.status.denied)}
         />
       </span>
     ),

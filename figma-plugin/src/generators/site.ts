@@ -455,10 +455,10 @@ function buildSet(
   set.fills = [solid('#FBFCFE')]
 
   if (props) {
-    props.texts?.forEach((t) => {
-      addTextProp(set, t.prop, t.layer, t.def)
-      addBoolProp(set, `Show ${t.prop}`, t.layer, true) // 텍스트 on/off 토글
-    })
+    // TEXT마다 `Show <prop>` 불리언을 자동 생성하지 않는다 — 대응하는 React prop이 없는 "유령 속성"이라
+    // 규약 §3(BOOLEAN 이름 = show* prop 이름 그대로)을 기계적으로 위반한다. 텍스트 on/off가 필요하면
+    // 코드에 show* prop을 만들고 props.bools에 명시적으로 선언하라.
+    props.texts?.forEach((t) => addTextProp(set, t.prop, t.layer, t.def))
     props.bools?.forEach((b) => addBoolProp(set, b.prop, b.layer, b.def))
     props.swaps?.forEach((s) => addSwapProp(set, s.prop, s.layer, s.defKey))
   }
@@ -514,8 +514,10 @@ function variantItem(ctx: Ctx, set: ComponentSetNode, state: State): FrameNode {
 }
 
 // ══ 사이트 공용 조각(atoms) ══════════════════════════════════════════
-// GNB 메뉴 — 출처: templates/SiteSuite/SiteSuite.tsx MENU
-const MENU = ['회사 소개', '연혁', '포트폴리오', '상품', '오시는길']
+// GNB 메뉴 — 출처: templates/SiteSuite/SiteSuite.tsx MENU.
+// site-screens.ts가 이걸 import한다(예전엔 같은 배열을 각자 선언해서, 한쪽만 항목을 늘리면
+// GNB variant의 active 축 값과 화면 인덱스가 조용히 어긋났다). admin-menu.ts와 같은 규율.
+export const MENU = ['회사 소개', '연혁', '포트폴리오', '상품', '오시는길']
 const BRAND = 'SPACE PLANNING'
 
 /**
@@ -680,7 +682,7 @@ function renderSiteHeader(ctx: Ctx, combo: Record<string, string>): ComponentNod
   }
 
   const brand = boundText(ctx, BRAND, 19, V_TEXT, true)
-  brand.name = 'Brand'
+  brand.name = 'brand'
   c.appendChild(brand)
 
   // 메뉴 — 우측으로 밀어 액션 앞에 붙인다(margin-left:auto와 같은 효과).
@@ -756,7 +758,7 @@ function renderSiteFooter(ctx: Ctx, _combo: Record<string, string>): ComponentNo
   top.counterAxisAlignItems = 'CENTER'
   top.itemSpacing = 20
   const brand = boundText(ctx, BRAND, 22, V_TEXT, true)
-  brand.name = 'Brand'
+  brand.name = 'brand'
   top.appendChild(brand)
 
   const links = autoFrame('Links', 'HORIZONTAL')
@@ -805,7 +807,7 @@ function renderSiteFooter(ctx: Ctx, _combo: Record<string, string>): ComponentNo
   bottom.paddingTop = 16
   topBorder(ctx, bottom, V_BORDER)
   const cr = boundText(ctx, '© 2026 SPACE PLANNING Inc. All rights reserved.', 11, V_SUB)
-  cr.name = 'Copyright'
+  cr.name = 'copyright'
   bottom.appendChild(cr)
   c.appendChild(bottom)
   return c
@@ -883,13 +885,13 @@ function renderProductCard(ctx: Ctx, combo: Record<string, string>): ComponentNo
     body.paddingTop = body.paddingBottom = body.paddingLeft = body.paddingRight = 16
   }
   const brand = boundText(ctx, '스페이스플래닝', 11, V_SUB)
-  brand.name = 'Brand'
+  brand.name = 'brand'
   body.appendChild(brand)
   const name = boundText(ctx, '라운드 화분 · 라이트그레이', 16, V_TEXT, true)
-  name.name = 'Name'
+  name.name = 'name'
   body.appendChild(name)
   const desc = boundText(ctx, '실내 식물에 맞춘 배수형 화분', 13, V_SUB)
-  desc.name = 'Description'
+  desc.name = 'description'
   body.appendChild(desc)
 
   const priceRow = autoFrame('price row', 'HORIZONTAL')
@@ -928,7 +930,7 @@ function renderSortBar(ctx: Ctx, _combo: Record<string, string>): ComponentNode 
   total.counterAxisAlignItems = 'CENTER'
   total.itemSpacing = 4
   const label = boundText(ctx, '전체', 13, V_SUB)
-  label.name = 'Total Label'
+  label.name = 'totalLabel'
   total.appendChild(label)
   const count = boundText(ctx, '6개', 13, V_TEXT, true)
   count.name = 'Count'
@@ -1259,8 +1261,8 @@ const SITE_CATEGORY: CategoryDef = {
           (c) => renderSiteHeader(ctx, c),
           {
             texts: [
-              { prop: 'Brand', layer: 'Brand', def: BRAND },
-              { prop: 'Action', layer: 'Action Label', def: '1:1 문의' },
+              { prop: 'Brand', layer: 'brand', def: BRAND },
+              { prop: 'Action', layer: 'Action', def: '1:1 문의' },
             ],
           },
         ),
@@ -1292,9 +1294,9 @@ const SITE_CATEGORY: CategoryDef = {
           (c) => renderProductCard(ctx, c),
           {
             texts: [
-              { prop: 'Brand', layer: 'Brand', def: '스페이스플래닝' },
-              { prop: 'Name', layer: 'Name', def: '라운드 화분 · 라이트그레이' },
-              { prop: 'Description', layer: 'Description', def: '실내 식물에 맞춘 배수형 화분' },
+              { prop: 'brand', layer: 'brand', def: '스페이스플래닝' },
+              { prop: 'name', layer: 'name', def: '라운드 화분 · 라이트그레이' },
+              { prop: 'description', layer: 'description', def: '실내 식물에 맞춘 배수형 화분' },
               { prop: 'Price', layer: 'Price', def: '38,000원' },
             ],
           },
@@ -1318,7 +1320,7 @@ const SITE_CATEGORY: CategoryDef = {
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/SortBar', [{ name: 'state', values: ['default'] }], (c) => renderSortBar(ctx, c), {
           texts: [
-            { prop: 'Total Label', layer: 'Total Label', def: '전체' },
+            { prop: 'totalLabel', layer: 'totalLabel', def: '전체' },
             { prop: 'Count', layer: 'Count', def: '6개' },
           ],
         }),
@@ -1338,8 +1340,8 @@ const SITE_CATEGORY: CategoryDef = {
           (c) => renderSiteFooter(ctx, c),
           {
             texts: [
-              { prop: 'Brand', layer: 'Brand', def: BRAND },
-              { prop: 'Copyright', layer: 'Copyright', def: '© 2026 SPACE PLANNING Inc. All rights reserved.' },
+              { prop: 'Brand', layer: 'brand', def: BRAND },
+              { prop: 'copyright', layer: 'copyright', def: '© 2026 SPACE PLANNING Inc. All rights reserved.' },
             ],
           },
         ),

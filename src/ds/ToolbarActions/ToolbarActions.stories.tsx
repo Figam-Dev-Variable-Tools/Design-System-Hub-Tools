@@ -22,6 +22,8 @@ const meta = {
   tags: ['autodocs'],
   args: {
     size: 'md',
+    appearance: 'outline',
+    labelDisplay: 'icon',
     refreshing: false,
     exportMenu: [
       { label: 'CSV로 내보내기', onSelect: () => {} },
@@ -33,7 +35,18 @@ const meta = {
     onShare: () => {},
   },
   argTypes: {
-    size: { control: 'inline-radio', options: ['sm', 'md'] },
+    size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
+    appearance: {
+      control: 'inline-radio',
+      options: ['outline', 'ghost'],
+      description: 'ghost는 보더·면을 지운다(이미 보더가 있는 바 안)',
+    },
+    labelDisplay: {
+      control: 'inline-radio',
+      options: ['icon', 'iconText'],
+      description: 'iconText는 아이콘 옆에 글자를 함께 보여준다(툴팁이 없는 터치 환경)',
+    },
+    labels: { control: false, description: '접근성 이름 겸 툴팁 — iconText면 화면에도 보인다' },
     refreshing: { control: 'boolean' },
     exportMenu: { control: 'object' },
     onExport: { control: false },
@@ -70,6 +83,65 @@ export const RefreshingStatic: Story = {
 
 export const Small: Story = {
   args: { size: 'sm' },
+}
+
+/** 크기 — sm(28px) / md(36px) / lg(44px) */
+export const Sizes: Story = {
+  render: (args) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+      <ToolbarActions {...args} size="sm" />
+      <ToolbarActions {...args} size="md" />
+      <ToolbarActions {...args} size="lg" />
+    </div>
+  ),
+}
+
+/** 룩 — ghost는 보더·면을 지운다. 이미 보더가 있는 바 안에 넣을 때 사각이 이중으로 겹치지 않는다. */
+export const Appearance: Story = {
+  render: (args) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <ToolbarActions {...args} appearance="outline" />
+      <div
+        style={{
+          display: 'inline-flex',
+          width: 'fit-content',
+          padding: 'var(--ds-spacing-2)',
+          background: 'var(--ds-color-bg)',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-md)',
+        }}
+      >
+        <ToolbarActions {...args} appearance="ghost" />
+      </div>
+    </div>
+  ),
+}
+
+/**
+ * 라벨 노출 — 툴팁은 마우스가 있어야 뜬다.
+ * 터치 화면에서 액션의 뜻을 잃지 않으려면 iconText로 글자를 함께 보여준다.
+ */
+export const WithText: Story = {
+  args: { labelDisplay: 'iconText' },
+}
+
+/**
+ * 문구 오버라이드 — 각 문구는 접근성 이름이자 툴팁이다(뜻이 둘일 이유가 없다).
+ * iconText로 켜 두면 그 글자가 화면에도 그대로 보인다.
+ */
+export const Labels: Story = {
+  args: {
+    labelDisplay: 'iconText',
+    labels: {
+      toolbar: 'List actions',
+      export: 'Export',
+      print: 'Print',
+      refresh: 'Refresh',
+      refreshing: 'Refreshing',
+      copy: 'Copy',
+      share: 'Share',
+    },
+  },
 }
 
 /** exportMenu 없이 onExport만 — 메뉴 없는 단일 버튼이 된다 */

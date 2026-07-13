@@ -158,3 +158,57 @@ export const CustomCopy: Story = {
   },
   render: (args) => <NoticeBoardDemo {...args} initialRows={NOTICES} />,
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글 · 상태(탭·검색 Select가 함께 쓴다) · 제목 앞 태그 · 검색 6조건 · 일괄 버튼 ·
+ * 행 케밥(토글은 켜짐/꺼짐 두 문구) · 삭제 확인창까지 전부 labels가 소유한다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Announcements',
+      description: 'Control visibility and pinning for each notice.',
+      create: 'New notice',
+      columns: {
+        index: 'No.',
+        category: 'Category',
+        title: 'Title',
+        author: 'Author',
+        createdAt: 'Created',
+        updatedAt: 'Updated',
+        views: 'Views',
+        status: 'Visible',
+      },
+      status: { visible: 'Published', hidden: 'Hidden', scheduled: 'Scheduled' },
+      tabs: { all: 'All' },
+      tags: { important: 'Important', pinned: 'Pinned', scheduled: 'Scheduled' },
+      search: {
+        title: 'Title',
+        titlePlaceholder: 'Search by title',
+        content: 'Body',
+        contentPlaceholder: 'Search in body text',
+        author: 'Author',
+        authorPlaceholder: 'Enter an author',
+        period: 'Period',
+        category: 'Category',
+        status: 'Status',
+      },
+      bulk: { show: 'Publish', hide: 'Hide', pin: 'Pin to top', unpin: 'Unpin' },
+      rowMenu: {
+        edit: 'Edit',
+        pin: 'Pin to top',
+        unpin: 'Unpin',
+        show: 'Publish',
+        hide: 'Hide',
+        delete: 'Delete',
+      },
+      empty: { title: 'No announcements yet.' },
+      deleteDialog: {
+        title: 'Delete the selected notices?',
+        description: (ids) => `${ids.length} notice(s) will be removed from the list.`,
+      },
+    },
+  },
+  render: (args) => <NoticeBoardDemo {...args} initialRows={NOTICES} />,
+}

@@ -128,10 +128,50 @@
   bottom: calc(var(--row-h) * 2);
 }
 
+/* 합계처럼 '결론'이 되는 요약 행만 한 단계 더 눌러 강조한다 — 일 평균과 무게가 갈린다.
+   보더 한 겹을 더 얹지 않고 배경만 진하게 해 표의 선 개수를 늘리지 않는다. */
+.summaryStrong .summaryCell {
+  background: color-mix(in srgb, var(--ds-color-text) 8%, var(--ds-color-bgSubtle));
+  color: var(--ds-color-text);
+}
+
+/* ── striped — 짝수 행 줄무늬(기본 꺼짐) ────────────
+   hover는 줄무늬보다 높은 특이도로 두어 짝수 행에서도 hover가 살아 있게 한다. */
+.striped .row:nth-child(even) {
+  background: color-mix(in srgb, var(--ds-color-bgSubtle) 35%, var(--ds-color-bg));
+}
+
+.striped .row:nth-child(even):hover {
+  background: color-mix(in srgb, var(--ds-color-bgSubtle) 60%, var(--ds-color-bg));
+}
+
+/* ── sticky OFF — 인쇄·리포트 캡처에서는 고정이 오히려 방해가 된다 ────
+   .th/.summaryCell(0,1,0)보다 특이도가 높아 position만 되돌린다. */
+.staticHeader .th {
+  position: static;
+}
+
+.staticSummary .summaryCell {
+  position: static;
+}
+
 /* ── 0 — 굵기와 무관하게 흐리게 눌러 둔다 ───────────── */
 .zero {
   color: var(--ds-color-secondary-300);
   font-weight: var(--ds-font-weight-regular);
+}
+
+/* 표 이름(caption) — 스크린리더에만 읽힌다 */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ── 빈 상태 ────────────────────────────────────────── */

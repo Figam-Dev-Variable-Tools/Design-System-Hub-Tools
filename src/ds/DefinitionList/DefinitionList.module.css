@@ -16,6 +16,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* 3열 — 1600px급 상세 화면에서 항목 12개가 세로로 길게 늘어지지 않게 */
+.cols3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 /* ── 밀도 — 표 안쪽만 촘촘하게 ── */
 .compact {
   --dl-row-height: 44px;
@@ -51,6 +56,14 @@
 
 /* 2열: 끝에서 두 번째 항목이 1열(홀수)이면 마지막 항목과 같은 행 → 함께 선을 지운다 */
 .divided.cols2 .row:nth-last-child(2):nth-child(odd) {
+  border-bottom: 0;
+}
+
+/* 3열: 마지막 시각 행에 함께 놓이는 항목들의 선도 지운다(카드 바닥에 선이 뜨지 않게).
+   마지막 행이 3개면 그 1·2번째, 2개면 그 1번째가 대상이다 — 3번째는 :last-child가 이미 지웠다. */
+.divided.cols3 .row:nth-last-child(3):nth-child(3n + 1),
+.divided.cols3 .row:nth-last-child(2):nth-child(3n + 1),
+.divided.cols3 .row:nth-last-child(2):nth-child(3n + 2) {
   border-bottom: 0;
 }
 
@@ -125,13 +138,56 @@
   font-weight: var(--ds-font-weight-regular);
 }
 
-/* 좁아지면 2열 → 1열. 이때 끝에서 두 번째 항목의 선은 되살린다 */
+/* ── stacked — 라벨 위 · 값 아래 ──
+   라벨 고정폭(--dl-label-width)이 값을 짓눌러 말줄임되던 좁은 폭에서, 값에 한 줄을 통째로 준다.
+   행 높이도 내용에 맡긴다(고정 높이는 두 줄을 담지 못한다). */
+.stacked .row {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--ds-spacing-1);
+  min-height: 0;
+}
+
+/* 값이 한 줄을 다 쓰므로 말줄임 대신 줄바꿈이 맞다 */
+.stacked .value,
+.stacked .label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* ── align="right" — 금액·수량 상세에서 값 자릿수를 눈으로 맞춘다 ──
+   라벨-값이 붙어 흐르는 inline/stacked에서는 우측 정렬이 뜻을 잃으므로 grid에만 건다. */
+.alignRight .body {
+  align-items: flex-end;
+}
+
+.alignRight.inline .body,
+.alignRight.stacked .body {
+  align-items: initial;
+}
+
+/* 항목이 하나도 없을 때 — 구분선만 남은 껍데기 dl을 그리지 않는다 */
+.empty {
+  margin: 0;
+  padding: var(--ds-spacing-4);
+  font-family: var(--ds-font-family);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-secondary);
+  text-align: center;
+}
+
+/* 좁아지면 2·3열 → 1열. 이때 끝에서 두 번째 항목의 선은 되살린다 */
 @media (max-width: 720px) {
-  .cols2 {
+  .cols2,
+  .cols3 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .divided.cols2 .row:nth-last-child(2):nth-child(odd) {
+  .divided.cols2 .row:nth-last-child(2):nth-child(odd),
+  .divided.cols3 .row:nth-last-child(3):nth-child(3n + 1),
+  .divided.cols3 .row:nth-last-child(2):nth-child(3n + 1),
+  .divided.cols3 .row:nth-last-child(2):nth-child(3n + 2) {
     border-bottom: var(--ds-border-width) solid var(--ds-color-border);
   }
 

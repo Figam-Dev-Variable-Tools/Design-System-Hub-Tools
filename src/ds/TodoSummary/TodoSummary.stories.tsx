@@ -28,6 +28,12 @@ const meta = {
     showHeader: { control: 'boolean' },
     showTotalBadge: { control: 'boolean' },
     countUnit: { control: 'text' },
+    // 변형 축 — 기본값(inline · md · framed)이 지금까지의 요약 줄이다
+    layout: { control: 'inline-radio', options: ['inline', 'grid', 'stack'] },
+    size: { control: 'inline-radio', options: ['sm', 'md'] },
+    framed: { control: 'boolean' },
+    labels: { control: 'object' },
+    formatters: { control: false },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -109,6 +115,65 @@ export const WithoutHeader: Story = {
 /** 배지 OFF — 제목만 남기고 총건수는 감춘다(단위는 countUnit으로 바꾼다) */
 export const WithoutTotalBadge: Story = {
   args: { showTotalBadge: false },
+}
+
+/**
+ * 격자 — 항목이 8~10개로 늘면 한 줄이 두세 번 접히는 대신 칸으로 나눈다.
+ * 라벨은 왼쪽, 숫자는 오른쪽 끝에 붙는다(가운뎃점 구분자는 사라진다).
+ */
+export const LayoutGrid: Story = {
+  args: {
+    layout: 'grid',
+    items: [
+      { key: 'newOrder', label: '신규주문', count: 24 },
+      { key: 'pay', label: '입금대기', count: 6 },
+      { key: 'ready', label: '배송준비', count: 12 },
+      { key: 'cancel', label: '취소관리', count: 3 },
+      { key: 'return', label: '반품관리', count: 0 },
+      { key: 'exchange', label: '교환관리', count: 2 },
+      { key: 'inquiry', label: '문의', count: 9 },
+      { key: 'review', label: '후기', count: 0 },
+    ],
+  },
+}
+
+/** 세로 · sm — 좁은 사이드 위젯. 카드 크롬을 끄면(framed=false) 바깥 카드와 보더가 겹치지 않는다 */
+export const StackedSidebar: Story = {
+  args: { layout: 'stack', size: 'sm', framed: false },
+  render: (args) => (
+    <div
+      style={{
+        width: 260,
+        padding: 16,
+        background: 'var(--ds-color-bg)',
+        border: '1px solid var(--ds-color-border)',
+        borderRadius: 12,
+      }}
+    >
+      <TodoSummary {...args} />
+    </div>
+  ),
+}
+
+/**
+ * Labels — 영문 오버라이드. 화면 문구(단위·스크린리더 이름)를 밖에서 갈아끼운다.
+ * 숫자 표기는 문구가 아니라 포맷이므로 formatters로 연다(여기서는 en-US).
+ */
+export const Labels: Story = {
+  args: {
+    title: "Today's tasks",
+    items: [
+      { key: 'newOrder', label: 'New orders', count: 1240 },
+      { key: 'cancel', label: 'Cancellations', count: 0 },
+      { key: 'return', label: 'Returns', count: 3 },
+      { key: 'exchange', label: 'Exchanges', count: 0 },
+    ],
+    labels: {
+      countUnit: ' items',
+      totalAria: ({ count, unit }) => `${count}${unit} in total`,
+    },
+    formatters: { number: (value) => value.toLocaleString('en-US') },
+  },
 }
 
 /** 좁은 폭 · 긴 라벨 — 항목 줄이 접히고 라벨은 말줄임되어 카드를 뚫지 않는다 */

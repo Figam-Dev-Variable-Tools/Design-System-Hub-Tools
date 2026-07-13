@@ -37,13 +37,23 @@ const meta = {
     stacked: false,
   },
   argTypes: {
-    kind: { control: 'inline-radio', options: ['bar', 'donut'] },
+    kind: { control: 'inline-radio', options: ['bar', 'donut', 'line', 'area'] },
     height: { control: { type: 'number', min: 160, max: 480, step: 20 } },
     valueFormat: { control: false },
     // 차트 크롬 ON/OFF — 기본값(전부 켜짐)은 지금까지의 차트 그대로다
     showTooltip: { control: 'boolean' },
     showGrid: { control: 'boolean' },
     showCenterTotal: { control: 'boolean' },
+    orientation: {
+      control: 'inline-radio',
+      options: ['vertical', 'horizontal'],
+      description: 'horizontal은 카테고리 라벨이 긴 랭킹용(bar에만 적용)',
+    },
+    legendPosition: { control: 'inline-radio', options: ['top', 'right', 'bottom'] },
+    title: { control: 'text', description: '@deprecated — copy.title을 쓰세요' },
+    centerLabel: { control: 'text', description: '@deprecated — copy.centerCaption을 쓰세요' },
+    // 문구 통로. 이 컴포넌트만 `labels`가 아니라 `copy`다 — `labels`는 x축 카테고리 데이터가 쓰고 있다
+    copy: { control: 'object' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -107,6 +117,97 @@ export const DonutWithoutCenterTotal: Story = {
     title: '주문 상태 비율',
     showCenterTotal: false,
     height: 280,
+  },
+  render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
+}
+
+/** line — 기간 추세. 매출 추이를 막대가 아니라 제 모양(선)으로 그린다 */
+export const Line: Story = {
+  args: {
+    kind: 'line',
+    labels: MONTHS,
+    series: TREND_SERIES,
+    title: '월별 매출 추이',
+    valueFormat: won,
+  },
+  render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
+}
+
+/** area — 선 아래를 옅게 채운다. 누적이 아니라 '양'을 강조할 때 */
+export const Area: Story = {
+  args: {
+    kind: 'area',
+    labels: MONTHS,
+    series: [TREND_SERIES[0]],
+    title: '월별 매출',
+    valueFormat: won,
+  },
+  render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
+}
+
+/** horizontal — 카테고리 라벨이 긴 랭킹(상품명·유입경로)은 가로 막대라야 읽힌다 */
+export const HorizontalBar: Story = {
+  args: {
+    kind: 'bar',
+    orientation: 'horizontal',
+    labels: ['네이버 검색', '인스타그램 광고', '카카오 채널', '직접 유입', '제휴 뉴스레터'],
+    series: [{ label: '유입', data: [4820, 3610, 2940, 1870, 920], tone: 'primary' }],
+    title: '유입 경로 TOP 5',
+    showLegend: false,
+    height: 280,
+  },
+  render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
+}
+
+/** legendPosition="right" — 좁은 카드에 도넛을 넣을 때 세로 공간을 두 번 먹지 않는다 */
+export const LegendRight: Story = {
+  args: {
+    kind: 'donut',
+    labels: ORDER_LABELS,
+    series: ORDER_SERIES,
+    title: '주문 상태 비율',
+    legendPosition: 'right',
+    centerLabel: '총 주문',
+    height: 220,
+  },
+  render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
+}
+
+/**
+ * Labels(copy): 영문 오버라이드 — 제목·도넛 가운데 문구뿐 아니라, 지금까지 스크린리더에
+ * 아무것도 읽히지 않던 <canvas>의 접근성 이름·요약까지 통로로 열린다.
+ *
+ * NOTE: 이 컴포넌트만 통로 이름이 `copy`다 — `labels`는 이미 x축 카테고리 데이터(string[])가
+ * 쓰고 있어 개명하면 호출부(DashboardScreen·ProductDetail·AdminSuite)가 깨진다.
+ */
+export const Labels: Story = {
+  args: {
+    kind: 'donut',
+    labels: ['Delivered', 'Shipping', 'Pending', 'Refunded'],
+    series: ORDER_SERIES,
+    title: undefined,
+    centerLabel: undefined,
+    height: 280,
+    valueFormat: (n: number) => n.toLocaleString('en-US'),
+    copy: {
+      title: 'Order status breakdown',
+      centerCaption: 'Total orders',
+      ariaLabel: 'Order status breakdown, donut chart',
+      ariaDescription:
+        'Delivered 428, Shipping 176, Pending 92, Refunded 34. Total 730 orders.',
+      empty: 'No orders in this period',
+    },
+  },
+  render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
+}
+
+/** 데이터가 없을 때 — 빈 격자가 아니라 copy.empty가 그려진다 */
+export const Empty: Story = {
+  args: {
+    kind: 'bar',
+    labels: [],
+    series: [],
+    title: '월별 매출 추이',
   },
   render: (args, { globals }) => <AdminChart key={String(globals.theme)} {...args} />,
 }

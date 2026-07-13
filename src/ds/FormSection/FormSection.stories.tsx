@@ -65,8 +65,19 @@ const meta = {
     children: { control: false },
     actions: { control: false },
     onEnabledChange: { control: false },
-    onLabel: { control: 'text', description: '토글 켜짐 문구(기본 ON)' },
-    offLabel: { control: 'text', description: '토글 꺼짐 문구(기본 OFF)' },
+    onLabel: { control: 'text', description: '@deprecated labels.toggle.on' },
+    offLabel: { control: 'text', description: '@deprecated labels.toggle.off' },
+    labels: { control: 'object', description: '문구 통로 — 개별 prop > labels.* > 기본값' },
+    columns: {
+      control: 'inline-radio',
+      options: [1, 2, 3],
+      description: '본문 그리드 열 수(기본 3)',
+    },
+    appearance: {
+      control: 'inline-radio',
+      options: ['card', 'plain'],
+      description: 'plain=모달·드로어 안에서 카드 보더가 겹치지 않게',
+    },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -217,6 +228,8 @@ export const Composed: Story = {
 /**
  * 토글 문구 교체 — 화면 언어가 한글로 통일된 폼에서 스위치만 영어(ON/OFF)로 튀지 않게.
  * (Toggle은 label이 곧 접근성 이름이자 상태 표시라, 문구를 바꾸면 낭독도 함께 바뀐다)
+ *
+ * 개별 prop(onLabel/offLabel)은 그대로 살아 있고 labels보다 우선한다 — 기존 화면이 깨지지 않는다.
  */
 export const KoreanToggleLabels: Story = {
   args: {
@@ -228,5 +241,42 @@ export const KoreanToggleLabels: Story = {
     onLabel: '사용',
     offLabel: '미사용',
     disabledHint: '링크 없이 이미지만 노출됩니다.',
+  },
+}
+
+/** labels 통로 하나로 밴드 문구·스위치를 영문으로 갈아끼운다(개별 prop은 주지 않는다) */
+export const Labels: Story = {
+  args: {
+    index: 2,
+    title: 'Content',
+    description: 'Headline and supporting copy shown on the banner.',
+    toggleable: true,
+    toggleLabel: undefined,
+    onLabel: undefined,
+    offLabel: undefined,
+    labels: { toggle: { label: 'Use content', on: 'On', off: 'Off' } },
+    disabledHint: 'Content is disabled. Only the image is shown.',
+  },
+}
+
+/** 1열 폼 — 좁은 폭(maxWidth='md')이나 드로어 안 폼. span은 열 수에 맞춰 자동으로 눕는다 */
+export const SingleColumn: Story = {
+  args: {
+    index: 1,
+    title: '배너 구분',
+    columns: 1,
+  },
+  render: (args) => (
+    <div style={{ width: 420, maxWidth: '100%' }}>
+      <FormSectionDemo {...args} />
+    </div>
+  ),
+}
+
+/** 크롬 없음(appearance='plain') — 모달·드로어가 이미 카드 면을 갖고 있을 때 보더 이중 겹침을 막는다 */
+export const PlainAppearance: Story = {
+  args: {
+    title: '문구·콘텐츠',
+    appearance: 'plain',
   },
 }

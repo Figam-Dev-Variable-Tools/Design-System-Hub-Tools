@@ -430,3 +430,53 @@ export const CustomEmptyCopy: Story = {
     />
   ),
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 품목 상태 배지 · 헤더/툴바 버튼 · 배송 입력 힌트 · 결제 내역 라벨과,
+ * 지금까지 이름이 없던 두 버튼(주문번호·수령인 메모)의 스크린리더 이름까지 labels가 소유한다.
+ * 금액의 '원'은 문구가 아니라 포맷이라 formatters로 연다.
+ */
+export const Labels: Story = {
+  args: { rows: ORDERS },
+  render: () => (
+    <OrderListDemo
+      total={ORDERS.length}
+      countUnit=" orders"
+      labels={{
+        title: 'Orders',
+        itemStatus: { delivered: 'Delivered', canceled: 'Canceled', confirmed: 'Confirmed' },
+        header: {
+          layout: 'Change layout',
+          export: 'Export to Excel',
+          bulkTracking: 'Bulk tracking upload',
+          create: 'New order',
+        },
+        toolbar: { filter: 'Filter', columnSettings: 'Column settings' },
+        search: { searchPlaceholder: 'Name · ID · phone · order no. · tracking no.' },
+        order: {
+          guest: 'Guest',
+          orderNoAria: (orderNo) => `Open order ${orderNo}`,
+        },
+        shipping: {
+          carrierPlaceholder: 'Pick a carrier',
+          trackingPlaceholder: 'Tracking number',
+          lookup: 'Track',
+        },
+        payment: {
+          product: 'Items',
+          shippingFee: 'Shipping',
+          discount: 'Discount',
+          point: 'Points',
+        },
+        receiver: { memoAria: (name) => `Open the note for ${name}` },
+        empty: {
+          title: 'No orders found',
+          description: 'Try changing the search terms or resetting the filters.',
+        },
+      }}
+      // 통화는 labels가 아니라 formatters의 몫이다 — '1,234원' → '$1,234'
+      formatters={{ price: (value) => `$${value.toLocaleString('en-US')}` }}
+    />
+  ),
+}

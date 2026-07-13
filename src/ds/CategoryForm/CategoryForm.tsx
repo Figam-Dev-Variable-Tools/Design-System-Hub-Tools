@@ -6,6 +6,7 @@ import {
   type AdminFormField,
 } from '../AdminFormPage/AdminFormPage'
 import { Toggle } from '../Toggle/Toggle'
+import { mergeLabels, type DeepPartialOneLevel } from '../../shared/labels'
 import styles from './CategoryForm.module.css'
 
 /** 카테고리 한 건의 값 — 화면이 들고 있는 유일한 상태 */
@@ -49,11 +50,51 @@ export type CategoryFormShow = {
   footer?: boolean
 }
 
+/**
+ * 화면에 나오는 모든 글자 — 값(value)과 아이콘 후보(emojiOptions)만 데이터다.
+ * 중첩은 표면 기준 1단계다(sections / fields / placeholders / helpers / image / actions).
+ */
+export type CategoryFormLabels = {
+  /** 페이지 헤더 — 등록/수정 화면이 같은 컴포넌트를 쓴다 */
+  title: string
+  /** 헤더 설명 — 기본값 없음(넘기지 않으면 설명 줄이 없다) */
+  description?: string
+  /** 섹션 카드 제목 */
+  sections: { info: string }
+  /** 섹션 카드 설명 */
+  sectionDescriptions: { info: string }
+  /** 필드 라벨 */
+  fields: { name: string; image: string; description: string; active: string }
+  /** 필드 플레이스홀더 */
+  placeholders: { name: string; description: string }
+  /** 필드 보조설명(FieldRow 설명 줄) */
+  helpers: { image: string; active: string }
+  /** 이미지·아이콘 블록 */
+  image: {
+    /** 업로드/아이콘을 맞바꾸는 스위치 라벨 */
+    useImage: string
+    /** 스위치 ON/OFF 표기 — Toggle의 label이 곧 접근성 이름이다 */
+    on: string
+    off: string
+    /** 업로드 제약 안내 */
+    hint: string
+    /** 썸네일 옆 삭제 버튼 */
+    removeLabel: string
+    /** 아이콘 선택(radiogroup)의 접근성 이름 */
+    emojiGroup: string
+  }
+  /** 액션 버튼 */
+  actions: { submit: string; cancel: string; saving: string }
+}
+
 export type CategoryFormProps = {
   value: CategoryValue
   onChange: (v: CategoryValue) => void
-  /** 헤더 문구 — 등록/수정 화면이 같은 컴포넌트를 쓴다 */
+  /** 문구 — 개별 prop(title·submitLabel·imageHint …)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<CategoryFormLabels>
+  /** @deprecated labels.title을 쓴다(개별 prop이 우선한다) */
   title?: string
+  /** @deprecated labels.description을 쓴다 */
   description?: string
   /** 아이콘 선택 후보 — 생략하면 내부 기본 목록 */
   emojiOptions?: string[]
@@ -61,9 +102,14 @@ export type CategoryFormProps = {
   onSubmit?: () => void
   onCancel?: () => void
   submitting?: boolean
+  /** @deprecated labels.actions.submit을 쓴다 */
   submitLabel?: string
+  /** @deprecated labels.actions.cancel을 쓴다 */
   cancelLabel?: string
   show?: CategoryFormShow
+  /** 목록 밀도 — 페이지 리듬을 다른 폼(PortfolioForm·CompanyForm)과 맞춘다 */
+  density?: 'compact' | 'comfortable'
+  maxWidth?: 'md' | 'lg' | 'full'
 
   /**
    * 업로드된 이미지의 미리보기 블록(썸네일 + 안내 + 삭제 버튼). 기본 true.
@@ -77,19 +123,51 @@ export type CategoryFormProps = {
   removeImageIcon?: ReactNode
 
   /* ── 문구 (없으면 기존 기본 문구 그대로) ── */
-  /** 이미지 삭제 버튼 문구 — 기본 '이미지 삭제' */
+  /** @deprecated labels.image.removeLabel을 쓴다 */
   removeImageLabel?: string
-  /** 업로드 제약 안내 — 기본 '권장 640×640 · JPG/PNG · 2MB 이하' */
+  /** @deprecated labels.image.hint를 쓴다 */
   imageHint?: string
-  /** 저장 중 버튼 문구 — 기본 '저장 중…' */
+  /** @deprecated labels.actions.saving을 쓴다 */
   savingLabel?: string
 }
 
 /** 기본 아이콘 후보 — 쇼핑몰/시공 카테고리에서 실제로 쓰이는 결 */
 const DEFAULT_EMOJIS = ['🛋️', '🏠', '🍽️', '🛏️', '🚿', '💡', '🪴', '🧺', '🎨', '🔧', '📦', '⭐'] as const
 
-/** 업로드 가이드 — 레퍼런스의 이미지 영역 하단 문구 */
-const IMAGE_HINT = '권장 640×640 · JPG/PNG · 2MB 이하'
+export const DEFAULT_CATEGORY_FORM_LABELS: CategoryFormLabels = {
+  title: '카테고리 등록',
+  sections: { info: '카테고리 정보' },
+  sectionDescriptions: {
+    info: '목록과 상단 메뉴에 노출되는 카테고리의 기본 정보입니다.',
+  },
+  fields: {
+    name: '카테고리명',
+    image: '카테고리 이미지',
+    description: '설명',
+    active: '활성화',
+  },
+  placeholders: {
+    name: '예: 거실 인테리어',
+    description: '카테고리를 설명하는 문구를 입력하세요.',
+  },
+  helpers: {
+    image: '이미지를 쓰지 않으면 아이콘으로 대신 표시됩니다.',
+    active: '끄면 목록과 메뉴에서 이 카테고리가 노출되지 않습니다.',
+  },
+  image: {
+    useImage: '이미지 사용',
+    on: 'ON',
+    off: 'OFF',
+    // 레퍼런스의 이미지 영역 하단 문구
+    hint: '권장 640×640 · JPG/PNG · 2MB 이하',
+    removeLabel: '이미지 삭제',
+    emojiGroup: '카테고리 아이콘',
+  },
+  actions: { submit: '저장', cancel: '취소', saving: '저장 중…' },
+}
+
+/** 업로드 제약 — 안내 문구(labels.image.hint)와 DropZone 검증이 같은 상한을 본다 */
+const MAX_IMAGE_MB = 2
 
 const DEFAULT_SHOW: Required<CategoryFormShow> = {
   header: true,
@@ -106,10 +184,13 @@ function EmojiPicker({
   options,
   selected,
   onSelect,
+  groupLabel,
 }: {
   options: string[]
   selected?: string
   onSelect: (emoji: string) => void
+  /** radiogroup의 접근성 이름 */
+  groupLabel: string
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
 
@@ -134,7 +215,7 @@ function EmojiPicker({
   }
 
   return (
-    <div className={styles.emojiGrid} role="radiogroup" aria-label="카테고리 아이콘">
+    <div className={styles.emojiGrid} role="radiogroup" aria-label={groupLabel}>
       {options.map((emoji, index) => {
         const on = emoji === selected
         return (
@@ -176,22 +257,34 @@ function EmojiPicker({
 export function CategoryForm({
   value,
   onChange,
-  title = '카테고리 등록',
+  labels,
+  title,
   description,
   emojiOptions = [...DEFAULT_EMOJIS],
   errors,
   onSubmit,
   onCancel,
   submitting = false,
-  submitLabel = '저장',
-  cancelLabel = '취소',
+  submitLabel,
+  cancelLabel,
   show,
+  density = 'compact',
+  maxWidth = 'lg',
   showPreview = true,
   removeImageIcon,
-  removeImageLabel = '이미지 삭제',
-  imageHint = IMAGE_HINT,
-  savingLabel = '저장 중…',
+  removeImageLabel,
+  imageHint,
+  savingLabel,
 }: CategoryFormProps) {
+  // 우선순위: 개별 prop > labels > 기본값. mergeLabels는 undefined를 무시하므로
+  // 넘기지 않은 개별 prop이 기본 문구를 지우지 않는다.
+  const L = mergeLabels(mergeLabels(DEFAULT_CATEGORY_FORM_LABELS, labels), {
+    title,
+    description,
+    image: { hint: imageHint, removeLabel: removeImageLabel },
+    actions: { submit: submitLabel, cancel: cancelLabel, saving: savingLabel },
+  })
+
   const s = { ...DEFAULT_SHOW, ...show }
 
   const fields: AdminFormField<CategoryValue>[] = []
@@ -200,10 +293,10 @@ export function CategoryForm({
     fields.push({
       kind: 'text',
       key: 'name',
-      label: '카테고리명',
+      label: L.fields.name,
       required: true,
       span: 2,
-      placeholder: '예: 거실 인테리어',
+      placeholder: L.placeholders.name,
       maxLength: 30,
     })
   }
@@ -212,8 +305,8 @@ export function CategoryForm({
     fields.push({
       kind: 'custom',
       key: 'image',
-      label: '카테고리 이미지',
-      description: '이미지를 쓰지 않으면 아이콘으로 대신 표시됩니다.',
+      label: L.fields.image,
+      description: L.helpers.image,
       /*
        * 셸의 image 필드를 그대로 쓰되, 그 위에 '이미지 사용' 스위치를 얹는다 —
        * 스위치가 OFF면 업로드 영역이 통째로 사라지고 아이콘(이모지) 선택이 그 자리를 채운다.
@@ -224,12 +317,12 @@ export function CategoryForm({
           <div
             className={[styles.switchRow, v.useImage ? styles.switchOn : styles.switchOff].join(' ')}
           >
-            <span className={styles.switchLabel}>이미지 사용</span>
+            <span className={styles.switchLabel}>{L.image.useImage}</span>
             <Toggle
               checked={v.useImage}
               onChange={(useImage) => patch({ useImage })}
               size="sm"
-              label={v.useImage ? 'ON' : 'OFF'}
+              label={v.useImage ? L.image.on : L.image.off}
             />
           </div>
 
@@ -241,18 +334,19 @@ export function CategoryForm({
               ratio="1x1"
               previewWidth={160}
               remove="side"
-              removeLabel={removeImageLabel}
+              removeLabel={L.image.removeLabel}
               removeIcon={removeImageIcon}
-              previewHint={imageHint}
-              hint={imageHint}
+              previewHint={L.image.hint}
+              hint={L.image.hint}
               accept="image/*"
-              maxSizeMb={2}
+              maxSizeMb={MAX_IMAGE_MB}
             />
           ) : (
             <EmojiPicker
               options={emojiOptions}
               selected={v.emoji}
               onSelect={(emoji) => patch({ emoji })}
+              groupLabel={L.image.emojiGroup}
             />
           )}
         </div>
@@ -264,8 +358,8 @@ export function CategoryForm({
     fields.push({
       kind: 'textarea',
       key: 'description',
-      label: '설명',
-      placeholder: '카테고리를 설명하는 문구를 입력하세요.',
+      label: L.fields.description,
+      placeholder: L.placeholders.description,
       rows: 4,
       maxLength: 200,
       showCounter: true,
@@ -276,8 +370,8 @@ export function CategoryForm({
     fields.push({
       kind: 'toggle',
       key: 'active',
-      label: '활성화',
-      description: '끄면 목록과 메뉴에서 이 카테고리가 노출되지 않습니다.',
+      label: L.fields.active,
+      description: L.helpers.active,
     })
   }
 
@@ -289,20 +383,22 @@ export function CategoryForm({
       sections={[
         {
           key: 'info',
-          title: '카테고리 정보',
-          description: '목록과 상단 메뉴에 노출되는 카테고리의 기본 정보입니다.',
+          title: L.sections.info,
+          description: L.sectionDescriptions.info,
           // show.info=false면 필드를 넘기지 않는다 — 셸이 빈 카드를 그리지 않는다
           fields: s.info ? fields : [],
         },
       ]}
-      title={title}
-      description={description}
-      submitLabel={submitLabel}
-      submittingLabel={savingLabel}
-      cancelLabel={cancelLabel}
+      title={L.title}
+      description={L.description}
+      submitLabel={L.actions.submit}
+      submittingLabel={L.actions.saving}
+      cancelLabel={L.actions.cancel}
       submitting={submitting}
       onSubmit={onSubmit}
       onCancel={onCancel}
+      density={density}
+      maxWidth={maxWidth}
       // 하단 [취소]는 핸들러가 있을 때만 — [저장]은 항상 자리를 지킨다(기존 화면 규약)
       show={{ header: s.header, footer: s.footer, footerCancel: onCancel != null }}
     />

@@ -46,8 +46,14 @@ const meta = {
       control: 'inline-radio',
       options: ['comfortable', 'compact'],
     },
+    appearance: {
+      control: 'inline-radio',
+      options: ['outline', 'elevated', 'plain'],
+      description: 'plain은 이미 보더가 있는 컨테이너 안에서 이중 테두리를 없앤다',
+    },
     onToggleActive: { control: false },
     onSelectChange: { control: false },
+    onView: { control: false },
     onEdit: { control: false },
     onDelete: { control: false },
     onClick: { control: false },
@@ -56,7 +62,10 @@ const meta = {
     // ON/OFF · 문구 — 기본값은 지금까지의 카드 그대로다
     showThumbnail: { control: 'boolean' },
     showSubMeta: { control: 'boolean' },
-    emptyThumbnailLabel: { control: 'text' },
+    emptyThumbnailLabel: { control: 'text', description: '@deprecated — labels.thumbnailEmpty를 쓰세요' },
+    activeLabel: { control: 'text', description: '@deprecated — labels.status.active를 쓰세요' },
+    inactiveLabel: { control: 'text', description: '@deprecated — labels.status.inactive를 쓰세요' },
+    labels: { control: 'object' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -162,6 +171,56 @@ export const CustomEmptyThumbnail: Story = {
     emptyThumbnailLabel: '등록된 사진 없음',
   },
   render: (args) => <AdminCardDemo {...args} onEdit={() => {}} onDelete={() => {}} />,
+}
+
+/** appearance — outline(기본) / elevated(그림자) / plain(테두리 없음, 이미 보더가 있는 컨테이너 안) */
+export const Appearance: Story = {
+  render: (args) => (
+    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <AdminCardDemo {...args} appearance="outline" onEdit={() => {}} onDelete={() => {}} />
+      <AdminCardDemo {...args} appearance="elevated" onEdit={() => {}} onDelete={() => {}} />
+      <div
+        style={{
+          padding: 'var(--ds-spacing-3)',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-lg)',
+        }}
+      >
+        <AdminCardDemo {...args} appearance="plain" onEdit={() => {}} onDelete={() => {}} />
+      </div>
+    </div>
+  ),
+}
+
+/**
+ * Labels: 영문 오버라이드 — 썸네일 alt, 상태 토글('판매중'/'중지'), 그리고 카드 제목을 끼워 넣던
+ * 상세/수정/삭제 버튼의 접근성 이름이 전부 labels 통로로 화면까지 닿는다.
+ * (수정/삭제 아이콘에 마우스를 올리면 툴팁으로 확인된다 — 툴팁이 곧 접근성 이름이다)
+ */
+export const Labels: Story = {
+  args: {
+    title: 'Winter Wool Coat',
+    subtitle: 'Outerwear · Added 2026-01-08',
+    badges: [{ label: 'New', tone: 'primary' }],
+    meta: [
+      { label: 'Price', value: '$189.00' },
+      { label: 'Stock', value: '24' },
+      { label: 'Added', value: '2026-01-08' },
+    ],
+    labels: {
+      thumbnailAlt: (title: string) => `${title} thumbnail`,
+      thumbnailEmpty: 'No image',
+      actions: {
+        view: (title: string) => `View ${title}`,
+        edit: (title: string) => `Edit ${title}`,
+        delete: (title: string) => `Delete ${title}`,
+      },
+      status: { active: 'On sale', inactive: 'Paused' },
+    },
+  },
+  render: (args) => (
+    <AdminCardDemo {...args} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+  ),
 }
 
 // 배지 유무 · 썸네일 유무 · 타이틀 길이가 섞여도 카드 높이는 흔들리지 않는다

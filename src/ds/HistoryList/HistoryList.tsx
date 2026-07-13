@@ -1,5 +1,17 @@
 import type { ReactNode } from 'react'
 import { Plus } from 'lucide-react'
+import {
+  mergeLabels,
+  resolveLabel,
+  type ColumnLabels,
+  type ConfirmDialogLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type RowScopedActionLabels,
+  type SearchLabels,
+  type StatusLabels,
+  type TabLabels,
+} from '../../shared/labels'
 import { AdminListPage, type AdminListRowContext } from '../AdminListPage/AdminListPage'
 import type { AdminColumn } from '../AdminTable/AdminTable'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
@@ -41,6 +53,84 @@ export type HistoryTabKey = 'all' | 'visible' | 'hidden'
 /** 정렬 축 — 최신순(등록일) / 연도순(연·월) */
 export type HistorySortKey = 'recent' | 'year'
 
+/** 표 컬럼 — labels.columns의 키이자 AdminTable 컬럼 key */
+export type HistoryColumnKey =
+  | 'index'
+  | 'year'
+  | 'month'
+  | 'title'
+  | 'description'
+  | 'image'
+  | 'visible'
+  | 'createdAt'
+  | 'actions'
+
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   컬럼 머리글·탭·정렬·행 액션·확인창까지 화면에 나오는 모든 글자를 한 통로로 연다.
+   우선순위: 개별 prop(title·emptyText·tabLabels …) > labels.* > 기본값. */
+type HistoryListLabelsResolved = {
+  title: string
+  description: string
+  /** 헤더 등록 버튼 */
+  create: string
+  columns: Record<HistoryColumnKey, string>
+  tabs: Record<HistoryTabKey, string>
+  /** 툴바 정렬 Select 옵션 — sortOptions prop을 주면 그쪽이 이긴다 */
+  sort: Record<HistorySortKey, string>
+  /** 관리 열 아이콘 버튼 — 툴팁이자 접근성 이름이다(행 제목을 끼워 넣는다) */
+  rowActions: Required<Pick<RowScopedActionLabels, 'edit' | 'delete'>>
+  search: SearchLabels
+  empty: EmptyLabels
+  /** 값이 없는 칸(월·설명)에 찍히는 문자 */
+  emptyCell: string
+  /**
+   * 삭제 확인창 — 취소 버튼은 열지 않는다.
+   * 셸(AdminListPage.deleteConfirm)에 cancelLabel 축이 없어 CrudDialog 기본값('취소')이 그대로 뜬다.
+   */
+  deleteDialog: Required<Pick<ConfirmDialogLabels<string[]>, 'title' | 'description'>> &
+    Pick<ConfirmDialogLabels<string[]>, 'confirmLabel'>
+}
+
+export const DEFAULT_HISTORY_LIST_LABELS: HistoryListLabelsResolved = {
+  title: '연혁 관리',
+  description: '연도별 연혁의 노출 여부와 대표 이미지를 관리합니다.',
+  create: '연혁 등록',
+  columns: {
+    index: '순번',
+    year: '연도',
+    month: '월',
+    title: '제목',
+    description: '설명',
+    image: '대표 이미지',
+    visible: '노출',
+    createdAt: '등록일',
+    actions: '관리',
+  },
+  tabs: { all: '전체', visible: '노출', hidden: '숨김' },
+  // 연혁은 '언제 등록했나'보다 '언제 있었던 일인가'가 자주 쓰인다
+  sort: { recent: '최신순', year: '연도순' },
+  rowActions: {
+    edit: (title) => `${title} 수정`,
+    delete: (title) => `${title} 삭제`,
+  },
+  search: { searchPlaceholder: '제목 검색' },
+  empty: { title: '등록된 연혁이 없습니다.' },
+  emptyCell: '-',
+  deleteDialog: {
+    title: '선택한 연혁을 삭제할까요?',
+    description: (ids) => `연혁 ${ids.length}건이 목록에서 제거됩니다.`,
+  },
+} as const
+
+export type HistoryListLabels = DeepPartialOneLevel<HistoryListLabelsResolved>
+
+/** 컬럼 머리글만 갈아끼울 때 — labels.columns와 같은 모양 */
+export type HistoryColumnLabels = ColumnLabels<HistoryColumnKey>
+/** 탭 라벨만 갈아끼울 때 — labels.tabs와 같은 모양 */
+export type HistoryTabLabels = TabLabels<HistoryTabKey>
+/** 정렬 라벨만 갈아끼울 때 — labels.sort와 같은 모양 */
+export type HistorySortLabels = StatusLabels<HistorySortKey>
+
 /**
  * 요소 ON/OFF — 전부 기본 true(오너 확정 규약, 키마다 `?? true`).
  * false면 그 요소가 DOM에서 통째로 사라진다(빈 자리·여백·구분선이 남지 않는다).
@@ -66,6 +156,11 @@ export type HistoryListShow = {
   columnPicker?: boolean
   /** 표 우상단 내보내기 */
   export?: boolean
+  /**
+   * 표 하단 '20개씩' 페이지 크기 Select — false면 페이지네이션은 두되 크기 선택만 감춘다.
+   * 셸(AdminListPage)에는 있던 축인데 이 화면만 빠뜨려 크기를 고정한 목록을 만들 수 없었다.
+   */
+  pageSize?: boolean
 }
 
 export type HistoryListProps = {
@@ -87,39 +182,47 @@ export type HistoryListProps = {
   /** 행 안의 노출 토글 */
   onToggleVisible?: (row: HistoryRow, next: boolean) => void
 
-  /* ── 문구 — 기본값이 있고 전부 교체 가능하다 ── */
+  /* ── 페이지 크기 — 셸의 축을 그대로 통과시킨다 ── */
+  /** 한 페이지 행 수. 기본 20(셸 규격) */
+  pageSize?: number
+  onPageSizeChange?: (size: number) => void
+  /** 페이지 크기 후보. 기본 20/50/100 — 건수가 적은 연혁은 [10, 20]처럼 좁힌다 */
+  pageSizeOptions?: number[]
+
+  /* ── 문구 — 개별 prop이 labels보다 우선한다(하위호환) ── */
+  /** @deprecated labels.title 을 쓰세요 */
   title?: string
+  /** @deprecated labels.description 을 쓰세요 */
   description?: string
+  /** @deprecated labels.create 을 쓰세요 */
   createLabel?: string
+  /** @deprecated labels.search.searchPlaceholder 를 쓰세요 */
   searchPlaceholder?: string
+  /** @deprecated labels.empty.title 을 쓰세요 */
   emptyText?: string
   exportFilename?: string
-  /** 탭 라벨 — 넘긴 키만 기본 문구를 덮어쓴다 */
-  tabLabels?: Partial<Record<HistoryTabKey, string>>
-  /** 정렬 후보 — value는 HistorySortKey와 맞춰야 정렬이 동작한다 */
+  /** @deprecated labels.tabs 를 쓰세요 — 넘긴 키만 기본 문구를 덮어쓴다 */
+  tabLabels?: HistoryTabLabels
+  /** 정렬 후보 — value는 HistorySortKey와 맞춰야 정렬이 동작한다. 문구만 바꿀 거면 labels.sort */
   sortOptions?: SelectOption[]
-  /** 삭제 확인창 문구 */
+  /** @deprecated labels.deleteDialog.title 을 쓰세요 */
   deleteTitle?: string
+  /** @deprecated labels.deleteDialog.description 을 쓰세요 */
   deleteDescription?: (ids: string[]) => string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: HistoryListLabels
 
   /* ── 아이콘 슬롯 — 없으면 기본 lucide 아이콘 ── */
   /** 등록 버튼 (기본 Plus) */
   createIcon?: ReactNode
 }
 
-const DEFAULT_TAB_LABEL: Record<HistoryTabKey, string> = {
-  all: '전체',
-  visible: '노출',
-  hidden: '숨김',
-}
+/** @deprecated DEFAULT_HISTORY_LIST_LABELS.tabs 를 쓰세요 (기존 이름 유지용 alias) */
+export const DEFAULT_TAB_LABEL: Record<HistoryTabKey, string> = DEFAULT_HISTORY_LIST_LABELS.tabs
 
 const TAB_ORDER: HistoryTabKey[] = ['all', 'visible', 'hidden']
 
-/** 툴바 정렬 — 연혁은 '언제 등록했나'보다 '언제 있었던 일인가'가 자주 쓰인다 */
-const SORT_OPTIONS: SelectOption[] = [
-  { value: 'recent', label: '최신순' },
-  { value: 'year', label: '연도순' },
-]
+const SORT_ORDER: HistorySortKey[] = ['recent', 'year']
 
 /** show 기본값 — 전부 true. 스프레드로 합치면 명시적 undefined가 기본값을 덮으므로 키마다 ?? true */
 function resolveShow(show: HistoryListShow = {}): Required<HistoryListShow> {
@@ -130,6 +233,7 @@ function resolveShow(show: HistoryListShow = {}): Required<HistoryListShow> {
     search: show.search ?? true,
     count: show.count ?? true,
     pagination: show.pagination ?? true,
+    pageSize: show.pageSize ?? true,
     bulk: show.bulk ?? true,
     rowActions: show.rowActions ?? true,
     columnPicker: show.columnPicker ?? true,
@@ -190,25 +294,36 @@ export function HistoryList({
   onEdit,
   onDelete,
   onToggleVisible,
-  title = '연혁 관리',
-  description = '연도별 연혁의 노출 여부와 대표 이미지를 관리합니다.',
-  createLabel = '연혁 등록',
-  searchPlaceholder = '제목 검색',
-  emptyText = '등록된 연혁이 없습니다.',
+  pageSize,
+  onPageSizeChange,
+  pageSizeOptions,
+  // 카피의 기본값은 DEFAULT_HISTORY_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  title,
+  description,
+  createLabel,
+  searchPlaceholder,
+  emptyText,
   exportFilename = '연혁목록',
   tabLabels,
-  sortOptions = SORT_OPTIONS,
-  deleteTitle = '선택한 연혁을 삭제할까요?',
-  deleteDescription = (ids) => `연혁 ${ids.length}건이 목록에서 제거됩니다.`,
+  sortOptions,
+  deleteTitle,
+  deleteDescription,
+  labels,
   createIcon,
 }: HistoryListProps) {
   const on = resolveShow(show)
+  const L = mergeLabels(DEFAULT_HISTORY_LIST_LABELS, labels)
 
   const tabs: CategoryTabItem[] = TAB_ORDER.map((key) => ({
-    label: tabLabels?.[key] ?? DEFAULT_TAB_LABEL[key],
+    label: resolveLabel(tabLabels?.[key], L.tabs[key]) ?? DEFAULT_HISTORY_LIST_LABELS.tabs[key],
     value: key,
     fixed: true,
   }))
+
+  // 정렬 후보 — sortOptions를 통째로 주면 그쪽이 이긴다(값까지 바꾸는 축이므로)
+  const sorts: SelectOption[] =
+    sortOptions ?? SORT_ORDER.map((key) => ({ value: key, label: L.sort[key] }))
 
   /*
    * 컬럼 — 삭제는 셸의 확인창을 거쳐야 하므로 ctx.confirmDelete로 부른다
@@ -216,37 +331,43 @@ export function HistoryList({
    */
   const columns = (ctx: AdminListRowContext): AdminColumn<HistoryRow>[] => [
     { kind: 'select', key: 'select', pinned: 'left' },
-    { kind: 'index', key: 'index', header: '순번' },
-    { kind: 'text', key: 'year', header: '연도', ratio: 1, sortable: true },
-    { kind: 'text', key: 'month', header: '월', ratio: 1, value: (row) => row.month ?? '-' },
-    { kind: 'title', key: 'title', header: '제목', ratio: 3, sortable: true },
+    { kind: 'index', key: 'index', header: L.columns.index },
+    { kind: 'text', key: 'year', header: L.columns.year, ratio: 1, sortable: true },
+    {
+      kind: 'text',
+      key: 'month',
+      header: L.columns.month,
+      ratio: 1,
+      value: (row) => row.month ?? L.emptyCell,
+    },
+    { kind: 'title', key: 'title', header: L.columns.title, ratio: 3, sortable: true },
     {
       kind: 'text',
       key: 'description',
-      header: '설명',
+      header: L.columns.description,
       ratio: 3,
-      value: (row) => row.description ?? '-',
+      value: (row) => row.description ?? L.emptyCell,
     },
     // 썸네일·플레이스홀더 폴백은 AdminTable이 갖는다 — 여기서 <img>를 다시 만들지 않는다
-    { kind: 'thumbnail', key: 'image', header: '대표 이미지' },
+    { kind: 'thumbnail', key: 'image', header: L.columns.image },
     {
       kind: 'status',
       key: 'visible',
-      header: '노출',
+      header: L.columns.visible,
       // 토글의 값은 visible 하나뿐이다 — 파생 상태를 따로 두면 두 값이 어긋난다
       value: (row) => row.visible,
     },
-    { kind: 'date', key: 'createdAt', header: '등록일', sortable: true },
+    { kind: 'date', key: 'createdAt', header: L.columns.createdAt, sortable: true },
     {
       kind: 'actions',
       key: 'actions',
-      header: '관리',
+      header: L.columns.actions,
       render: (row) => (
         <RowActions
           size="sm"
           onEdit={onEdit == null ? undefined : () => onEdit(row)}
           onDelete={onDelete == null ? undefined : () => ctx.confirmDelete([row.id])}
-          labels={{ edit: `${row.title} 수정`, delete: `${row.title} 삭제` }}
+          labels={{ edit: L.rowActions.edit(row.title), delete: L.rowActions.delete(row.title) }}
         />
       ),
     },
@@ -259,26 +380,33 @@ export function HistoryList({
       rowKey={(row) => row.id}
       total={total}
       loading={loading}
-      title={title}
-      description={description}
+      title={resolveLabel(title, L.title)}
+      description={resolveLabel(description, L.description)}
       onCreate={onCreate}
-      createLabel={createLabel}
+      createLabel={resolveLabel(createLabel, L.create)}
       createIcon={createIcon ?? <Plus size={16} aria-hidden="true" />}
       tabs={tabs}
       matchTab={matchesTab}
       // 검색은 툴바 한 줄(inline) — 조건이 제목 하나뿐이라 상단 검색 패널을 세울 이유가 없다
       search="inline"
-      searchPlaceholder={searchPlaceholder}
+      searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
       matchKeyword={matchesKeyword}
-      sortOptions={sortOptions}
+      sortOptions={sorts}
       orderRows={orderRows}
       onRowOpen={onRowOpen}
       onToggleStatus={onToggleVisible}
       // 선택 일괄 삭제 — 표 하단 [선택 삭제]와 행 관리의 삭제가 같은 확인창을 지난다
       onBulkDelete={onDelete}
-      deleteConfirm={{ title: deleteTitle, description: deleteDescription }}
-      emptyText={emptyText}
+      deleteConfirm={{
+        title: resolveLabel(deleteTitle, L.deleteDialog.title) ?? L.deleteDialog.title,
+        description: resolveLabel(deleteDescription, L.deleteDialog.description),
+        confirmLabel: L.deleteDialog.confirmLabel,
+      }}
+      emptyText={resolveLabel(emptyText, L.empty.title)}
       exportFilename={exportFilename}
+      pageSize={pageSize}
+      onPageSizeChange={onPageSizeChange}
+      pageSizeOptions={pageSizeOptions}
       density={density}
       show={{
         header: on.header,
@@ -287,6 +415,7 @@ export function HistoryList({
         search: on.search,
         count: on.count,
         pagination: on.pagination,
+        pageSize: on.pageSize,
         bulk: on.bulk,
         rowActions: on.rowActions,
         columnPicker: on.columnPicker,

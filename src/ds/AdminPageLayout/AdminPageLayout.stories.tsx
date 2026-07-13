@@ -43,10 +43,24 @@ const meta = {
     footer: { control: false },
     // ON/OFF · 문구 — 기본값은 지금까지의 레이아웃 그대로다
     showSideToggle: { control: 'boolean' },
-    sideOpenLabel: { control: 'text' },
-    sideCloseLabel: { control: 'text' },
+    sideOpenLabel: { control: 'text', description: '@deprecated labels.sideOpen' },
+    sideCloseLabel: { control: 'text', description: '@deprecated labels.sideClose' },
+    labels: { control: 'object', description: '문구 통로 — 개별 prop > labels.* > 기본값' },
     // 아이콘 슬롯 — ReactNode라 컨트롤로는 다루지 않는다(SideToggleVariants 스토리 참고)
     sideToggleIcon: { control: false },
+    // 폭·여백·리듬 — PageContainer로 그대로 통과시키는 축
+    maxWidth: { control: 'inline-radio', options: ['md', 'lg', 'full'] },
+    padding: {
+      control: 'inline-radio',
+      options: ['none', 'sm', 'md'],
+      description: '드로어·모달 안에 넣으면 패딩 40이 두 번 먹는다 — none/sm으로 내린다',
+    },
+    gap: { control: 'inline-radio', options: ['md', 'lg'] },
+    density: { control: 'inline-radio', options: ['compact', 'comfortable'] },
+    footerSticky: {
+      control: 'boolean',
+      description: 'false면 액션 바가 본문 끝에 그대로 놓인다(sticky 해제)',
+    },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -576,6 +590,73 @@ export const SideToggleVariants: Story = {
         <PageSection title="상품 목록" card>
           <p style={{ margin: 0, fontSize: 'var(--ds-font-size-sm)', color: 'var(--ds-color-secondary)' }}>
             본문
+          </p>
+        </PageSection>
+      </AdminPageLayout>
+    </div>
+  ),
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 7) Labels · 여백/리듬/footer 축
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 문구 통로(labels) — 레이아웃이 그리는 문구는 좌측 패널 토글 버튼 하나뿐이다.
+ * 개별 prop(sideOpenLabel/sideCloseLabel)은 그대로 살아 있고 labels보다 우선한다.
+ * (창을 1280 아래로 좁히면 버튼이 나타난다)
+ */
+export const Labels: Story = {
+  render: () => (
+    <AdminPageLayout
+      title="Category management"
+      description="labels로 패널 토글 문구만 영문으로 바꾼다."
+      maxWidth="lg"
+      side={<SideMock />}
+      labels={{ sideOpen: 'Open panel', sideClose: 'Close panel' }}
+    >
+      <PageSection title="Products" card>
+        <p style={{ margin: 0, fontSize: 'var(--ds-font-size-sm)', color: 'var(--ds-color-secondary)' }}>
+          본문
+        </p>
+      </PageSection>
+    </AdminPageLayout>
+  ),
+}
+
+/**
+ * 드로어·탭 패널 안 — padding='sm' + gap='lg' + footerSticky=false.
+ * padding이 md 고정이라 바깥이 이미 여백을 가진 자리에서 40이 두 번 먹었고,
+ * footer가 항상 sticky라 AdminFormPage가 액션 바를 한 벌 더 그리고 있었다.
+ */
+export const PaddingAndFooter: Story = {
+  render: () => (
+    <div
+      style={{
+        width: 720,
+        maxWidth: '100%',
+        background: 'var(--ds-color-bg)',
+        border: 'var(--ds-border-width) solid var(--ds-color-border)',
+        borderRadius: 'var(--ds-radius-lg)',
+      }}
+    >
+      <AdminPageLayout
+        title="배송지 수정"
+        description="드로어 안 — 여백 24, 액션 바는 sticky가 아니다."
+        maxWidth="md"
+        padding="sm"
+        gap="lg"
+        footerSticky={false}
+        footer={
+          <>
+            <Button variant="secondary" appearance="outline" size="md" label="취소" />
+            <Button variant="primary" size="md" label="저장" />
+          </>
+        }
+      >
+        <PageSection title="기본 정보" card>
+          <p style={{ margin: 0, fontSize: 'var(--ds-font-size-sm)', color: 'var(--ds-color-secondary)' }}>
+            폼 필드
           </p>
         </PageSection>
       </AdminPageLayout>

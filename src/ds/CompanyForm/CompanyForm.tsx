@@ -9,10 +9,17 @@ import type { AboutPageProps } from '../AboutPage/AboutPage'
 import { Button } from '../Button/Button'
 import { EmptyState } from '../EmptyState/EmptyState'
 import { FieldRow } from '../FieldRow/FieldRow'
+import type { MediaRatio } from '../Image/Image'
 import { InputBase } from '../InputBase/InputBase'
 import type { SelectOption } from '../Select/Select'
 import { Skeleton } from '../Skeleton/Skeleton'
 import { Textarea } from '../Textarea/Textarea'
+import {
+  mergeLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type LabelFn,
+} from '../../shared/labels'
 
 /*
  * CompanyForm — '회사소개 관리'(어드민). 고객용 화면은 AboutPage다.
@@ -149,10 +156,128 @@ export type CompanyFormShow = {
   footer?: boolean
 }
 
+/**
+ * 화면에 나오는 모든 글자 — 값(value)과 강조색 후보(accentOptions)만 데이터다.
+ * 중첩은 표면 기준 1단계다(sections / fields / placeholders / helpers / images / capabilities / …).
+ * 반복 항목의 빈 상태는 공용 EmptyLabels를 그대로 쓴다(같은 문구가 두 이름으로 존재하지 않게).
+ */
+export type CompanyFormLabels = {
+  /** 페이지 헤더 */
+  title: string
+  description: string
+  /** 섹션 카드 제목 — 기존 sectionCopy prop이 우선한다 */
+  sections: Record<CompanySectionKey, string>
+  /** 섹션 카드 설명 */
+  sectionDescriptions: Record<CompanySectionKey, string>
+  /** 필드 라벨 (키 = 값의 키 + 목록 머리 행) */
+  fields: {
+    heroEyebrow: string
+    heroTitle: string
+    heroSubtitle: string
+    heroImage: string
+    heroImageAlt: string
+    introTitle: string
+    introSubtitle: string
+    introParagraphs: string
+    introImage: string
+    introImageAlt: string
+    capabilitiesTitle: string
+    capabilitiesSubtitle: string
+    /** 역량 목록의 머리 행 */
+    capabilities: string
+    statsTitle: string
+    statsSubtitle: string
+    /** 통계 목록의 머리 행 */
+    stats: string
+    ctaTitle: string
+    ctaSubtitle: string
+    ctaButtonLabel: string
+    accent: string
+    showDivider: string
+    showHeroScrim: string
+  }
+  /** 필드 플레이스홀더 */
+  placeholders: {
+    heroEyebrow: string
+    heroTitle: string
+    heroSubtitle: string
+    heroImageAlt: string
+    introTitle: string
+    introSubtitle: string
+    introParagraphs: string
+    introImageAlt: string
+    capabilitiesTitle: string
+    capabilitiesSubtitle: string
+    statsTitle: string
+    statsSubtitle: string
+    ctaTitle: string
+    ctaSubtitle: string
+    ctaButtonLabel: string
+    accent: string
+  }
+  /** 필드 보조설명(FieldRow 설명 줄) */
+  helpers: {
+    heroEyebrow: string
+    heroImageAlt: string
+    introParagraphs: string
+    capabilities: string
+    stats: string
+    accent: string
+    showDivider: string
+    showHeroScrim: string
+  }
+  /** 이미지 블록 — 두 이미지가 업로드 제약·드롭존 문구를 공유한다 */
+  images: {
+    hint: string
+    dropLabel: string
+    heroAlt: string
+    heroRemove: string
+    introAlt: string
+    introRemove: string
+  }
+  /** 역량 카드 목록 — 항목 행([제목][설명][삭제])과 추가 버튼 */
+  capabilities: {
+    /** 항목 제목의 라벨 — 몇 번째 카드인지 알려야 한다(1-based) */
+    itemTitle: LabelFn<number>
+    itemTitlePlaceholder: string
+    itemDescription: string
+    itemDescriptionPlaceholder: string
+    /** 삭제 열의 라벨 */
+    itemActions: string
+    add: string
+    remove: string
+  }
+  /** 역량이 하나도 없을 때 */
+  capabilitiesEmpty: EmptyLabels
+  /** 통계 목록 */
+  stats: {
+    itemValue: LabelFn<number>
+    itemValuePlaceholder: string
+    itemLabel: string
+    itemLabelPlaceholder: string
+    itemActions: string
+    add: string
+    remove: string
+  }
+  statsEmpty: EmptyLabels
+  /** CTA 섹션의 밴드 스위치(value.ctaEnabled) */
+  cta: { toggleLabel: string; toggleDescription: string; disabledHint: string }
+  /** 헤더 상태 배지 — 현재 강조색을 계속 보여 준다 */
+  headerBadge: Record<CompanyAccent, string>
+  /** 액션 버튼 — submit을 비우면 mode에 따라 '등록'/'저장'이 된다(셸 규약) */
+  actions: { submit?: string; cancel: string; saving: string }
+}
+
 export type CompanyFormProps = {
   value: CompanyValue
   onChange: (v: CompanyValue) => void
   errors?: CompanyFormErrors
+  /** 문구 — 개별 prop(sectionCopy·imageHint·addCapabilityLabel …)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<CompanyFormLabels>
+  /** 히어로 배경 이미지 비율 (기본 16x9 — 가로로 넓게 깔리는 배경) */
+  heroImageRatio?: MediaRatio
+  /** 소개 본문 이미지 비율 (기본 4x3) */
+  introImageRatio?: MediaRatio
   /** 등록/수정 — 기본 제출 문구('등록'/'저장')를 가른다 */
   mode?: 'create' | 'edit'
   show?: CompanyFormShow
@@ -167,25 +292,38 @@ export type CompanyFormProps = {
   maxWidth?: 'md' | 'lg' | 'full'
 
   /* ── 문구 — 기본값이 있고 전부 교체 가능하다 ── */
+  /** @deprecated labels.title을 쓴다(개별 prop이 우선한다) */
   title?: string
+  /** @deprecated labels.description을 쓴다 */
   description?: string
-  /** 섹션 머리글 교체 — 넘긴 키만 기본 문구를 덮어쓴다 */
+  /**
+   * @deprecated labels.sections / labels.sectionDescriptions를 쓴다.
+   * 하위호환으로 유지되며, 넘긴 키만 labels를 덮어쓴다(키 단위 우선).
+   */
   sectionCopy?: Partial<Record<CompanySectionKey, CompanySectionCopy>>
+  /** @deprecated labels.actions.submit을 쓴다 */
   submitLabel?: string
+  /** @deprecated labels.actions.cancel을 쓴다 */
   cancelLabel?: string
-  /** 저장 중 버튼 문구 — 기본 '저장 중…' */
+  /** @deprecated labels.actions.saving을 쓴다 */
   savingLabel?: string
-  /** 이미지 업로드 제약 안내 — 기본 'JPG · PNG 이미지 · 최대 10MB' */
+  /** @deprecated labels.images.hint를 쓴다 */
   imageHint?: string
-  /** 드롭존 안 문구 — 기본 '이미지를 끌어다 놓거나 클릭해서 선택하세요' */
+  /** @deprecated labels.images.dropLabel을 쓴다 */
   imageDropLabel?: string
+  /** @deprecated labels.capabilities.add를 쓴다 */
   addCapabilityLabel?: string
+  /** @deprecated labels.stats.add를 쓴다 */
   addStatLabel?: string
-  /** 항목 삭제 버튼 — 기본 '삭제' */
+  /** @deprecated labels.capabilities.remove / labels.stats.remove를 쓴다(두 목록을 함께 덮는다) */
   removeLabel?: string
+  /** @deprecated labels.capabilitiesEmpty.title을 쓴다 */
   capabilitiesEmptyTitle?: string
+  /** @deprecated labels.capabilitiesEmpty.description을 쓴다 */
   capabilitiesEmptyDescription?: string
+  /** @deprecated labels.statsEmpty.title을 쓴다 */
   statsEmptyTitle?: string
+  /** @deprecated labels.statsEmpty.description을 쓴다 */
   statsEmptyDescription?: string
   /** 강조색 후보 — value는 CompanyAccent('primary'|'success')와 맞춰야 한다 */
   accentOptions?: SelectOption[]
@@ -210,36 +348,120 @@ const ACCENT_OPTIONS: SelectOption[] = [
   { value: 'primary', label: '블루' },
 ]
 
-/** 섹션 기본 머리글 — sectionCopy로 키 단위 교체된다 */
-const SECTION_COPY: Record<CompanySectionKey, Required<CompanySectionCopy>> = {
-  hero: {
-    title: '기본 정보',
-    description: '회사소개 첫 화면(히어로)에 가운데로 놓이는 카피입니다.',
+export const DEFAULT_COMPANY_FORM_LABELS: CompanyFormLabels = {
+  title: '회사소개 관리',
+  description: '고객용 회사소개 페이지에 그대로 노출되는 내용입니다.',
+  sections: {
+    hero: '기본 정보',
+    heroImage: '히어로 이미지',
+    intro: '소개 본문',
+    capabilities: '핵심 역량',
+    stats: '숫자 성과',
+    cta: 'CTA 밴드',
+    visibility: '노출 설정',
   },
-  heroImage: {
-    title: '히어로 이미지',
-    description: '히어로 카피 아래에 깔리는 배경 사진입니다. 없으면 대체 그림이 표시됩니다.',
+  sectionDescriptions: {
+    hero: '회사소개 첫 화면(히어로)에 가운데로 놓이는 카피입니다.',
+    heroImage: '히어로 카피 아래에 깔리는 배경 사진입니다. 없으면 대체 그림이 표시됩니다.',
+    intro: '미션·비전 문단과 우측 이미지로 구성되는 회사 개요입니다.',
+    capabilities: '옅은 회색 면 위 흰 카드로 나열됩니다. 4개 단위로 줄이 나뉩니다.',
+    stats: '큰 숫자(강조색)와 라벨 한 쌍이 한 칸입니다.',
+    cta: '페이지 맨 아래 문의 유도 밴드입니다.',
+    visibility: '강조색과 장식 요소의 노출을 정합니다. 저장 즉시 고객 화면에 반영됩니다.',
   },
-  intro: {
-    title: '소개 본문',
-    description: '미션·비전 문단과 우측 이미지로 구성되는 회사 개요입니다.',
+  fields: {
+    heroEyebrow: '상단 라벨',
+    heroTitle: '헤드라인',
+    heroSubtitle: '서브카피',
+    heroImage: '배경 이미지',
+    heroImageAlt: '대체 텍스트',
+    introTitle: '헤드라인',
+    introSubtitle: '서브카피',
+    introParagraphs: '소개 문단',
+    introImage: '본문 이미지',
+    introImageAlt: '대체 텍스트',
+    capabilitiesTitle: '섹션 헤드라인',
+    capabilitiesSubtitle: '섹션 서브카피',
+    capabilities: '역량 카드',
+    statsTitle: '섹션 헤드라인',
+    statsSubtitle: '섹션 서브카피',
+    stats: '통계 항목',
+    ctaTitle: '밴드 제목',
+    ctaSubtitle: '밴드 설명',
+    ctaButtonLabel: '버튼 문구',
+    accent: '강조색',
+    showDivider: '섹션 구분선',
+    showHeroScrim: '히어로 스크림',
+  },
+  placeholders: {
+    heroEyebrow: '예: About us',
+    heroTitle: '예: We design sound for space.',
+    heroSubtitle: '헤드라인 아래에 놓이는 한글 카피를 입력하세요.',
+    heroImageAlt: '예: 스튜디오 전경',
+    introTitle: '예: Who we are',
+    introSubtitle: '헤드라인 아래 한 줄 설명',
+    introParagraphs: '미션·비전을 2~3개 문단으로 입력하세요.',
+    introImageAlt: '예: 작업 중인 팀',
+    capabilitiesTitle: '예: What we do',
+    capabilitiesSubtitle: '섹션 헤드라인 아래 한 줄 설명',
+    statsTitle: '예: By the numbers',
+    statsSubtitle: '섹션 헤드라인 아래 한 줄 설명',
+    ctaTitle: "예: Let's build it together.",
+    ctaSubtitle: '문의를 유도하는 한 줄 설명',
+    ctaButtonLabel: '예: 프로젝트 문의하기',
+    accent: '강조색을 선택하세요',
+  },
+  helpers: {
+    heroEyebrow: '헤드라인 위 작은 라벨입니다. 강조색으로 표시됩니다.',
+    heroImageAlt: '이미지를 볼 수 없는 사용자(스크린리더)에게 읽히는 설명입니다.',
+    introParagraphs: '빈 줄(엔터 2번)로 문단을 나눕니다. 문단마다 별도 <p>로 노출됩니다.',
+    capabilities: '카드는 입력한 순서대로 노출됩니다.',
+    stats: '숫자는 접미사를 포함해 그대로 노출됩니다(예: 120+, 15년).',
+    accent: '헤드라인 강조어·숫자·버튼에 쓰이는 색입니다.',
+    showDivider: '섹션 헤딩 아래 구분선과 강조색 세그먼트를 표시합니다.',
+    showHeroScrim: '끄면 배경 사진이 원본 대비 그대로 보입니다.',
+  },
+  images: {
+    hint: IMAGE_HINT,
+    dropLabel: '이미지를 끌어다 놓거나 클릭해서 선택하세요',
+    heroAlt: '히어로 배경 이미지 미리보기',
+    heroRemove: '히어로 이미지 삭제',
+    introAlt: '회사 개요 이미지 미리보기',
+    introRemove: '본문 이미지 삭제',
   },
   capabilities: {
-    title: '핵심 역량',
-    description: '옅은 회색 면 위 흰 카드로 나열됩니다. 4개 단위로 줄이 나뉩니다.',
+    itemTitle: (position) => `역량 ${position} 제목`,
+    itemTitlePlaceholder: '예: 음향 설계',
+    itemDescription: '설명',
+    itemDescriptionPlaceholder: '카드 본문에 들어갈 설명을 입력하세요.',
+    itemActions: '관리',
+    add: '역량 카드 추가',
+    remove: '삭제',
+  },
+  capabilitiesEmpty: {
+    title: '등록된 역량 카드가 없습니다.',
+    description: '카드를 추가하지 않으면 고객 화면에서 핵심 역량 섹션이 통째로 접힙니다.',
   },
   stats: {
-    title: '숫자 성과',
-    description: '큰 숫자(강조색)와 라벨 한 쌍이 한 칸입니다.',
+    itemValue: (position) => `통계 ${position} 숫자`,
+    itemValuePlaceholder: '예: 120+',
+    itemLabel: '라벨',
+    itemLabelPlaceholder: '예: 완료 프로젝트',
+    itemActions: '관리',
+    add: '통계 항목 추가',
+    remove: '삭제',
+  },
+  statsEmpty: {
+    title: '등록된 통계가 없습니다.',
+    description: '항목을 추가하지 않으면 고객 화면에서 숫자 성과 섹션이 통째로 접힙니다.',
   },
   cta: {
-    title: 'CTA 밴드',
-    description: '페이지 맨 아래 문의 유도 밴드입니다.',
+    toggleLabel: 'CTA 밴드 사용',
+    toggleDescription: '끄면 회사소개 맨 아래 문의 밴드가 노출되지 않습니다.',
+    disabledHint: '문의를 받지 않는 회사소개입니다. 밴드 문구는 저장되지만 노출되지 않습니다.',
   },
-  visibility: {
-    title: '노출 설정',
-    description: '강조색과 장식 요소의 노출을 정합니다. 저장 즉시 고객 화면에 반영됩니다.',
-  },
+  headerBadge: { primary: '강조색 블루', success: '강조색 그린' },
+  actions: { cancel: '취소', saving: '저장 중…' },
 }
 
 /** show 기본값 — 전부 true. 스프레드로 합치면 명시적 undefined가 기본값을 덮으므로 키마다 ?? true */
@@ -366,21 +588,24 @@ export function CompanyForm({
   onCancel,
   density = 'compact',
   maxWidth = 'lg',
-  title = '회사소개 관리',
-  description = '고객용 회사소개 페이지에 그대로 노출되는 내용입니다.',
+  labels,
+  heroImageRatio = '16x9',
+  introImageRatio = '4x3',
+  title,
+  description,
   sectionCopy,
   submitLabel,
-  cancelLabel = '취소',
-  savingLabel = '저장 중…',
-  imageHint = IMAGE_HINT,
-  imageDropLabel = '이미지를 끌어다 놓거나 클릭해서 선택하세요',
-  addCapabilityLabel = '역량 카드 추가',
-  addStatLabel = '통계 항목 추가',
-  removeLabel = '삭제',
-  capabilitiesEmptyTitle = '등록된 역량 카드가 없습니다.',
-  capabilitiesEmptyDescription = '카드를 추가하지 않으면 고객 화면에서 핵심 역량 섹션이 통째로 접힙니다.',
-  statsEmptyTitle = '등록된 통계가 없습니다.',
-  statsEmptyDescription = '항목을 추가하지 않으면 고객 화면에서 숫자 성과 섹션이 통째로 접힙니다.',
+  cancelLabel,
+  savingLabel,
+  imageHint,
+  imageDropLabel,
+  addCapabilityLabel,
+  addStatLabel,
+  removeLabel,
+  capabilitiesEmptyTitle,
+  capabilitiesEmptyDescription,
+  statsEmptyTitle,
+  statsEmptyDescription,
   accentOptions = ACCENT_OPTIONS,
   addIcon,
   removeIcon,
@@ -388,10 +613,23 @@ export function CompanyForm({
 }: CompanyFormProps) {
   const on = resolveShow(show)
 
-  /** 섹션 머리글 — 기본 문구 위에 sectionCopy를 얹는다 */
+  // 우선순위: 개별 prop > labels > 기본값. mergeLabels는 undefined를 무시하므로
+  // 넘기지 않은 개별 prop이 기본 문구를 지우지 않는다.
+  const L = mergeLabels(mergeLabels(DEFAULT_COMPANY_FORM_LABELS, labels), {
+    title,
+    description,
+    images: { hint: imageHint, dropLabel: imageDropLabel },
+    capabilities: { add: addCapabilityLabel, remove: removeLabel },
+    capabilitiesEmpty: { title: capabilitiesEmptyTitle, description: capabilitiesEmptyDescription },
+    stats: { add: addStatLabel, remove: removeLabel },
+    statsEmpty: { title: statsEmptyTitle, description: statsEmptyDescription },
+    actions: { submit: submitLabel, cancel: cancelLabel, saving: savingLabel },
+  })
+
+  /** 섹션 머리글 — labels 위에 sectionCopy(개별 prop)를 키 단위로 얹는다 */
   const copyOf = (key: CompanySectionKey): Required<CompanySectionCopy> => ({
-    ...SECTION_COPY[key],
-    ...sectionCopy?.[key],
+    title: sectionCopy?.[key]?.title ?? L.sections[key],
+    description: sectionCopy?.[key]?.description ?? L.sectionDescriptions[key],
   })
 
   // 저장 중에는 입력을 잠근다(조회 중에는 본문이 스켈레톤이라 컨트롤 자체가 없다)
@@ -402,29 +640,29 @@ export function CompanyForm({
     {
       kind: 'text',
       key: 'heroEyebrow',
-      label: '상단 라벨',
+      label: L.fields.heroEyebrow,
       span: 1,
-      description: '헤드라인 위 작은 라벨입니다. 강조색으로 표시됩니다.',
-      placeholder: '예: About us',
+      description: L.helpers.heroEyebrow,
+      placeholder: L.placeholders.heroEyebrow,
       maxLength: 30,
     },
     {
       kind: 'text',
       key: 'heroTitle',
-      label: '헤드라인',
+      label: L.fields.heroTitle,
       required: true,
       span: 2,
-      placeholder: '예: We design sound for space.',
+      placeholder: L.placeholders.heroTitle,
       maxLength: 60,
       showCounter: true,
     },
     {
       kind: 'textarea',
       key: 'heroSubtitle',
-      label: '서브카피',
+      label: L.fields.heroSubtitle,
       required: true,
       span: 3,
-      placeholder: '헤드라인 아래에 놓이는 한글 카피를 입력하세요.',
+      placeholder: L.placeholders.heroSubtitle,
       rows: 2,
       maxLength: 120,
       showCounter: true,
@@ -436,27 +674,27 @@ export function CompanyForm({
     {
       kind: 'image',
       key: 'heroImage',
-      label: '배경 이미지',
-      description: imageHint,
-      // 가로로 넓게 깔리는 배경이라 16:9 — 교체가 잦은 자리라 썸네일 옆에 드롭존을 함께 세운다(row)
+      label: L.fields.heroImage,
+      description: L.images.hint,
+      // 가로로 넓게 깔리는 배경이라 기본 16:9 — 교체가 잦은 자리라 썸네일 옆에 드롭존을 함께 세운다(row)
       layout: 'row',
-      ratio: '16x9',
+      ratio: heroImageRatio,
       previewWidth: 240,
-      alt: '히어로 배경 이미지 미리보기',
+      alt: L.images.heroAlt,
       remove: 'square',
-      removeLabel: '히어로 이미지 삭제',
+      removeLabel: L.images.heroRemove,
       removeIcon: removeImageIcon,
       accept: IMAGE_ACCEPT,
       maxSizeMb: MAX_IMAGE_MB,
-      dropLabel: imageDropLabel,
+      dropLabel: L.images.dropLabel,
     },
     {
       kind: 'text',
       key: 'heroImageAlt',
-      label: '대체 텍스트',
+      label: L.fields.heroImageAlt,
       span: 3,
-      description: '이미지를 볼 수 없는 사용자(스크린리더)에게 읽히는 설명입니다.',
-      placeholder: '예: 스튜디오 전경',
+      description: L.helpers.heroImageAlt,
+      placeholder: L.placeholders.heroImageAlt,
       maxLength: 60,
     },
   ]
@@ -466,28 +704,28 @@ export function CompanyForm({
     {
       kind: 'text',
       key: 'introTitle',
-      label: '헤드라인',
+      label: L.fields.introTitle,
       required: true,
       span: 1,
-      placeholder: '예: Who we are',
+      placeholder: L.placeholders.introTitle,
       maxLength: 40,
     },
     {
       kind: 'text',
       key: 'introSubtitle',
-      label: '서브카피',
+      label: L.fields.introSubtitle,
       span: 2,
-      placeholder: '헤드라인 아래 한 줄 설명',
+      placeholder: L.placeholders.introSubtitle,
       maxLength: 80,
     },
     {
       kind: 'textarea',
       key: 'introParagraphs',
-      label: '소개 문단',
+      label: L.fields.introParagraphs,
       required: true,
       // 문단 배열을 관리하는 UI를 따로 만들지 않는다 — 빈 줄이 곧 문단 경계다(toAboutPageData가 편다)
-      description: '빈 줄(엔터 2번)로 문단을 나눕니다. 문단마다 별도 <p>로 노출됩니다.',
-      placeholder: '미션·비전을 2~3개 문단으로 입력하세요.',
+      description: L.helpers.introParagraphs,
+      placeholder: L.placeholders.introParagraphs,
       rows: 8,
       maxLength: 1000,
       showCounter: true,
@@ -495,24 +733,24 @@ export function CompanyForm({
     {
       kind: 'image',
       key: 'introImage',
-      label: '본문 이미지',
-      description: imageHint,
-      ratio: '4x3',
+      label: L.fields.introImage,
+      description: L.images.hint,
+      ratio: introImageRatio,
       previewWidth: 200,
-      alt: '회사 개요 이미지 미리보기',
+      alt: L.images.introAlt,
       remove: 'square',
-      removeLabel: '본문 이미지 삭제',
+      removeLabel: L.images.introRemove,
       removeIcon: removeImageIcon,
       accept: IMAGE_ACCEPT,
       maxSizeMb: MAX_IMAGE_MB,
-      dropLabel: imageDropLabel,
+      dropLabel: L.images.dropLabel,
     },
     {
       kind: 'text',
       key: 'introImageAlt',
-      label: '대체 텍스트',
+      label: L.fields.introImageAlt,
       span: 3,
-      placeholder: '예: 작업 중인 팀',
+      placeholder: L.placeholders.introImageAlt,
       maxLength: 60,
     },
   ]
@@ -533,25 +771,25 @@ export function CompanyForm({
     {
       kind: 'text',
       key: 'capabilitiesTitle',
-      label: '섹션 헤드라인',
+      label: L.fields.capabilitiesTitle,
       span: 1,
-      placeholder: '예: What we do',
+      placeholder: L.placeholders.capabilitiesTitle,
       maxLength: 40,
     },
     {
       kind: 'text',
       key: 'capabilitiesSubtitle',
-      label: '섹션 서브카피',
+      label: L.fields.capabilitiesSubtitle,
       span: 2,
-      placeholder: '섹션 헤드라인 아래 한 줄 설명',
+      placeholder: L.placeholders.capabilitiesSubtitle,
       maxLength: 80,
     },
     {
       // 목록의 머리 행 — 라벨·설명·에러(errors.capabilities)와 [추가] 버튼이 여기 모인다
       kind: 'custom',
       key: 'capabilities',
-      label: '역량 카드',
-      description: '카드는 입력한 순서대로 노출됩니다.',
+      label: L.fields.capabilities,
+      description: L.helpers.capabilities,
       span: 3,
       render: ({ value: v, disabled }) =>
         v.capabilities.length === 0 ? (
@@ -559,9 +797,9 @@ export function CompanyForm({
           <EmptyState
             kind="empty"
             compact
-            title={capabilitiesEmptyTitle}
-            description={capabilitiesEmptyDescription}
-            actionLabel={disabled ? undefined : addCapabilityLabel}
+            title={L.capabilitiesEmpty.title}
+            description={L.capabilitiesEmpty.description}
+            actionLabel={disabled ? undefined : L.capabilities.add}
             onAction={addCapability}
           />
         ) : (
@@ -569,7 +807,7 @@ export function CompanyForm({
             variant="secondary"
             appearance="outline"
             size="md"
-            label={addCapabilityLabel}
+            label={L.capabilities.add}
             showLeftIcon
             leftIcon={addIcon ?? <Plus size={16} aria-hidden="true" />}
             disabled={disabled}
@@ -583,32 +821,32 @@ export function CompanyForm({
       key: `capability-${item.id}`,
       render: ({ disabled }) => (
         <>
-          <FieldRow label={`역량 ${index + 1} 제목`} span={1}>
+          {/* 라벨에 순번을 넣어 스크린리더가 어떤 카드를 다루는지 알 수 있게 한다 */}
+          <FieldRow label={L.capabilities.itemTitle(index + 1)} span={1}>
             <InputBase
               value={item.title}
               onChange={(next) => patchCapability(item.id, { title: next })}
-              placeholder="예: 음향 설계"
+              placeholder={L.capabilities.itemTitlePlaceholder}
               maxLength={30}
               disabled={disabled}
             />
           </FieldRow>
-          <FieldRow label="설명" span={1}>
+          <FieldRow label={L.capabilities.itemDescription} span={1}>
             <Textarea
               value={item.description}
               onChange={(next) => patchCapability(item.id, { description: next })}
-              placeholder="카드 본문에 들어갈 설명을 입력하세요."
+              placeholder={L.capabilities.itemDescriptionPlaceholder}
               rows={2}
               maxLength={120}
               disabled={disabled}
             />
           </FieldRow>
-          <FieldRow label="관리" span={1}>
-            {/* 라벨에 순번을 넣어 스크린리더가 어떤 카드를 지우는지 알 수 있게 한다 */}
+          <FieldRow label={L.capabilities.itemActions} span={1}>
             <Button
               variant="error"
               appearance="outline"
               size="md"
-              label={removeLabel}
+              label={L.capabilities.remove}
               showLeftIcon
               leftIcon={removeIcon ?? <Trash2 size={14} aria-hidden="true" />}
               disabled={disabled}
@@ -636,33 +874,33 @@ export function CompanyForm({
     {
       kind: 'text',
       key: 'statsTitle',
-      label: '섹션 헤드라인',
+      label: L.fields.statsTitle,
       span: 1,
-      placeholder: '예: By the numbers',
+      placeholder: L.placeholders.statsTitle,
       maxLength: 40,
     },
     {
       kind: 'text',
       key: 'statsSubtitle',
-      label: '섹션 서브카피',
+      label: L.fields.statsSubtitle,
       span: 2,
-      placeholder: '섹션 헤드라인 아래 한 줄 설명',
+      placeholder: L.placeholders.statsSubtitle,
       maxLength: 80,
     },
     {
       kind: 'custom',
       key: 'stats',
-      label: '통계 항목',
-      description: '숫자는 접미사를 포함해 그대로 노출됩니다(예: 120+, 15년).',
+      label: L.fields.stats,
+      description: L.helpers.stats,
       span: 3,
       render: ({ value: v, disabled }) =>
         v.stats.length === 0 ? (
           <EmptyState
             kind="empty"
             compact
-            title={statsEmptyTitle}
-            description={statsEmptyDescription}
-            actionLabel={disabled ? undefined : addStatLabel}
+            title={L.statsEmpty.title}
+            description={L.statsEmpty.description}
+            actionLabel={disabled ? undefined : L.stats.add}
             onAction={addStat}
           />
         ) : (
@@ -670,7 +908,7 @@ export function CompanyForm({
             variant="secondary"
             appearance="outline"
             size="md"
-            label={addStatLabel}
+            label={L.stats.add}
             showLeftIcon
             leftIcon={addIcon ?? <Plus size={16} aria-hidden="true" />}
             disabled={disabled}
@@ -683,30 +921,30 @@ export function CompanyForm({
       key: `stat-${item.id}`,
       render: ({ disabled }) => (
         <>
-          <FieldRow label={`통계 ${index + 1} 숫자`} span={1}>
+          <FieldRow label={L.stats.itemValue(index + 1)} span={1}>
             <InputBase
               value={item.value}
               onChange={(next) => patchStat(item.id, { value: next })}
-              placeholder="예: 120+"
+              placeholder={L.stats.itemValuePlaceholder}
               maxLength={12}
               disabled={disabled}
             />
           </FieldRow>
-          <FieldRow label="라벨" span={1}>
+          <FieldRow label={L.stats.itemLabel} span={1}>
             <InputBase
               value={item.label}
               onChange={(next) => patchStat(item.id, { label: next })}
-              placeholder="예: 완료 프로젝트"
+              placeholder={L.stats.itemLabelPlaceholder}
               maxLength={20}
               disabled={disabled}
             />
           </FieldRow>
-          <FieldRow label="관리" span={1}>
+          <FieldRow label={L.stats.itemActions} span={1}>
             <Button
               variant="error"
               appearance="outline"
               size="md"
-              label={removeLabel}
+              label={L.stats.remove}
               showLeftIcon
               leftIcon={removeIcon ?? <Trash2 size={14} aria-hidden="true" />}
               disabled={disabled}
@@ -723,27 +961,27 @@ export function CompanyForm({
     {
       kind: 'text',
       key: 'ctaTitle',
-      label: '밴드 제목',
+      label: L.fields.ctaTitle,
       required: true,
       span: 1,
-      placeholder: "예: Let's build it together.",
+      placeholder: L.placeholders.ctaTitle,
       maxLength: 40,
     },
     {
       kind: 'text',
       key: 'ctaSubtitle',
-      label: '밴드 설명',
+      label: L.fields.ctaSubtitle,
       span: 2,
-      placeholder: '문의를 유도하는 한 줄 설명',
+      placeholder: L.placeholders.ctaSubtitle,
       maxLength: 80,
     },
     {
       kind: 'text',
       key: 'ctaButtonLabel',
-      label: '버튼 문구',
+      label: L.fields.ctaButtonLabel,
       required: true,
       span: 1,
-      placeholder: '예: 프로젝트 문의하기',
+      placeholder: L.placeholders.ctaButtonLabel,
       maxLength: 20,
     },
   ]
@@ -753,25 +991,25 @@ export function CompanyForm({
     {
       kind: 'select',
       key: 'accent',
-      label: '강조색',
+      label: L.fields.accent,
       span: 1,
-      description: '헤드라인 강조어·숫자·버튼에 쓰이는 색입니다.',
+      description: L.helpers.accent,
       options: accentOptions,
-      placeholder: '강조색을 선택하세요',
+      placeholder: L.placeholders.accent,
     },
     {
       kind: 'toggle',
       key: 'showDivider',
-      label: '섹션 구분선',
+      label: L.fields.showDivider,
       span: 1,
-      description: '섹션 헤딩 아래 구분선과 강조색 세그먼트를 표시합니다.',
+      description: L.helpers.showDivider,
     },
     {
       kind: 'toggle',
       key: 'showHeroScrim',
-      label: '히어로 스크림',
+      label: L.fields.showHeroScrim,
       span: 1,
-      description: '끄면 배경 사진이 원본 대비 그대로 보입니다.',
+      description: L.helpers.showHeroScrim,
     },
   ]
 
@@ -819,9 +1057,9 @@ export function CompanyForm({
       toggleable: true,
       enabled: value.ctaEnabled,
       onEnabledChange: (ctaEnabled) => onChange({ ...value, ctaEnabled }),
-      toggleLabel: 'CTA 밴드 사용',
-      toggleDescription: '끄면 회사소개 맨 아래 문의 밴드가 노출되지 않습니다.',
-      disabledHint: '문의를 받지 않는 회사소개입니다. 밴드 문구는 저장되지만 노출되지 않습니다.',
+      toggleLabel: L.cta.toggleLabel,
+      toggleDescription: L.cta.toggleDescription,
+      disabledHint: L.cta.disabledHint,
       skeleton: <Skeleton variant="block" height={72} />,
       fields: on.cta ? ctaFields : [],
     },
@@ -840,16 +1078,16 @@ export function CompanyForm({
       errors={errors}
       sections={sections}
       mode={mode}
-      title={title}
-      description={description}
+      title={L.title}
+      description={L.description}
       // 강조색은 저장 즉시 고객 화면 전체의 톤을 바꾼다 — 헤더 배지로 현재 값을 계속 보여 준다
       headerBadge={{
-        label: value.accent === 'primary' ? '강조색 블루' : '강조색 그린',
+        label: L.headerBadge[value.accent],
         tone: value.accent === 'primary' ? 'primary' : 'success',
       }}
-      submitLabel={submitLabel}
-      submittingLabel={savingLabel}
-      cancelLabel={cancelLabel}
+      submitLabel={L.actions.submit}
+      submittingLabel={L.actions.saving}
+      cancelLabel={L.actions.cancel}
       submitting={submitting}
       loading={loading}
       disabled={locked}

@@ -65,6 +65,18 @@
   background: color-mix(in srgb, var(--ds-color-bgSubtle) 55%, var(--ds-color-bg));
 }
 
+/* ── striped — 짝수 행 줄무늬(기본 꺼짐) ────────────────────────────────
+   tr이 아니라 td에 칠한다: 고정(sticky) 셀은 자기 배경(.pinned)을 갖고 있어
+   행 배경을 덮어버리기 때문이다. td에 칠해야 줄무늬가 고정 컬럼까지 이어진다.
+   hover는 줄무늬보다 뒤·높은 특이도로 두어 짝수 행에서도 hover가 살아 있게 한다. */
+.table.striped .row:nth-child(even) .td {
+  background: color-mix(in srgb, var(--ds-color-bgSubtle) 35%, var(--ds-color-bg));
+}
+
+.table.striped .row:nth-child(even):hover .td {
+  background: color-mix(in srgb, var(--ds-color-bgSubtle) 55%, var(--ds-color-bg));
+}
+
 /* ── density="compact" — 행 44px · 셀 패딩 8×12 · 본문 13px ──────────────
    셀의 height는 '최소 높이'로 동작한다. border-box로 잡아야 패딩·구분선까지
    포함해 정확히 44px이 되고(8 + 내용 27 + 8 + 1px 선), 내용이 더 크면 늘어난다. */

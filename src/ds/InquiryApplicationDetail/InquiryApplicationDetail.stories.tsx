@@ -214,3 +214,48 @@ export const Minimal: Story = {
 export const WithoutConsents: Story = {
   args: { showConsents: false },
 }
+
+/**
+ * Labels: 영문 오버라이드 — 카드 제목·신청자 필드·aside Select·메모·푸터 버튼·동의 배지 접미사가
+ * labels 통로 하나로 전부 영문이 된다.
+ */
+export const Labels: Story = {
+  args: {
+    title: 'Inquiry request',
+    description: 'INQ-2026-000512 · Room acoustics consultation',
+    labels: {
+      sections: {
+        applicant: 'Applicant',
+        answers: 'Form answers',
+        answersDescription: 'Answers submitted through the request form.',
+        status: 'Status',
+        assignee: 'Assignee',
+      },
+      applicant: {
+        name: 'Name',
+        phone: 'Phone',
+        email: 'Email',
+        createdAt: 'Submitted',
+        updatedAt: 'Updated',
+        updatedBy: 'Updated by',
+      },
+      status: { field: 'Current status', placeholder: 'Pick a status' },
+      assignee: { field: 'Assigned to', placeholder: 'Pick an assignee' },
+      memo: {
+        title: 'Internal note',
+        description: 'Never shown to the customer.',
+        placeholder: 'Leave the call history or the reason for this decision.',
+      },
+      actions: {
+        prev: 'Previous',
+        next: 'Next',
+        list: 'Back to list',
+        edit: 'Edit',
+        delete: 'Delete',
+        statusApply: 'Apply status',
+      },
+      empty: { title: 'No form answers yet' },
+      consent: { agreed: 'agreed', denied: 'not agreed' },
+    },
+  },
+}

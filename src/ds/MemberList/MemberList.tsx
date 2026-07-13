@@ -2,6 +2,15 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Ban, Coins, Eye, Trash2, Users } from 'lucide-react'
 import styles from './MemberList.module.css'
+import {
+  mergeLabels,
+  resolveLabel,
+  type ColumnLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type LabelFn,
+  type SearchLabels,
+} from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
 import type { AdminBulkAction, AdminColumn, AdminColumnTone } from '../AdminTable/AdminTable'
 import { GroupPanel, type GroupPanelItem } from '../GroupPanel/GroupPanel'
@@ -14,6 +23,78 @@ export type MemberCounts = {
   reviews: number
   inquiries: number
 }
+
+/** 표 컬럼 — labels.columns의 키이자 AdminTable 컬럼 key */
+export type MemberColumnKey =
+  | 'nickname'
+  | 'account'
+  | 'memberType'
+  | 'group'
+  | 'joinedAt'
+  | 'points'
+  | 'counts'
+  | 'totalPurchase'
+  | 'memo'
+
+/** 행 케밥 = 일괄 액션 — 같은 콜백(ids 배열)을 공유하므로 문구도 한 맵으로 묶는다 */
+export type MemberActionKey = 'open' | 'group' | 'points' | 'block' | 'delete'
+
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   컬럼 머리글·케밥·일괄 버튼·가입일 상대시간이 전부 함수 안에 박혀 있었다.
+   우선순위: 개별 prop(title·emptyText·searchPlaceholder) > labels.* > 기본값. */
+type MemberListLabelsResolved = {
+  title: string
+  columns: Record<MemberColumnKey, string>
+  /** 행 케밥과 일괄 처리 바가 함께 쓴다(같은 콜백을 부른다) */
+  actions: Record<MemberActionKey, string>
+  /** 가입일 — 최근 7일은 상대시간, 그 이상은 절대일자(formatters.date) */
+  relativeTime: {
+    justNow: string
+    minutes: LabelFn<number>
+    hours: LabelFn<number>
+    days: LabelFn<number>
+  }
+  search: SearchLabels
+  empty: EmptyLabels
+  /** 좌측 그룹 패널 하단 안내 — groupFootnote prop(ReactNode)을 주면 그쪽이 이긴다 */
+  groupFootnote: string
+}
+
+export const DEFAULT_MEMBER_LIST_LABELS: MemberListLabelsResolved = {
+  title: '회원 관리',
+  columns: {
+    nickname: '닉네임',
+    account: '계정',
+    memberType: '회원 유형',
+    group: '그룹',
+    joinedAt: '가입일',
+    points: '적립금',
+    counts: '글/댓글/구매평/문의',
+    totalPurchase: '누적 구매금액',
+    memo: '메모',
+  },
+  actions: {
+    open: '상세보기',
+    group: '그룹 변경',
+    points: '적립금 지급',
+    block: '차단',
+    delete: '삭제',
+  },
+  relativeTime: {
+    justNow: '방금전',
+    minutes: (n) => `${n}분전`,
+    hours: (n) => `${n}시간전`,
+    days: (n) => `${n}일전`,
+  },
+  search: { searchPlaceholder: '닉네임 · 계정 · 그룹으로 검색' },
+  empty: { title: '회원이 없습니다.' },
+  groupFootnote: '그룹으로 묶으면 회원 유형·혜택을 그룹 단위로 한 번에 바꿀 수 있어요.',
+} as const
+
+export type MemberListLabels = DeepPartialOneLevel<MemberListLabelsResolved>
+
+/** 컬럼 머리글만 갈아끼울 때 — labels.columns와 같은 모양 */
+export type MemberColumnLabels = ColumnLabels<MemberColumnKey>
 
 export type MemberRow = {
   id: string
@@ -40,7 +121,9 @@ export type MemberListProps = {
   onGroupChange?: (key: string) => void
   /** 없으면 '새 그룹 만들기' 버튼이 숨는다 */
   onGroupAdd?: () => void
+  /** 좌측 패널 하단 안내 — 문구만 바꿀 거면 labels.groupFootnote */
   groupFootnote?: ReactNode
+  /** @deprecated labels.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   title?: string
   description?: string
   /** 본문 헤더 건수 — 서버 총계. 없으면 rows 길이 */
@@ -64,10 +147,16 @@ export type MemberListProps = {
   /** 상대시간 기준 시각 — 스토리·테스트에서 결과를 고정하려고 주입한다 */
   now?: string | number | Date
   loading?: boolean
+  /** @deprecated labels.empty.title 을 쓰세요 */
   emptyText?: string
   density?: 'compact' | 'comfortable'
   pageSizeOptions?: number[]
   exportFilename?: string
+  /**
+   * 회원 유형 배지 톤 — 미지정 시 운영진·작가=primary / 차단 회원=error / 그 외=secondary.
+   * (CustomerList의 memberTypeTone과 같은 축 — 유형을 늘려도 톤을 줄 수 있어야 한다)
+   */
+  typeTone?: (row: MemberRow) => AdminColumnTone
 
   // ── 요소 ON/OFF — 같은 화면을 좁은 폭·읽기 전용 등으로 재사용할 때 필요 없는 줄만 끈다 ──
   /** 상단 툴바(검색 + 건수 + 내보내기) 통째로 — 끄면 표만 남는다 */
@@ -94,40 +183,55 @@ export type MemberListProps = {
   deleteIcon?: ReactNode
 
   // ── 카피 — 회원이 아닌 다른 대상(작가·파트너 …) 목록으로 그대로 돌려쓰기 위한 문구 교체구 ──
+  /** @deprecated labels.search.searchPlaceholder 를 쓰세요 */
   searchPlaceholder?: string
   /** 건수 단위 — "495명"의 '명' */
   countUnit?: string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: MemberListLabels
 }
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100]
 
-/** 회원 유형별 톤 — 강조색은 primary 하나, 차단만 error, 나머지는 조용한 회색 */
+/** 회원 유형별 톤 기본값 — 강조색은 primary 하나, 차단만 error, 나머지는 조용한 회색 */
 const TYPE_TONE: Record<string, AdminColumnTone> = {
   운영진: 'primary',
   작가: 'primary',
   '차단 회원': 'error',
 }
 
+/** 유형 톤 기본 규칙 — typeTone prop으로 통째로 갈아끼운다 */
+function defaultTypeTone(row: MemberRow): AdminColumnTone {
+  return TYPE_TONE[row.memberType] ?? 'secondary'
+}
+
 const pad = (value: number): string => String(value).padStart(2, '0')
+
+/** 상대시간 경계 — 7일이 넘으면 '몇 일 전'이 오히려 안 읽힌다(절대일자로 넘긴다) */
+const RELATIVE_DAYS = 7
 
 /**
  * 가입일 표시 — 최근 7일은 상대시간('11시간전'), 그 이상은 절대일자.
  * 목록에서 방금 들어온 회원만 눈에 띄게 하려는 카페24식 혼용 표기다.
  */
-function formatJoinedAt(value: string, now: number): string {
+function formatJoinedAt(
+  value: string,
+  now: number,
+  labels: MemberListLabelsResolved['relativeTime'],
+): string {
   const time = new Date(value).getTime()
   if (Number.isNaN(time)) return value
 
   const diff = now - time
   const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return '방금전'
-  if (minutes < 60) return `${minutes}분전`
+  if (minutes < 1) return labels.justNow
+  if (minutes < 60) return labels.minutes(minutes)
 
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}시간전`
+  if (hours < 24) return labels.hours(hours)
 
   const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}일전`
+  if (days < RELATIVE_DAYS) return labels.days(days)
 
   const date = new Date(time)
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
@@ -149,8 +253,10 @@ export function MemberList({
   groupValue,
   onGroupChange,
   onGroupAdd,
-  groupFootnote = '그룹으로 묶으면 회원 유형·혜택을 그룹 단위로 한 번에 바꿀 수 있어요.',
-  title = '회원 관리',
+  // 카피의 기본값은 DEFAULT_MEMBER_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  groupFootnote,
+  title,
   description,
   total,
   keyword,
@@ -165,10 +271,11 @@ export function MemberList({
   onMemoChange,
   now,
   loading = false,
-  emptyText = '회원이 없습니다.',
+  emptyText,
   density = 'compact',
   pageSizeOptions = PAGE_SIZE_OPTIONS,
   exportFilename = 'members',
+  typeTone = defaultTypeTone,
   showToolbar = true,
   showSearch = true,
   showCount = true,
@@ -179,9 +286,11 @@ export function MemberList({
   pointsIcon,
   blockIcon,
   deleteIcon,
-  searchPlaceholder = '닉네임 · 계정 · 그룹으로 검색',
+  searchPlaceholder,
   countUnit = '명',
+  labels,
 }: MemberListProps) {
+  const L = mergeLabels(DEFAULT_MEMBER_LIST_LABELS, labels)
   // 그룹은 셸이 모르는 축이다(좌측 레일은 셸에겐 그냥 노드) — 선택 상태와 그에 딸린
   // 페이지·행 선택 되돌리기는 이 화면이 갖는다. 그래서 page·selectedIds만 제어값으로 넘긴다.
   const [innerGroup, setInnerGroup] = useState(groups?.[0]?.key ?? '')
@@ -208,28 +317,38 @@ export function MemberList({
   const columns: AdminColumn<MemberRow>[] = [
     // 좌측 고정 — 가로 스크롤해도 '누구인지'는 항상 보인다
     { kind: 'select', key: 'select', pinned: 'left' },
-    { kind: 'title', key: 'nickname', header: '닉네임', pinned: 'left', onClick: (row) => onOpen?.(row) },
-    { kind: 'text', key: 'account', header: '계정', ratio: 3 },
+    {
+      kind: 'title',
+      key: 'nickname',
+      header: L.columns.nickname,
+      pinned: 'left',
+      onClick: (row) => onOpen?.(row),
+    },
+    { kind: 'text', key: 'account', header: L.columns.account, ratio: 3 },
     {
       kind: 'type',
       key: 'memberType',
-      header: '회원 유형',
-      tone: (row) => TYPE_TONE[row.memberType] ?? 'secondary',
+      header: L.columns.memberType,
+      tone: typeTone,
     },
-    { kind: 'text', key: 'group', header: '그룹', ratio: 2 },
+    { kind: 'text', key: 'group', header: L.columns.group, ratio: 2 },
     {
       kind: 'date',
       key: 'joinedAt',
-      header: '가입일',
+      header: L.columns.joinedAt,
       sortable: true,
       // 정렬은 원본 ISO로, 표시는 상대/절대 혼용 — value는 정렬 키까지 겸하므로 원본을 남긴다
-      render: (row) => <span className={styles.joined}>{formatJoinedAt(row.joinedAt, nowMs)}</span>,
+      render: (row) => (
+        <span className={styles.joined}>
+          {formatJoinedAt(row.joinedAt, nowMs, L.relativeTime)}
+        </span>
+      ),
     },
-    { kind: 'number', key: 'points', header: '적립금', align: 'right', sortable: true },
+    { kind: 'number', key: 'points', header: L.columns.points, align: 'right', sortable: true },
     {
       kind: 'text',
       key: 'counts',
-      header: '글/댓글/구매평/문의',
+      header: L.columns.counts,
       align: 'center',
       ratio: 1,
       // 내보내기는 화면과 같은 '0/0/0/0' 문자열로 나간다
@@ -246,18 +365,18 @@ export function MemberList({
         )
       },
     },
-    { kind: 'price', key: 'totalPurchase', header: '누적 구매금액', sortable: true },
-    { kind: 'memo', key: 'memo', header: '메모' },
+    { kind: 'price', key: 'totalPurchase', header: L.columns.totalPurchase, sortable: true },
+    { kind: 'memo', key: 'memo', header: L.columns.memo },
     {
       kind: 'kebab',
       key: 'kebab',
       pinned: 'right',
       menu: (row) => [
-        { key: 'open', label: '상세보기', icon: viewIcon ?? <Eye size={14} />, onSelect: () => onOpen?.(row) },
-        { key: 'group', label: '그룹 변경', icon: groupIcon ?? <Users size={14} />, onSelect: () => onChangeGroup?.([row.id]) },
-        { key: 'points', label: '적립금 지급', icon: pointsIcon ?? <Coins size={14} />, onSelect: () => onGivePoints?.([row.id]) },
-        { key: 'block', label: '차단', icon: blockIcon ?? <Ban size={14} />, divider: true, onSelect: () => onBlock?.(row) },
-        { key: 'delete', label: '삭제', icon: deleteIcon ?? <Trash2 size={14} />, tone: 'error', onSelect: () => onDelete?.([row.id]) },
+        { key: 'open', label: L.actions.open, icon: viewIcon ?? <Eye size={14} />, onSelect: () => onOpen?.(row) },
+        { key: 'group', label: L.actions.group, icon: groupIcon ?? <Users size={14} />, onSelect: () => onChangeGroup?.([row.id]) },
+        { key: 'points', label: L.actions.points, icon: pointsIcon ?? <Coins size={14} />, onSelect: () => onGivePoints?.([row.id]) },
+        { key: 'block', label: L.actions.block, icon: blockIcon ?? <Ban size={14} />, divider: true, onSelect: () => onBlock?.(row) },
+        { key: 'delete', label: L.actions.delete, icon: deleteIcon ?? <Trash2 size={14} />, tone: 'error', onSelect: () => onDelete?.([row.id]) },
       ],
     },
   ]
@@ -266,13 +385,13 @@ export function MemberList({
   const bulkActions: AdminBulkAction[] = [
     {
       key: 'group',
-      label: '그룹 변경',
+      label: L.actions.group,
       icon: groupIcon ?? <Users size={14} />,
       onAction: (ids) => onChangeGroup?.(ids),
     },
     {
       key: 'points',
-      label: '적립금 지급',
+      label: L.actions.points,
       icon: pointsIcon ?? <Coins size={14} />,
       onAction: (ids) => onGivePoints?.(ids),
     },
@@ -285,7 +404,7 @@ export function MemberList({
       rowKey={(row) => row.id}
       total={total}
       loading={loading}
-      title={title}
+      title={resolveLabel(title, L.title)}
       description={description}
       side={
         groups != null && groups.length > 0 ? (
@@ -294,14 +413,14 @@ export function MemberList({
             value={group}
             onChange={changeGroup}
             onAdd={onGroupAdd}
-            footnote={groupFootnote}
+            footnote={groupFootnote ?? L.groupFootnote}
           />
         ) : undefined
       }
       search="inline"
       keyword={keyword}
       onKeywordChange={onKeywordChange}
-      searchPlaceholder={searchPlaceholder}
+      searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
       // 엔터 확정만 사용처로 넘긴다 — rows 좁히기는 사용처 몫이라 matchKeyword를 주지 않는다
       onSearch={(values) => onSearch?.(String(values.keyword ?? ''))}
       totalLabel={groupLabel}
@@ -318,7 +437,7 @@ export function MemberList({
       columnPicker={columnPicker}
       exportable={exportable}
       exportFilename={exportFilename}
-      emptyText={emptyText}
+      emptyText={resolveLabel(emptyText, L.empty.title)}
       density={density}
       show={{ toolbar: showToolbar, search: showSearch, count: showCount }}
     />

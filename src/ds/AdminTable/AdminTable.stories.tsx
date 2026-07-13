@@ -209,8 +209,20 @@ const meta = {
     onPageSizeChange: { control: false },
     // ON/OFF · 문구 — 기본값은 지금까지의 동작 그대로다
     showEmptyDescription: { control: 'boolean' },
-    emptyDescription: { control: 'text' },
-    loadingLabel: { control: 'text' },
+    emptyText: { control: 'text', description: '@deprecated — labels.empty.title을 쓰세요' },
+    emptyDescription: { control: 'text', description: '@deprecated — labels.empty.description을 쓰세요' },
+    loadingLabel: { control: 'text', description: '@deprecated — labels.loading을 쓰세요' },
+    // 새 변형 축 — 기본값은 전부 지금 화면 그대로다
+    striped: { control: 'boolean', description: '짝수 행 줄무늬 — 컬럼이 많은 긴 표에서 가로 추적을 돕는다' },
+    emptyKind: {
+      control: 'inline-radio',
+      options: ['empty', 'search', 'error'],
+      description: '검색 결과 0건과 데이터 0건이 같은 그림으로 나오지 않게 한다',
+    },
+    onEmptyAction: { control: false },
+    // 문구 통로(labels)와 포맷 통로(formatters) — Labels 스토리 참고
+    labels: { control: 'object' },
+    formatters: { control: false },
     // 아이콘 슬롯 — ReactNode라 컨트롤로는 다루지 않는다(CustomIcons 스토리 참고)
     editIcon: { control: false },
     deleteIcon: { control: false },
@@ -761,4 +773,128 @@ export const EmptyCopy: Story = {
     showEmptyDescription: false,
   },
   render: (args) => <PostTable {...args} columns={DEFAULT_COLUMNS} rows={[]} />,
+}
+
+/**
+ * Labels: 영문 오버라이드 — 컴포넌트가 스스로 갖고 있던 문구가 전부 `labels` 하나로 열린다.
+ *
+ * 여기서 갈아끼우는 것들:
+ *  - columns  : header를 주지 않은 컬럼의 kind별 기본 헤더('순번'·'메모'·'관리' …)
+ *  - toolbar  : CSV / Excel / 컬럼 피커(버튼 + 팝오버 제목)
+ *  - bulk     : '선택 3건' + '선택 삭제'
+ *  - row      : 썸네일 alt, 수정/삭제/더보기, 순서 이동 툴팁, 새 창 링크, 인라인 Select 접근성 이름
+ *  - memo     : 빈 메모 셀 문구 + 메모 모달(제목·플레이스홀더·취소·저장)
+ *  - empty    : 빈 표의 제목·보조 문구·CTA
+ *  - pageSizeOption : '10개씩'
+ *
+ * 숫자·통화 로케일은 '문구'가 아니라 '포맷'이라 labels가 아니라 formatters로 연다.
+ * (개별 카피 prop인 emptyText/loadingLabel은 그대로 살아 있고, 주면 labels보다 우선한다)
+ */
+export const Labels: Story = {
+  args: {
+    // 개별 prop이 labels를 이기므로, 통로가 화면까지 닿는 걸 보이려면 비워 둔다
+    emptyText: undefined,
+    columnPicker: true,
+    exportable: true,
+    striped: true,
+    labels: {
+      columns: { index: 'No.', memo: 'Memo', actions: 'Manage', price: 'Price', number: 'Stock' },
+      toolbar: {
+        csv: 'Export CSV',
+        excel: 'Export Excel',
+        columnPicker: 'Columns',
+        columnPickerTitle: 'Show columns',
+      },
+      bulk: {
+        selectedCount: (count) => `${count} selected`,
+        delete: 'Delete selected',
+      },
+      pageSizeOption: (size) => `${size} / page`,
+      row: {
+        edit: (row) => `Edit ${row}`,
+        delete: (row) => `Delete ${row}`,
+        more: (row) => `More actions for ${row}`,
+        reorder: (row) => `Reorder ${row}`,
+        thumbnailAlt: (row) => `${row} thumbnail`,
+        thumbnailEmpty: 'No image',
+        reorderHint: 'Drag, or use ↑ ↓ keys to reorder',
+        reorderDisabledBySort: 'Clear the sort to reorder rows',
+        reorderUnsupported: 'Reordering is not supported',
+        externalLink: (title) => `Open ${title} in a new tab`,
+        selectCell: ({ row, column, current }) => `Change ${column} for ${row} — currently ${current}`,
+      },
+      memo: {
+        empty: 'Add memo',
+        emptyTitle: 'No memo',
+        edit: (row) => `Edit memo for ${row}`,
+        create: (row) => `Add memo for ${row}`,
+        dialogTitle: (row) => `Memo — ${row}`,
+        dialogFallbackTitle: 'Memo',
+        placeholder: 'Leave a note about this row',
+        cancel: 'Cancel',
+        save: 'Save',
+      },
+      empty: {
+        title: 'No posts found',
+        description: 'Try a different filter, or create a new post.',
+        actionLabel: 'New post',
+      },
+      loading: 'Loading',
+    },
+    // 로케일은 문구가 아니라 포맷이다 — en-US 자릿수/통화로 갈아끼운다
+    formatters: {
+      number: (value) => value.toLocaleString('en-US'),
+      price: (value) => `$${value.toLocaleString('en-US')}`,
+    },
+    onEmptyAction: () => {},
+  },
+  render: (args) => (
+    <AdminTableDemo
+      {...args}
+      columns={[
+        { kind: 'select', key: 'select' },
+        { kind: 'index', key: 'index' },
+        { kind: 'thumbTitle', key: 'title', header: 'Post', sortable: true },
+        { kind: 'category', key: 'category', header: 'Category' },
+        {
+          kind: 'selectCell',
+          key: 'type',
+          header: 'Type',
+          options: TYPES.map((type) => ({ label: type, value: type })),
+        },
+        // Post에는 memo 필드가 없다 — 값이 비어 있으므로 labels.memo.empty('Add memo')가 그대로 보인다
+        { kind: 'memo', key: 'memo' },
+        { kind: 'status', key: 'published', header: 'Visible' },
+        { kind: 'actions', key: 'actions' },
+      ]}
+      pageSizeControl
+    />
+  ),
+}
+
+/**
+ * 빈 표 + CTA — emptyKind로 '검색 결과 없음' 그림을 고르고,
+ * labels.empty.actionLabel + onEmptyAction으로 '새 항목 등록' 버튼을 붙인다.
+ */
+export const EmptyWithAction: Story = {
+  args: {
+    rows: [],
+    emptyText: undefined,
+    emptyKind: 'search',
+    labels: {
+      empty: {
+        title: '검색 결과가 없습니다.',
+        description: '다른 키워드로 다시 검색해 보세요.',
+        actionLabel: '검색 조건 초기화',
+      },
+    },
+    onEmptyAction: () => {},
+  },
+  render: (args) => <PostTable {...args} columns={DEFAULT_COLUMNS} rows={[]} />,
+}
+
+/** striped — 컬럼이 많고 행이 긴 표에서 짝수 행 줄무늬가 가로 추적을 돕는다(고정 컬럼까지 이어진다) */
+export const Striped: Story = {
+  args: { striped: true, density: 'compact', rows: POSTS },
+  render: (args) => <AdminTableDemo {...args} columns={FULL_META_COLUMNS} pageSize={20} />,
 }

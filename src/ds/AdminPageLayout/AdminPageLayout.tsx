@@ -1,10 +1,27 @@
 import { useId, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { PanelLeft } from 'lucide-react'
+import { mergeLabels, resolveLabel } from '../../shared/labels'
 // 어드민 1920 레이아웃 상수(--admin-*) — 단일 소스
 import '../PageContainer/layout.css'
 import styles from './AdminPageLayout.module.css'
-import { PageContainer } from '../PageContainer/PageContainer'
+import { PageContainer, type PageContainerPadding } from '../PageContainer/PageContainer'
+
+/**
+ * 레이아웃이 그리는 문구는 좌측 패널 토글 버튼 하나뿐이다.
+ * (title·description은 이미 개별 prop이라 통로를 두 개로 늘리지 않는다)
+ */
+export type AdminPageLayoutLabels = {
+  /** 패널이 닫혀 있을 때의 버튼 문구(누르면 열린다) — 기본 '패널 열기' */
+  sideOpen?: string
+  /** 패널이 열려 있을 때의 버튼 문구(누르면 닫힌다) — 기본 '패널 닫기' */
+  sideClose?: string
+}
+
+export const DEFAULT_ADMIN_PAGE_LAYOUT_LABELS = {
+  sideOpen: '패널 열기',
+  sideClose: '패널 닫기',
+} satisfies AdminPageLayoutLabels
 
 export type AdminPageLayoutProps = {
   /** 상단: 페이지 타이틀 + 우측 액션(등록/엑셀/일괄등록) */
@@ -24,10 +41,22 @@ export type AdminPageLayoutProps = {
   aside?: ReactNode
   asideWidth?: number
   asideSticky?: boolean
-  /** 하단 sticky 액션 바 */
+  /** 하단 액션 바 — 기본은 화면 아래에 붙는다(footerSticky) */
   footer?: ReactNode
+  /**
+   * 하단 액션 바 고정 (기본 true = sticky).
+   * false면 본문 끝에 그대로 놓인다 — 이 축이 없어서 AdminFormPage가 액션 바 마크업을 한 벌 더 그리고 있었다.
+   */
+  footerSticky?: boolean
   /** 콘텐츠 최대폭 — 1920 규격(full=1600 / lg=1200 / md=768) */
   maxWidth?: 'md' | 'lg' | 'full'
+  /**
+   * 외곽 여백 (기본 md=40) — PageContainer로 그대로 통과시킨다.
+   * 드로어·모달·탭 패널 안에 넣으면 패딩이 두 번 먹으므로 none/sm으로 내린다.
+   */
+  padding?: PageContainerPadding
+  /** 섹션 간 수직 리듬 (기본 md=24 / lg=32) — PageContainer로 통과 */
+  gap?: 'md' | 'lg'
   /** 하위 컴포넌트에 CSS 변수로 전달되는 밀도 — AdminTable의 density prop과는 별개다(아래 주석 참고) */
   density?: 'compact' | 'comfortable'
   /**
@@ -37,10 +66,18 @@ export type AdminPageLayoutProps = {
   showSideToggle?: boolean
   /** 접기 버튼 아이콘 — 기본은 좌측 패널 아이콘 */
   sideToggleIcon?: ReactNode
-  /** 패널이 닫혀 있을 때의 버튼 문구(누르면 열린다) */
+  /**
+   * 패널이 닫혀 있을 때의 버튼 문구(누르면 열린다).
+   * @deprecated labels.sideOpen을 쓴다(개별 prop이 이긴다 — 기존 화면은 그대로 동작한다)
+   */
   sideOpenLabel?: string
-  /** 패널이 열려 있을 때의 버튼 문구(누르면 닫힌다) */
+  /**
+   * 패널이 열려 있을 때의 버튼 문구(누르면 닫힌다).
+   * @deprecated labels.sideClose를 쓴다(개별 prop이 이긴다)
+   */
   sideCloseLabel?: string
+  /** 문구 통로 — 개별 prop > labels.* > 기본값 */
+  labels?: AdminPageLayoutLabels
 }
 
 /**
@@ -79,13 +116,23 @@ export function AdminPageLayout({
   asideWidth = 360,
   asideSticky = true,
   footer,
+  footerSticky = true,
   maxWidth = 'full',
+  padding = 'md',
+  gap = 'md',
   density = 'compact',
   showSideToggle = true,
   sideToggleIcon,
-  sideOpenLabel = '패널 열기',
-  sideCloseLabel = '패널 닫기',
+  sideOpenLabel,
+  sideCloseLabel,
+  labels,
 }: AdminPageLayoutProps) {
+  const L = mergeLabels(DEFAULT_ADMIN_PAGE_LAYOUT_LABELS, labels)
+
+  // 개별 prop > labels.* > 기본값
+  const openLabel = resolveLabel(sideOpenLabel, L.sideOpen)
+  const closeLabel = resolveLabel(sideCloseLabel, L.sideClose)
+
   // 1280 미만에서만 의미가 있는 상태 — 그 이상에서는 CSS가 side를 항상 펼쳐 보여준다
   const [sideOpen, setSideOpen] = useState(false)
   const sideId = useId()
@@ -106,10 +153,11 @@ export function AdminPageLayout({
 
   const sideClass = [styles.side, sideOpen ? '' : styles.sideClosed].filter(Boolean).join(' ')
   const asideClass = [styles.aside, asideSticky ? styles.sticky : ''].filter(Boolean).join(' ')
+  const footerClass = [styles.footer, footerSticky ? styles.footerSticky : ''].filter(Boolean).join(' ')
 
   return (
     <div className={styles.root} data-density={density} style={vars}>
-      <PageContainer maxWidth={maxWidth} padding="md" gap="md">
+      <PageContainer maxWidth={maxWidth} padding={padding} gap={gap}>
         {hasHeader && (
           <header className={styles.header}>
             <div className={styles.headings}>
@@ -132,7 +180,7 @@ export function AdminPageLayout({
               onClick={() => setSideOpen((open) => !open)}
             >
               {sideToggleIcon ?? <PanelLeft size={16} aria-hidden="true" />}
-              <span>{sideOpen ? sideCloseLabel : sideOpenLabel}</span>
+              <span>{sideOpen ? closeLabel : openLabel}</span>
             </button>
           </div>
         )}
@@ -152,7 +200,7 @@ export function AdminPageLayout({
           {hasAside && <aside className={asideClass}>{aside}</aside>}
         </div>
 
-        {footer != null && <div className={styles.footer}>{footer}</div>}
+        {footer != null && <div className={footerClass}>{footer}</div>}
       </PageContainer>
     </div>
   )

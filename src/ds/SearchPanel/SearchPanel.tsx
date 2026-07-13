@@ -1,5 +1,6 @@
 import { useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { mergeLabels, resolveLabel, type LabelFn, type SearchLabels } from '../../shared/labels'
 import { Button } from '../Button/Button'
 import { DateRangePicker } from '../DateRangePicker/DateRangePicker'
 import { InputBase } from '../InputBase/InputBase'
@@ -34,17 +35,83 @@ export type DateRangeValue = { start: string | null; end: string | null }
 
 export type SearchValues = Record<string, string | string[] | DateRangeValue | null>
 
+/** 기간 프리셋 — labels.presets의 키이기도 하다 */
+export type DatePresetKey = 'today' | '7d' | '30d' | '90d'
+
+/** 플레이스홀더를 갖는 필드 종류 — daterange는 자체 피커가 문구를 갖는다 */
+type PlaceholderFieldKind = 'text' | 'number' | 'select' | 'multiselect'
+
+/**
+ * 검색 패널 문구 — 공용 SearchLabels에서 이 패널이 실제로 그리는 것만 받고,
+ * 패널 전용 문구(섹션 이름·기간 프리셋·kind별 플레이스홀더)를 얹는다.
+ * (SearchLabels.search·searchPlaceholder는 단일 검색 입력이 있는 바(FilterBar·ListToolbar)의 것이다.)
+ */
+export type SearchPanelLabels = Pick<
+  SearchLabels,
+  'reset' | 'submit' | 'submitting' | 'expand' | 'collapse' | 'hiddenCount'
+> & {
+  /** <section>의 접근성 이름 — 기본 '검색 조건' */
+  panel?: string
+  /** 기간 프리셋 버튼 */
+  presets?: Partial<Record<DatePresetKey, string>>
+  /** kind별 기본 플레이스홀더 — field.placeholder가 있으면 그쪽이 이긴다 */
+  placeholders?: Partial<Record<PlaceholderFieldKind, string>>
+}
+
+type SearchPanelLabelsResolved = {
+  panel: string
+  reset: string
+  submit: string
+  submitting: string
+  expand: string
+  collapse: string
+  hiddenCount: LabelFn<number>
+  presets: Record<DatePresetKey, string>
+  placeholders: Record<PlaceholderFieldKind, string>
+}
+
+export const DEFAULT_SEARCH_PANEL_LABELS: SearchPanelLabelsResolved = {
+  panel: '검색 조건',
+  reset: '초기화',
+  submit: '검색',
+  submitting: '검색 중…',
+  expand: '상세검색',
+  collapse: '상세검색 접기',
+  /** 접힌 조건 수 — 펼치기 라벨 뒤에 그대로 이어 붙는다('상세검색 (+3)') */
+  hiddenCount: (count) => ` (+${count})`,
+  presets: {
+    today: '오늘',
+    '7d': '최근 7일',
+    '30d': '최근 30일',
+    '90d': '최근 90일',
+  },
+  placeholders: {
+    text: '입력하세요',
+    number: '숫자만 입력',
+    select: '전체',
+    multiselect: '전체',
+  },
+}
+
 export type SearchPanelProps = {
   fields: SearchFieldDef[]
   values: SearchValues
   onChange: (values: SearchValues) => void
   onSearch?: () => void
   onReset?: () => void
-  /** 그리드 컬럼 수 — 기본 4(1600 콘텐츠 폭 기준). 좁아지면 2열 → 1열로 접힌다. */
-  columns?: 2 | 3 | 4
-  /** 상세검색 접기/펼치기 — 접히면 앞의 4개 필드만 보인다. */
+  /**
+   * 그리드 컬럼 수 — 기본 4(1600 콘텐츠 폭 기준). 좁아지면 2열 → 1열로 접힌다.
+   * 1은 접히지 않는다 — 사이드바·모바일용 세로 한 줄 검색.
+   */
+  columns?: 1 | 2 | 3 | 4
+  /** 상세검색 접기/펼치기 — 접히면 앞의 collapsedCount개 필드만 보인다. */
   collapsible?: boolean
   defaultCollapsed?: boolean
+  /**
+   * 접었을 때 보여 줄 필드 수 (기본 4).
+   * 4는 4열 그리드의 '한 줄'이라는 뜻이었다 — columns를 줄이면 이 값도 함께 줄여야 한 줄이 된다.
+   */
+  collapsedCount?: number
   loading?: boolean
   /** 검색/초기화 옆 추가 버튼(엑셀 다운로드 등) */
   actions?: ReactNode
@@ -62,33 +129,31 @@ export type SearchPanelProps = {
    * 엔터 검색은 onSearch가 있으면 그대로 동작한다.
    */
   showSearch?: boolean
+  /**
+   * 카드 크롬(흰 면 + 1px 보더 + 패딩). 기본 card.
+   * 이미 카드 안에 넣을 때 plain으로 껍데기를 벗겨 테두리가 겹치지 않게 한다.
+   */
+  appearance?: 'card' | 'plain'
   /** 상세검색 토글 아이콘 — 기본 lucide ChevronDown(펼침에 따라 회전한다) */
   collapseIcon?: ReactNode
-  /** 초기화 버튼 라벨 (기본 '초기화') */
+  /** @deprecated labels.reset을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다. */
   resetLabel?: string
-  /** 검색 버튼 라벨 (기본 '검색') */
+  /** @deprecated labels.submit을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다. */
   searchLabel?: string
-  /** 검색 중 버튼 라벨 (기본 '검색 중…') */
+  /** @deprecated labels.submitting을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다. */
   searchingLabel?: string
-  /** 상세검색 펼치기 라벨 (기본 '상세검색') — 뒤에 숨은 필드 수 '(+3)'가 붙는다 */
+  /** @deprecated labels.expand를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다. */
   expandLabel?: string
-  /** 상세검색 접기 라벨 (기본 '상세검색 접기') */
+  /** @deprecated labels.collapse를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다. */
   collapseLabel?: string
-}
-
-type DatePresetKey = 'today' | '7d' | '30d' | '90d'
-
-const PRESET_LABEL: Record<DatePresetKey, string> = {
-  today: '오늘',
-  '7d': '최근 7일',
-  '30d': '최근 30일',
-  '90d': '최근 90일',
+  /** 문구 — 개별 prop(resetLabel …)이 있으면 그쪽이 이긴다 */
+  labels?: SearchPanelLabels
 }
 
 const PRESET_DAYS: Record<DatePresetKey, number> = { today: 1, '7d': 7, '30d': 30, '90d': 90 }
 
-/** 접힌 상태에서 보여 줄 필드 개수 */
-const COLLAPSED_FIELDS = 4
+/** 접힌 상태에서 보여 줄 기본 필드 개수 — 4열 그리드의 한 줄 */
+const DEFAULT_COLLAPSED_COUNT = 4
 
 // ── 값 헬퍼 — SearchValues는 유니온이라 kind별로 좁혀서 쓴다 ──
 function asText(value: SearchValues[string] | undefined): string {
@@ -150,24 +215,35 @@ export function SearchPanel({
   columns = 4,
   collapsible = true,
   defaultCollapsed = false,
+  collapsedCount = DEFAULT_COLLAPSED_COUNT,
   loading = false,
   actions,
   showLabels = true,
   showReset = true,
   showSearch = true,
+  appearance = 'card',
   collapseIcon,
-  resetLabel = '초기화',
-  searchLabel = '검색',
-  searchingLabel = '검색 중…',
-  expandLabel = '상세검색',
-  collapseLabel = '상세검색 접기',
+  resetLabel,
+  searchLabel,
+  searchingLabel,
+  expandLabel,
+  collapseLabel,
+  labels,
 }: SearchPanelProps) {
   const uid = useId()
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
-  const hasToggle = collapsible && fields.length > COLLAPSED_FIELDS
+  const L = mergeLabels(DEFAULT_SEARCH_PANEL_LABELS, labels)
+  const D = DEFAULT_SEARCH_PANEL_LABELS
+  const resolvedReset = resolveLabel(resetLabel, L.reset) ?? D.reset
+  const resolvedSearch = resolveLabel(searchLabel, L.submit) ?? D.submit
+  const resolvedSearching = resolveLabel(searchingLabel, L.submitting) ?? D.submitting
+  const resolvedExpand = resolveLabel(expandLabel, L.expand) ?? D.expand
+  const resolvedCollapse = resolveLabel(collapseLabel, L.collapse) ?? D.collapse
+
+  const hasToggle = collapsible && fields.length > collapsedCount
   const isCollapsed = hasToggle && collapsed
-  const visibleFields = isCollapsed ? fields.slice(0, COLLAPSED_FIELDS) : fields
+  const visibleFields = isCollapsed ? fields.slice(0, collapsedCount) : fields
   const hiddenCount = fields.length - visibleFields.length
 
   const setValue = (key: string, value: SearchValues[string]) => {
@@ -196,7 +272,7 @@ export function SearchPanel({
           <InputBase
             value={asText(values[field.key])}
             onChange={(v) => setValue(field.key, v)}
-            placeholder={field.placeholder ?? '입력하세요'}
+            placeholder={field.placeholder ?? L.placeholders.text}
             disabled={loading}
           />
         )
@@ -206,7 +282,7 @@ export function SearchPanel({
             value={asText(values[field.key])}
             // 숫자만 남긴다 — 하이픈/문자 입력을 막아 서버 파싱을 단순하게 유지
             onChange={(v) => setValue(field.key, v.replace(/[^0-9]/g, ''))}
-            placeholder="숫자만 입력"
+            placeholder={L.placeholders.number}
             inputMode="numeric"
             disabled={loading}
           />
@@ -217,7 +293,7 @@ export function SearchPanel({
             value={typeof values[field.key] === 'string' ? (values[field.key] as string) : null}
             onChange={(v) => setValue(field.key, v)}
             options={field.options}
-            placeholder={field.placeholder ?? '전체'}
+            placeholder={field.placeholder ?? L.placeholders.select}
             disabled={loading}
           />
         )
@@ -227,7 +303,7 @@ export function SearchPanel({
             values={asList(values[field.key])}
             onChange={(v) => setValue(field.key, v)}
             options={field.options}
-            placeholder="전체"
+            placeholder={L.placeholders.multiselect}
             disabled={loading}
           />
         )
@@ -261,7 +337,7 @@ export function SearchPanel({
                       disabled={loading}
                       onClick={() => setValue(field.key, target)}
                     >
-                      {PRESET_LABEL[preset]}
+                      {L.presets[preset]}
                     </button>
                   )
                 })}
@@ -273,16 +349,26 @@ export function SearchPanel({
     }
   }
 
-  const panelClass = [styles.panel, loading ? styles.loading : ''].filter(Boolean).join(' ')
+  const panelClass = [
+    styles.panel,
+    appearance === 'plain' ? styles.plain : '',
+    loading ? styles.loading : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <section
       className={panelClass}
-      aria-label="검색 조건"
+      aria-label={L.panel}
       aria-busy={loading || undefined}
       onKeyDown={handleKeyDown}
     >
-      <div className={styles.grid} style={{ '--cols': columns } as CSSProperties}>
+      <div
+        // 1열은 좁아져도 접히지 않는다 — 이미 한 줄이라 더 접을 것이 없다
+        className={[styles.grid, columns === 1 ? styles.single : ''].filter(Boolean).join(' ')}
+        style={{ '--cols': columns } as CSSProperties}
+      >
         {visibleFields.map((field) => {
           // span은 columns를 넘지 못하게 클램프 — 넘치면 그리드가 한 칸씩 밀린다
           const span = Math.min(Math.max(field.span ?? 1, 1), columns)
@@ -339,7 +425,7 @@ export function SearchPanel({
                 aria-hidden="true"
               />
             )}
-            {isCollapsed ? `${expandLabel} (+${hiddenCount})` : collapseLabel}
+            {isCollapsed ? `${resolvedExpand}${L.hiddenCount(hiddenCount)}` : resolvedCollapse}
           </button>
         )}
         <div className={styles.buttons}>
@@ -349,7 +435,7 @@ export function SearchPanel({
               variant="secondary"
               appearance="outline"
               size="md"
-              label={resetLabel}
+              label={resolvedReset}
               disabled={loading}
               onClick={handleReset}
             />
@@ -358,7 +444,7 @@ export function SearchPanel({
             <Button
               variant="primary"
               size="md"
-              label={loading ? searchingLabel : searchLabel}
+              label={loading ? resolvedSearching : resolvedSearch}
               disabled={loading}
               onClick={() => onSearch?.()}
             />

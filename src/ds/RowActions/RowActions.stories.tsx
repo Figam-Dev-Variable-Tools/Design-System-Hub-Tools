@@ -11,12 +11,19 @@ const meta = {
   tags: ['autodocs'],
   args: {
     size: 'md',
+    appearance: 'outline',
     onView: () => {},
     onEdit: () => {},
     onDelete: () => {},
   },
   argTypes: {
-    size: { control: 'inline-radio', options: ['sm', 'md'] },
+    size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
+    appearance: {
+      control: 'inline-radio',
+      options: ['outline', 'ghost'],
+      description: '버튼 룩 — ghost는 보더·면을 지운다(배경색이 깔린 행 위)',
+    },
+    tones: { control: false, description: '액션별 톤 — 기본 delete만 danger' },
     labels: { control: false },
     onView: { control: false },
     onEdit: { control: false },
@@ -36,12 +43,90 @@ type Story = StoryObj<typeof meta>
 /** 눈=상세보기 · 연필=수정 · 휴지통=삭제(error 톤) */
 export const Default: Story = {}
 
-/** 크기 — sm(26px) / md(32px) */
+/** 크기 — sm(26px) / md(32px) / lg(40px) */
 export const Sizes: Story = {
   render: (args) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
       <RowActions {...args} size="sm" />
       <RowActions {...args} size="md" />
+      <RowActions {...args} size="lg" />
+    </div>
+  ),
+}
+
+/**
+ * 룩 — outline(기본)은 흰 면 + 1px 보더, ghost는 면·보더 없이 아이콘만.
+ * 선택·강조로 배경색이 깔린 행에서는 흰 사각이 튀므로 ghost를 쓴다.
+ */
+export const Appearance: Story = {
+  render: (args) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          padding: 'var(--ds-spacing-3)',
+          background: 'var(--ds-color-bg)',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-md)',
+        }}
+      >
+        <span style={{ fontSize: 'var(--ds-font-size-sm)' }}>outline — 흰 행</span>
+        <RowActions {...args} appearance="outline" />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          padding: 'var(--ds-spacing-3)',
+          background: 'color-mix(in srgb, var(--ds-color-primary) 10%, var(--ds-color-bg))',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-md)',
+        }}
+      >
+        <span style={{ fontSize: 'var(--ds-font-size-sm)' }}>ghost — 선택된 행</span>
+        <RowActions {...args} appearance="ghost" />
+      </div>
+    </div>
+  ),
+}
+
+/**
+ * 톤 — 기본은 삭제만 danger다.
+ * 아이콘만 바꾼 커스텀 액션(승인·차단)에 뜻에 맞는 색을 주려면 tones로 연다.
+ */
+export const Tones: Story = {
+  render: (args) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Row label="기본 — delete만 danger" node={<RowActions {...args} />} />
+      <Row
+        label="승인=success · 차단=danger"
+        node={
+          <RowActions
+            onEdit={noop}
+            onDelete={noop}
+            labels={{ edit: '승인', delete: '차단' }}
+            tones={{ edit: 'success', delete: 'danger' }}
+            editIcon={<Check size={16} aria-hidden="true" />}
+            deleteIcon={<Ban size={16} aria-hidden="true" />}
+          />
+        }
+      />
+      <Row
+        label="보류=warning"
+        node={
+          <RowActions
+            onEdit={noop}
+            labels={{ edit: '보류' }}
+            tones={{ edit: 'warning' }}
+            editIcon={<Ban size={16} aria-hidden="true" />}
+          />
+        }
+      />
     </div>
   ),
 }
@@ -66,6 +151,16 @@ export const PartialActions: Story = {
 export const CustomLabels: Story = {
   args: {
     labels: { view: '홍길동 상세보기', edit: '홍길동 수정', delete: '홍길동 삭제' },
+  },
+}
+
+/**
+ * 문구 오버라이드 — 화면에 보이는 글자(툴팁)와 접근성 이름이 같은 통로(labels)로 열린다.
+ * group은 묶음(role="group")의 이름이라 툴팁으로는 보이지 않는다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: { group: 'Row actions', view: 'View', edit: 'Edit', delete: 'Delete' },
   },
 }
 

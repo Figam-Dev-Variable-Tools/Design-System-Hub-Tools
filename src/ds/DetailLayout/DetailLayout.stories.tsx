@@ -98,6 +98,23 @@ const meta = {
     aside: { control: false },
     footer: { control: false },
     showFooter: { control: 'boolean', description: '하단 액션 바 노출(읽기 전용 화면에서 끈다)' },
+    asideWidth: { control: 'inline-radio', options: ['sm', 'md'] },
+    asidePlacement: {
+      control: 'inline-radio',
+      options: ['left', 'right'],
+      description: 'left=FormAnchorNav·CategoryTree처럼 본문보다 먼저 읽혀야 하는 레일',
+    },
+    footerAlign: {
+      control: 'inline-radio',
+      options: ['start', 'between', 'end'],
+      description: 'between=좌측 [삭제] · 우측 [취소][저장]',
+    },
+    maxWidth: {
+      control: 'inline-radio',
+      options: [undefined, 'md', 'lg', 'full'],
+      description: '주지 않으면 부모 폭을 그대로 쓴다(기존 동작)',
+    },
+    density: { control: 'inline-radio', options: ['compact', 'comfortable'] },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -151,4 +168,44 @@ export const States: Story = {
       </PageContainer>
     </div>
   ),
+}
+
+/**
+ * 좌측 레일 + 액션 바 between —
+ * 레일이 왼쪽에 서야 하는 화면(앵커 내비·카테고리 트리)과
+ * 좌측 [삭제] · 우측 [취소][저장]인 흔한 상세 액션 바. 둘 다 축이 없어 화면이 직접 만들고 있었다.
+ */
+export const LeftRailAndSplitFooter: Story = {
+  args: {
+    asidePlacement: 'left',
+    asideWidth: 'sm',
+    footerAlign: 'between',
+    aside: ASIDE,
+    footer: (
+      <>
+        <Button variant="error" appearance="outline" size="md" label="삭제" />
+        <div style={{ display: 'flex', gap: 'var(--ds-spacing-2)' }}>
+          <Button variant="secondary" appearance="outline" size="md" label="취소" />
+          <Button variant="primary" size="md" label="저장" />
+        </div>
+      </>
+    ),
+  },
+  render: (args) => (
+    <PageContainer maxWidth="full" gap="lg">
+      <DetailLayout {...args} />
+    </PageContainer>
+  ),
+}
+
+/**
+ * 단독 사용 — PageContainer 없이 maxWidth로 1920 규격(lg=1200)을 스스로 지킨다.
+ * density는 형제 레이아웃(AdminPageLayout)과 같은 CSS 변수 계약을 심는다.
+ */
+export const StandaloneWidth: Story = {
+  args: {
+    maxWidth: 'lg',
+    density: 'comfortable',
+    aside: undefined,
+  },
 }

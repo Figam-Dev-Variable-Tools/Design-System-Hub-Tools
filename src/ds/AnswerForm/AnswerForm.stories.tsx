@@ -225,3 +225,56 @@ export const CustomLabels: Story = {
   },
   render: (args) => <AnswerFormDemo {...args} />,
 }
+
+/**
+ * Labels: 영문 오버라이드 — 필드 라벨·placeholder·발송 채널·미리보기 문구가 전부 labels 통로로 닿는다.
+ * 기존 개별 prop(cancelLabel·previewLabel·draftLabel)이 labels보다 우선하므로 여기서는 비워 둔다.
+ */
+export const Labels: Story = {
+  args: {
+    value: filledDraft,
+    cancelLabel: undefined,
+    previewLabel: undefined,
+    draftLabel: undefined,
+    labels: {
+      template: {
+        label: 'Saved replies',
+        placeholder: 'Pick a template',
+        hint: 'Picking one fills the answer body.',
+        overwriteConfirm: 'This replaces what you have written. Continue?',
+      },
+      content: { label: 'Answer', placeholder: 'Write your answer' },
+      attachments: {
+        label: 'Images / files',
+        hint: (maxSizeMb) => `Images and documents · up to ${maxSizeMb}MB`,
+      },
+      visibility: {
+        label: 'Visibility',
+        publicHint: 'Visible to every customer.',
+        privateHint: 'Only the asker can see it.',
+      },
+      notify: {
+        label: 'Notify via',
+        hint: 'We notify the customer on the selected channels.',
+        channels: { sms: 'SMS', email: 'Email', kakao: 'KakaoTalk' },
+      },
+      actions: {
+        submitting: 'Posting…',
+        submitCreate: 'Post answer',
+        submitEdit: 'Save changes',
+        cancel: 'Cancel',
+        preview: 'Preview',
+        draft: 'Save draft',
+      },
+      preview: {
+        title: 'Answer preview',
+        close: 'Close',
+        public: 'Public answer',
+        private: 'Private answer',
+        sent: (channels) => `Sending via: ${channels.join(' · ')}`,
+        noChannel: 'No channel selected',
+      },
+    },
+  },
+  render: (args) => <AnswerFormDemo {...args} />,
+}

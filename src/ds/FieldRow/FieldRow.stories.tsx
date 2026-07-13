@@ -45,6 +45,12 @@ const meta = {
     span: { control: 'inline-radio', options: [1, 2, 3] },
     children: { control: false },
     requiredMark: { control: 'text', description: '필수 표시 기호(기본 *) — 장식이라 낭독되지 않는다' },
+    labelPlacement: {
+      control: 'inline-radio',
+      options: ['top', 'left'],
+      description: 'left=어드민 설정 화면의 2열 폼(좁은 폭에서는 자동으로 top)',
+    },
+    labelWidth: { control: { type: 'number', min: 80, step: 20 }, description: 'left 배치의 라벨 열 폭(px)' },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -210,6 +216,37 @@ export const NativeControl: Story = {
 
     return <NativeDemo />
   },
+}
+
+/**
+ * 좌측 라벨(labelPlacement='left') — 어드민 설정 화면에서 흔한 2열 폼.
+ * 설명·에러는 라벨 아래가 아니라 컨트롤 아래(2번 열)에 선다 — 읽는 순서가 맞아야 한다.
+ * 1023px 이하에서는 자동으로 top으로 풀린다(라벨 열이 컨트롤을 짓누르지 않게).
+ */
+export const LeftLabel: Story = {
+  render: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: 560, maxWidth: '100%' }}>
+      <FieldRow label="서비스 이름" required labelPlacement="left">
+        <InputBase value="스페이스플래닝" onChange={() => {}} />
+      </FieldRow>
+      <FieldRow
+        label="담당자 이메일"
+        labelPlacement="left"
+        description="장애 알림이 이 주소로 발송됩니다."
+      >
+        <InputBase value="ops@example.com" onChange={() => {}} type="email" />
+      </FieldRow>
+      <FieldRow
+        label="휴대폰 번호"
+        required
+        labelPlacement="left"
+        labelWidth={180}
+        error="숫자만 입력하세요."
+      >
+        <InputBase value="010-abc" onChange={() => {}} error />
+      </FieldRow>
+    </div>
+  ),
 }
 
 /**

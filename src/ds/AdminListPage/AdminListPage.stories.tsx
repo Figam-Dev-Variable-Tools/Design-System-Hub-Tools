@@ -212,16 +212,33 @@ const meta = {
     searchFields: { control: false },
     sortOptions: { control: false },
     side: { control: false },
+    aside: { control: false },
     headerActions: { control: false },
     toolbarActions: { control: false },
     createIcon: { control: false },
     show: { control: 'object' },
+    labels: { control: 'object', description: '문구 통로 — 개별 prop > labels.* > 기본값' },
     search: { control: 'radio', options: ['panel', 'inline', false] },
     density: { control: 'radio', options: ['compact', 'comfortable'] },
     title: { control: 'text' },
     description: { control: 'text' },
-    createLabel: { control: 'text' },
-    emptyText: { control: 'text' },
+    createLabel: { control: 'text', description: '@deprecated labels.create' },
+    emptyText: { control: 'text', description: '@deprecated labels.empty.title' },
+    totalLabel: { control: 'text', description: '@deprecated labels.total.prefix' },
+    totalUnit: { control: 'text', description: '@deprecated labels.total.unit' },
+    searchPlaceholder: { control: 'text', description: '@deprecated labels.search.searchPlaceholder' },
+    // 변형 축
+    chrome: {
+      control: 'radio',
+      options: ['page', 'plain', 'card'],
+      description: 'card=모달·탭 패널 안에 얹는 목록(카드 껍데기)',
+    },
+    selection: {
+      control: 'radio',
+      options: ['multi', 'single', 'none'],
+      description: 'none=선택 컬럼·일괄 처리가 통째로 사라진다(읽기 전용 목록)',
+    },
+    maxWidth: { control: 'radio', options: ['md', 'lg', 'full'] },
   },
   parameters: {
     layout: 'fullscreen',
@@ -311,4 +328,102 @@ export const Empty: Story = {
     rows: [],
     searchFields: SEARCH_FIELDS,
   },
+}
+
+/**
+ * 걸러져서 0건 — 탭/검색이 걸린 표에는 '등록해 보세요'가 거짓말이다.
+ * labels.emptyFiltered가 그 상태의 문구를 따로 갖는다(개별 prop emptyText 하나로는 두 상태를 가를 수 없었다).
+ */
+export const EmptyFiltered: Story = {
+  args: {
+    rows: ROWS.filter((row) => row.status === 'active'),
+    tab: 'draft',
+    emptyText: undefined,
+    labels: {
+      empty: { title: '아직 등록된 항목이 없습니다.', description: '첫 항목을 등록해 보세요.' },
+      emptyFiltered: {
+        title: '조건에 맞는 항목이 없습니다.',
+        description: '탭이나 검색 조건을 바꿔 보세요.',
+      },
+    },
+  },
+}
+
+/**
+ * 문구 전면 교체(labels) — 개별 prop을 하나도 주지 않고 통로 하나로 영문화한다.
+ * 셸이 직접 그리는 문구(등록 버튼·건수·카드형 선택 바·로딩·삭제 확인창·빈 상태)가 전부 여기서 나온다.
+ */
+export const Labels: Story = {
+  args: {
+    search: 'inline',
+    matchKeyword,
+    createLabel: undefined,
+    emptyText: undefined,
+    searchPlaceholder: undefined,
+    deleteConfirm: undefined,
+    title: 'Notices',
+    description: 'Same shell, English copy — nothing but labels changed.',
+    labels: {
+      create: 'New notice',
+      loading: 'Loading…',
+      total: { prefix: 'Total', unit: ' items' },
+      search: { searchPlaceholder: 'Search title or author' },
+      bulk: { selectedCount: (n) => `${n} selected`, delete: 'Delete selected' },
+      deleteDialog: {
+        title: 'Delete the selected items?',
+        description: (ids) => `${ids.length} item(s) will be permanently removed.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep',
+      },
+      empty: { title: 'No notices yet.', description: 'Create your first notice.' },
+      emptyFiltered: { title: 'No matches.', description: 'Try a different keyword.' },
+    },
+  },
+}
+
+/**
+ * 선택 축 — selection='none'이면 체크박스 열과 일괄 처리 바가 통째로 사라진다(읽기 전용 목록).
+ * 지금까지 이 축은 columns 배열의 kind='select' 선언에 묻혀 있어 prop 하나로 표현할 수 없었다.
+ */
+export const ReadOnlySelection: Story = {
+  args: {
+    selection: 'none',
+    rows: ROWS.slice(0, 8),
+    show: { pagination: false },
+  },
+}
+
+/** 우측 레일 — '목록 + 우측 요약' 화면. 레이아웃에는 있던 자리를 셸이 이제 통과시킨다 */
+export const WithAside: Story = {
+  args: {
+    aside: (
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: 'var(--ds-spacing-5)',
+          background: 'var(--ds-color-bg)',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-lg)',
+          fontSize: 'var(--ds-font-size-sm)',
+          color: 'var(--ds-color-secondary)',
+        }}
+      >
+        오늘 등록 3건 · 진행중 8건
+      </div>
+    ),
+    search: 'inline',
+    matchKeyword,
+  },
+}
+
+/** chrome='card' — 모달·탭 패널 안에 얹는 목록. plain은 껍데기가 없어 화면이 div를 덧대야 했다 */
+export const CardChrome: Story = {
+  args: {
+    chrome: 'card',
+    rows: ROWS.slice(0, 5),
+    search: 'inline',
+    matchKeyword,
+    show: { header: false, tabs: false },
+  },
+  parameters: { layout: 'padded' },
 }

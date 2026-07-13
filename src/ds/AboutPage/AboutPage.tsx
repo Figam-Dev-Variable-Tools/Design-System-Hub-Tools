@@ -6,6 +6,7 @@ import { Image } from '../Image/Image'
 import { SiteSection } from '../SiteSection/SiteSection'
 import { Skeleton } from '../Skeleton/Skeleton'
 import { Placeholder } from '../../shared/placeholders'
+import { mergeLabels, resolveLabel, type DeepPartialOneLevel } from '../../shared/labels'
 import styles from './AboutPage.module.css'
 
 /**
@@ -72,17 +73,42 @@ export type AboutCta = {
   buttonLabel: string
 }
 
+/**
+ * 화면이 스스로 들고 있는 문구 — hero·intro는 전부 데이터(props)라 여기 없다.
+ * 남는 건 섹션 헤딩 2개와 CTA 밴드뿐이다.
+ */
+export type AboutPageLabels = {
+  capabilities: AboutSectionCopy
+  stats: AboutSectionCopy
+  cta: AboutCta
+}
+
 export type AboutPageProps = {
   hero: AboutHero
   intro: AboutIntro
   capabilities: AboutCapability[]
-  /** 핵심 역량 섹션 헤딩 */
+  /**
+   * @deprecated labels.capabilities를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다
+   *   (통째로 대체된다 — 부분 오버라이드는 labels 쪽을 써라).
+   */
   capabilitiesCopy?: AboutSectionCopy
   stats: AboutStat[]
-  /** 숫자 성과 섹션 헤딩 */
+  /** @deprecated labels.stats를 쓴다(개별 prop이 우선하며 통째로 대체된다) */
   statsCopy?: AboutSectionCopy
-  /** CTA 밴드 문구 */
+  /** @deprecated labels.cta를 쓴다(개별 prop이 우선하며 통째로 대체된다) */
   cta?: AboutCta
+  /** 문구 — 개별 prop(capabilitiesCopy·statsCopy·cta)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<AboutPageLabels>
+  /** 역량 카드 열 수 (기본 4) — 항목이 3·6개일 때 마지막 줄이 비지 않게 맞춘다 */
+  capabilityColumns?: 2 | 3 | 4
+  /** 숫자 성과 열 수 (기본 4) */
+  statColumns?: 2 | 3 | 4
+  /**
+   * CTA 버튼의 면 처리 (기본 solid).
+   * 색(variant)은 accent에서 파생되지만, 한 사이트 안에서 ContactPage(검은 CTA)와 톤을 맞춰야 할 때
+   * outline·ghost로 낮춘다.
+   */
+  ctaAppearance?: 'solid' | 'outline' | 'ghost'
   onInquiry?: () => void
   /** 강조색 — 기본 success(레퍼런스의 그린) */
   accent?: 'primary' | 'success'
@@ -123,9 +149,25 @@ const DEFAULT_CTA: AboutCta = {
   buttonLabel: '프로젝트 문의하기',
 }
 
+/** 문구 기본값 — 같은 값을 두 번 적지 않는다(위 상수를 그대로 묶는다) */
+export const DEFAULT_ABOUT_PAGE_LABELS: AboutPageLabels = {
+  capabilities: DEFAULT_CAPABILITIES_COPY,
+  stats: DEFAULT_STATS_COPY,
+  cta: DEFAULT_CTA,
+}
+
 /** 로딩 중에 그릴 자리표시 개수 — 실제 데이터가 오면 곧바로 교체된다 */
 const SKELETON_CAPABILITIES = 4
 const SKELETON_STATS = 4
+
+/**
+ * 그리드 열 수 → 보조 클래스.
+ * 기본 4열은 .capabilityGrid / .statGrid 규칙이 이미 갖고 있으므로 아무 클래스도 덧붙이지 않는다 —
+ * 그래야 기본 렌더(레퍼런스 시안)의 DOM이 한 글자도 바뀌지 않는다.
+ */
+function columnClass(columns: 2 | 3 | 4): string {
+  return columns === 4 ? '' : styles[`cols${columns}`]
+}
 
 /** 역량 카드 스켈레톤 높이 — 아이콘 + 제목 + 4줄 설명이 들어가는 실측 높이 */
 const CAPABILITY_SKELETON_HEIGHT = 200
@@ -134,10 +176,14 @@ export function AboutPage({
   hero,
   intro,
   capabilities,
-  capabilitiesCopy = DEFAULT_CAPABILITIES_COPY,
+  capabilitiesCopy,
   stats,
-  statsCopy = DEFAULT_STATS_COPY,
-  cta = DEFAULT_CTA,
+  statsCopy,
+  cta,
+  labels,
+  capabilityColumns = 4,
+  statColumns = 4,
+  ctaAppearance = 'solid',
   onInquiry,
   accent = 'success',
   loading = false,
@@ -146,6 +192,14 @@ export function AboutPage({
   showHeroScrim = true,
   ctaIcon,
 }: AboutPageProps) {
+  const L = mergeLabels(DEFAULT_ABOUT_PAGE_LABELS, labels)
+
+  // 개별 prop은 '통째로' 이긴다 — 오늘 `capabilitiesCopy={{ title }}`만 넘기면 서브카피가 없는 화면이
+  // 나오므로, 여기서 기본 서브카피를 되살리면 기존 화면이 바뀐다(그래서 group merge가 아니라 resolveLabel이다).
+  const capabilitiesText = resolveLabel(capabilitiesCopy, L.capabilities)
+  const statsText = resolveLabel(statsCopy, L.stats)
+  const ctaText = resolveLabel(cta, L.cta)
+
   // 데이터가 비면 빈 그리드를 보여주는 대신 섹션 자체를 접는다(회사 소개에서 자연스러운 축약).
   const showCapabilities = loading || capabilities.length > 0
   const showStats = loading || stats.length > 0
@@ -217,11 +271,15 @@ export function AboutPage({
         <SiteSection
           tone="subtle"
           accent={accent}
-          title={capabilitiesCopy.title}
-          subtitle={capabilitiesCopy.subtitle}
+          title={capabilitiesText.title}
+          subtitle={capabilitiesText.subtitle}
           divider={showDivider}
         >
-          <div className={styles.capabilityGrid}>
+          <div
+            className={[styles.capabilityGrid, columnClass(capabilityColumns)]
+              .filter(Boolean)
+              .join(' ')}
+          >
             {loading
               ? Array.from({ length: SKELETON_CAPABILITIES }, (_, i) => (
                   <Skeleton
@@ -250,11 +308,11 @@ export function AboutPage({
       {showStats && (
         <SiteSection
           accent={accent}
-          title={statsCopy.title}
-          subtitle={statsCopy.subtitle}
+          title={statsText.title}
+          subtitle={statsText.subtitle}
           divider={showDivider}
         >
-          <div className={styles.statGrid}>
+          <div className={[styles.statGrid, columnClass(statColumns)].filter(Boolean).join(' ')}>
             {loading
               ? Array.from({ length: SKELETON_STATS }, (_, i) => (
                   <div key={i} className={styles.statItem}>
@@ -277,15 +335,16 @@ export function AboutPage({
         <SiteSection tone="subtle" accent={accent} padding="lg">
           <div className={styles.ctaBand}>
             <div className={styles.ctaText}>
-              <h2 className={styles.ctaTitle}>{cta.title}</h2>
-              {cta.subtitle != null && <p className={styles.ctaSubtitle}>{cta.subtitle}</p>}
+              <h2 className={styles.ctaTitle}>{ctaText.title}</h2>
+              {ctaText.subtitle != null && <p className={styles.ctaSubtitle}>{ctaText.subtitle}</p>}
             </div>
 
             <div className={styles.ctaAction}>
               <Button
                 variant={ctaVariant}
+                appearance={ctaAppearance}
                 size="lg"
-                label={cta.buttonLabel}
+                label={ctaText.buttonLabel}
                 showRightIcon
                 rightIcon={ctaIcon ?? <ArrowRight size={18} />}
                 onClick={onInquiry}

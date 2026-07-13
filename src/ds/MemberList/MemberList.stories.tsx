@@ -352,3 +352,43 @@ export const CustomCopy: Story = {
     emptyText: '등록된 작가가 없습니다.',
   },
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글 · 케밥/일괄 액션(같은 콜백이라 한 맵) · 가입일 상대시간 문구까지 labels가 소유한다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Members',
+      columns: {
+        nickname: 'Name',
+        account: 'Account',
+        memberType: 'Member type',
+        group: 'Group',
+        joinedAt: 'Joined',
+        points: 'Points',
+        counts: 'Posts/Comments/Reviews/Inquiries',
+        totalPurchase: 'Lifetime spend',
+        memo: 'Note',
+      },
+      actions: {
+        open: 'View details',
+        group: 'Change group',
+        points: 'Give points',
+        block: 'Block',
+        delete: 'Delete',
+      },
+      relativeTime: {
+        justNow: 'just now',
+        minutes: (n) => `${n}m ago`,
+        hours: (n) => `${n}h ago`,
+        days: (n) => `${n}d ago`,
+      },
+      search: { searchPlaceholder: 'Search by name, account or group' },
+      empty: { title: 'No members yet.' },
+      groupFootnote: 'Grouping lets you change member types and perks in one go.',
+    },
+    countUnit: ' people',
+  },
+}

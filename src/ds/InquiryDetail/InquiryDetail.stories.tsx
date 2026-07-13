@@ -322,3 +322,122 @@ export const WithoutMemos: Story = {
     showMemos: false,
   },
 }
+
+/**
+ * Labels: 영문 오버라이드 — 상태 맵(배지·타임라인·Select·모달 helperText가 함께 쓴다)부터
+ * 섹션 제목·표 머리글·답변 배지·확인창까지 labels 통로 하나로 전부 영문이 된다.
+ */
+export const Labels: Story = {
+  args: {
+    header: { ...HEADER, status: 'answered' },
+    answer: ANSWER,
+    memos: MEMOS,
+    labels: {
+      status: {
+        received: 'Received',
+        reviewing: 'In review',
+        answered: 'Answered',
+        hold: 'On hold',
+        closed: 'Closed',
+      },
+      sections: {
+        content: 'Inquiry',
+        order: 'Order',
+        products: 'Products',
+        answer: 'Answer',
+        answerDescription: 'Shown to the customer. A private answer is visible only to the author.',
+        memos: 'Internal notes',
+        author: 'Customer',
+        statusPanel: 'Processing',
+        history: 'History',
+      },
+      header: {
+        createdAt: 'Created',
+        updatedAt: 'Updated',
+        assignee: 'Assignee',
+        unassigned: 'Unassigned',
+        public: 'Public',
+        private: 'Private',
+      },
+      content: { attachments: 'Attachments' },
+      order: {
+        no: 'Order no.',
+        orderedAt: 'Ordered',
+        status: 'Order status',
+        paidAmount: 'Paid',
+        shippingStatus: 'Shipping',
+        detail: 'Open order',
+      },
+      columns: { name: 'Product', option: 'Option', quantity: 'Qty', price: 'Price' },
+      answer: {
+        publicBadge: 'Public answer',
+        privateBadge: 'Private answer',
+        edit: 'Edit',
+        delete: 'Delete',
+        updatedSuffix: (updatedAt) => ` (edited ${updatedAt})`,
+        editMeta: (a) => `First posted ${a.createdAt} · ${a.author}`,
+      },
+      memo: {
+        internalBadge: 'Internal only',
+        empty: 'No notes yet.',
+        placeholder: 'Write a note for your team. The customer never sees it.',
+        save: 'Add note',
+        saving: 'Adding',
+      },
+      author: {
+        email: 'Email',
+        phone: 'Phone',
+        grade: 'Tier',
+        recentOrder: 'Latest order',
+        noOrder: 'None',
+      },
+      statusPanel: { field: 'Change status', save: 'Save status' },
+      actions: {
+        list: 'Back to list',
+        prev: 'Previous',
+        next: 'Next',
+        delete: 'Delete',
+        assignee: 'Reassign',
+        status: 'Change status',
+        edit: 'Edit',
+        submitAnswer: 'Post answer',
+      },
+      statusDialog: {
+        title: 'Change status',
+        field: 'Status',
+        confirm: 'Change',
+        cancel: 'Cancel',
+        current: (statusLabel) => `Current: ${statusLabel}`,
+      },
+      assigneeDialog: {
+        title: 'Reassign',
+        field: 'Assignee',
+        placeholder: 'Pick an assignee',
+        confirm: 'Change',
+        cancel: 'Cancel',
+        empty: { title: 'No one is available to take this.' },
+        current: (assignee) => `Current: ${assignee}`,
+      },
+      memoEditDialog: {
+        title: 'Edit note',
+        description: 'An internal note. The customer never sees it.',
+        confirmLabel: 'Save',
+        field: 'Note',
+      },
+      memoDeleteDialog: {
+        title: 'Delete this note?',
+        description: (memo) => `The note written by ${memo.author} will be removed.`,
+      },
+      answerDeleteDialog: {
+        title: 'Delete this answer?',
+        description: 'It disappears from the customer board immediately.',
+      },
+      deleteDialog: {
+        title: 'Delete this inquiry?',
+        description: (header) => `${header.no} and its answer and notes will be removed.`,
+      },
+      emptyCell: '-',
+    },
+    formatters: { price: (n) => `$${Math.round(n / 1300).toLocaleString('en-US')}` },
+  },
+}

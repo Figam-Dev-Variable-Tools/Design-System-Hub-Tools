@@ -34,8 +34,6 @@ function bboxMin(d: string): [number, number] {
   return [mnX === Infinity ? 0 : mnX, mnY === Infinity ? 0 : mnY]
 }
 
-export const BRAND_KEYS = ['google', 'kakao', 'naver', 'facebook']
-
 /** 브랜드 로고를 size×size 프레임(다색 fill 벡터들)으로 반환. 없거나 변환 실패 시 null. */
 export function brandLogo(key: string, size: number): FrameNode | null {
   const data = LOGOS_DATA[key]

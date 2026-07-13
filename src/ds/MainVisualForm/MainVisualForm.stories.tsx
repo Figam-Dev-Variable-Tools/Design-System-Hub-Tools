@@ -77,6 +77,10 @@ const meta = {
     saveLabel: { control: 'text' },
     savingLabel: { control: 'text' },
     cancelLabel: { control: 'text' },
+    labels: { control: 'object' },
+    // 페이지 리듬 — 다른 폼과 같은 축
+    density: { control: 'inline-radio', options: ['compact', 'comfortable'] },
+    maxWidth: { control: 'inline-radio', options: ['md', 'lg', 'full'] },
     // 아이콘 슬롯은 ReactNode라 컨트롤을 붙이지 않는다
     removeImageIcon: { control: false },
   },
@@ -161,5 +165,72 @@ export const CustomCopy: Story = {
     saveLabel: '변경사항 저장',
     cancelLabel: '되돌리기',
     removeImageLabel: '배너 이미지 지우기',
+  },
+}
+
+/**
+ * Labels — 영문 오버라이드. 타이틀·상태 배지·섹션 4장·도움말(Callout)·활성화 밴드까지 전부 열려 있다.
+ * (섹션 후보 문구는 데이터라 sections prop으로 넘긴다)
+ */
+export const Labels: Story = {
+  args: {
+    sections: [
+      { value: 'used', label: 'Used' },
+      { value: 'rental', label: 'Rental' },
+      { value: 'construction', label: 'Installation' },
+    ],
+    labels: {
+      title: 'Edit main visual',
+      status: { active: 'Live', inactive: 'Hidden' },
+      sections: { banner: 'Placement', copy: 'Copy', image: 'Image', link: 'Link & visibility' },
+      sectionDescriptions: {
+        banner: 'The section is fixed once saved. Choose the banner format only.',
+      },
+      copyToggle: {
+        label: 'Use copy',
+        description: 'Show a headline over the banner image.',
+        disabledHint: 'Without copy, only the banner image is shown.',
+      },
+      fields: {
+        section: 'Section',
+        title: 'Headline',
+        overline: 'Overline',
+        menuLabel: 'Quick menu label',
+        buttonLabel: 'Button label',
+        image: 'Banner image',
+        link: 'Link URL',
+      },
+      placeholders: {
+        section: 'Choose a section',
+        title: 'e.g. Moving office? Save on used furniture.',
+        overline: 'e.g. Just in',
+        menuLabel: 'e.g. Used furniture',
+        buttonLabel: 'e.g. Browse listings',
+        link: 'https://spaceplanning.ai/used',
+      },
+      helpers: {
+        buttonLabel: 'Leave empty to hide the button.',
+        link: 'Leave empty to make the banner non-clickable.',
+      },
+      help: {
+        title: 'Good to know',
+        banner: 'The section cannot be changed after saving. Register a new banner in the target section instead.',
+        copy: 'The overline sits above the headline; the quick menu label appears in the right-hand menu. Keep the headline under two lines.',
+      },
+      image: {
+        removeLabel: 'Remove banner image',
+        hint: 'JPG · PNG · up to 10MB',
+        dropReplace: 'Drop another image or click to replace',
+        dropSelect: 'Drop an image or click to select',
+      },
+      visibility: {
+        label: 'Active',
+        on: 'ON',
+        off: 'OFF',
+        onDescription: 'Visible on the client site.',
+        offDescription: 'Saved, but not shown on the client site.',
+      },
+      actions: { save: 'Save', cancel: 'Cancel', saving: 'Saving…' },
+    },
   },
 }

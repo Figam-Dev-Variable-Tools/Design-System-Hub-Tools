@@ -10,7 +10,6 @@ import { generateSnapshots } from './generators/snapshots'
 import { generateFoundations } from './generators/foundations'
 import { generateCategories } from './generators/categories'
 import { generateAdmin } from './generators/admin'
-import { generateAdminForms } from './generators/admin2'
 import { generateLayoutGuide } from './generators/layout-guide'
 import { generateScreens } from './generators/screens'
 import { generateSite } from './generators/site'
@@ -44,7 +43,6 @@ type GenerateMsg = {
     categories: boolean
     // 어드민 4종 — 옛 UI(체크박스 없는 dist)가 보낸 메시지도 undefined=false로 안전히 흘러가도록 optional.
     admin?: boolean
-    adminForms?: boolean
     screens?: boolean
     layout?: boolean
     // 프론트(사이트) 2종 — 위와 같은 이유로 optional.

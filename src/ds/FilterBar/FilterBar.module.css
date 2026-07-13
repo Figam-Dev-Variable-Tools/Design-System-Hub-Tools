@@ -5,6 +5,16 @@
   font-family: var(--ds-font-family);
 }
 
+/* appearance='card' — 페이지 배경 위에 홀로 놓일 때 영역이 읽히도록 크롬을 입힌다.
+   기본(plain)은 크롬이 없다 — 이미 카드 안에 있는 화면들이 그렇게 쓰고 있다. */
+.card {
+  box-sizing: border-box;
+  padding: var(--ds-spacing-3);
+  background: var(--ds-color-bg);
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -17,8 +27,8 @@
   flex-shrink: 0;
 }
 
+/* 폭은 inline style로 들어온다(filter.width) — 긴 옵션 라벨이 말줄임되지 않게 넓힐 수 있다 */
 .filter {
-  width: 160px;
   flex-shrink: 0;
 }
 

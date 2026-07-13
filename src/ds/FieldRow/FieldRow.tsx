@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useId } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import styles from './FieldRow.module.css'
 
 /** cloneElement로 주입하는 ARIA 속성 — 자식이 DOM 요소면 그대로 붙는다 */
@@ -7,6 +7,12 @@ type AriaInjected = {
   'aria-invalid'?: boolean
   'aria-describedby'?: string
 }
+
+/** 라벨 자리 — top=컨트롤 위(기본) / left=컨트롤 왼쪽(어드민 설정 화면의 2열 폼) */
+export type FieldRowLabelPlacement = 'top' | 'left'
+
+/** left 배치의 라벨 열 기본 폭 — '휴대폰 번호' 같은 6자 라벨이 말줄임 없이 들어가는 최소치 */
+const DEFAULT_LABEL_WIDTH = 140
 
 export type FieldRowProps = {
   label: string
@@ -26,6 +32,15 @@ export type FieldRowProps = {
    * 장식(aria-hidden)이라 무엇을 넣어도 스크린리더 낭독에는 끼어들지 않는다.
    */
   requiredMark?: ReactNode
+  /**
+   * 라벨 자리 (기본 top).
+   * left는 어드민 설정 화면에서 흔한 좌측 라벨(2열) 폼이다 — 이 축이 없어서
+   * 그런 화면은 FieldRow를 버리고 라벨 마크업을 직접 만들고 있었다.
+   * (좁은 폭(1023 이하)에서는 자동으로 top으로 풀린다 — 라벨 열이 컨트롤을 짓누르지 않게)
+   */
+  labelPlacement?: FieldRowLabelPlacement
+  /** labelPlacement='left'의 라벨 열 폭(px) — 기본 140 */
+  labelWidth?: number
 }
 
 /**
@@ -41,6 +56,9 @@ export type FieldRowProps = {
  * 네이티브 input·select·textarea에는 그대로 DOM에 붙는다.
  * DS 프리미티브(InputBase 등)는 임의 prop을 spread하지 않으므로, 그런 컨트롤에는
  * 컴포넌트 자체의 error prop(<InputBase error />)을 함께 넘겨야 테두리까지 에러 톤이 된다.
+ *
+ * 문구는 label·description·error·requiredMark가 전부 prop이다 — 컴포넌트 안에 리터럴이 없어
+ * labels 통로를 두지 않는다.
  */
 export function FieldRow({
   label,
@@ -51,6 +69,8 @@ export function FieldRow({
   children,
   span,
   requiredMark = '*',
+  labelPlacement = 'top',
+  labelWidth = DEFAULT_LABEL_WIDTH,
 }: FieldRowProps) {
   const uid = useId()
   const messageId = `${uid}-message`
@@ -81,8 +101,11 @@ export function FieldRow({
     </>
   )
 
+  // 라벨 열 폭은 CSS 변수로 넘긴다 — 미디어쿼리(좁은 폭에서 1열)가 인라인 스타일에 지지 않게
+  const vars = { '--fr-label-w': `${labelWidth}px` } as CSSProperties
+
   return (
-    <div className={styles.row} data-span={span}>
+    <div className={styles.row} data-span={span} data-label-placement={labelPlacement} style={vars}>
       {htmlFor != null ? (
         <label className={styles.label} htmlFor={htmlFor}>
           {labelContent}

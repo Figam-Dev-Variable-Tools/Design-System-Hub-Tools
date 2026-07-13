@@ -329,3 +329,36 @@ export const Loading: Story = {
   args: { loading: true },
   render: (args) => <InquiryManageList {...args} />,
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글 · 상태 배지(탭이 함께 쓴다) · 정렬 · 관리 열의 스크린리더 이름 · 건수 접두사까지 labels가 소유한다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Installation inquiries',
+      description: 'Review and manage requests submitted through the chatbot.',
+      columns: {
+        no: 'No.',
+        applicant: 'Applicant',
+        phone: 'Phone',
+        email: 'Email',
+        appliedAt: 'Applied',
+        status: 'Status',
+        manage: 'Manage',
+      },
+      status: { pending: 'Pending', answered: 'Answered', hold: 'On hold' },
+      tabs: { all: 'All' },
+      sort: { latest: 'Newest', oldest: 'Oldest', name: 'By applicant' },
+      rowActions: {
+        view: (applicant) => `View ${applicant}`,
+        delete: (applicant) => `Delete ${applicant}`,
+      },
+      search: { searchPlaceholder: 'Search by name, phone or email' },
+      toolbar: { prefix: 'Total', unit: ' requests' },
+      empty: { title: 'No inquiries received yet.' },
+    },
+  },
+  render: (args) => <Demo {...args} />,
+}

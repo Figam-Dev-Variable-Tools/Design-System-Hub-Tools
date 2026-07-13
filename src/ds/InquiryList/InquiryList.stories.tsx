@@ -215,3 +215,81 @@ export const WithoutSearch: Story = {
   args: { rows: ROWS.slice(0, 8), showSearch: false },
   render: (args) => <InquiryListDemo {...args} />,
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글 · 처리상태 · 7개 탭 · 제목 태그 · 검색 13조건 · 일괄 버튼 ·
+ * 값 선택 확인창 2종(담당자·상태)과 삭제 확인창까지 전부 labels가 소유한다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      columns: {
+        no: 'Inquiry no.',
+        type: 'Type',
+        title: 'Subject',
+        productName: 'Product',
+        orderNo: 'Order no.',
+        author: 'Author',
+        memberGrade: 'Tier',
+        assignee: 'Assignee',
+        createdAt: 'Created',
+        answeredAt: 'Answered',
+        views: 'Views',
+        status: 'Status',
+        isPublic: 'Visibility',
+        hasAttachment: 'File',
+        detail: 'Detail',
+      },
+      status: {
+        received: 'Received',
+        checking: 'In review',
+        answered: 'Answered',
+        hold: 'On hold',
+        closed: 'Closed',
+      },
+      tabs: {
+        all: 'All',
+        unanswered: 'Unanswered',
+        answered: 'Answered',
+        hold: 'On hold',
+        closed: 'Closed',
+        urgent: 'Urgent',
+        reported: 'Reported',
+      },
+      tags: { urgent: 'Urgent', reported: 'Reported' },
+      cells: {
+        public: 'Public',
+        private: 'Private',
+        attached: 'Yes',
+        notAttached: 'No',
+        attachedAria: 'Has an attachment',
+        unassigned: 'Unassigned',
+      },
+      bulk: { answered: 'Mark as answered', assign: 'Reassign', status: 'Change status' },
+      rowActions: { view: (title) => `Open ${title}` },
+      empty: { title: 'No inquiries found.' },
+      emptyCell: '—',
+      assignDialog: {
+        title: 'Reassign',
+        description: (count) => `Reassign ${count} inquiry(s) to a new owner.`,
+        confirmLabel: 'Apply',
+        cancelLabel: 'Cancel',
+        fieldLabel: 'Assignee',
+        placeholder: 'Pick an assignee',
+      },
+      statusDialog: {
+        title: 'Change status',
+        description: (count) => `Change the status of ${count} inquiry(s).`,
+        confirmLabel: 'Apply',
+        cancelLabel: 'Cancel',
+        fieldLabel: 'Status',
+      },
+      deleteDialog: {
+        title: 'Delete the selected inquiries?',
+        description: (ids) => `${ids.length} inquiry(s) will be removed from the list.`,
+      },
+    },
+  },
+  render: (args) => <InquiryListDemo {...args} />,
+}

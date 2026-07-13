@@ -107,6 +107,33 @@ export const CustomPrefix: Story = {
   },
 }
 
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 번호 뒤 구분 기호(questionSuffix)는 labels로만 열린다 — 'Q1.' → 'Q1)'.
+ */
+export const Labels: Story = {
+  args: {
+    // 개별 prop(questionPrefix·answerPrefix)을 넘기지 않으면 labels가 이긴다
+    questionPrefix: undefined,
+    answerPrefix: undefined,
+    labels: {
+      questionPrefix: 'Q',
+      questionSuffix: ')',
+      answerPrefix: 'A)',
+    },
+    items: [
+      {
+        question: 'When does my order ship?',
+        answer: 'Orders ship within 1–2 business days after payment is confirmed.',
+      },
+      {
+        question: 'Who pays return shipping for an exchange?',
+        answer: 'We cover it for defective or mis-shipped items.',
+      },
+    ],
+  },
+}
+
 /** 긴 질문·답변 — 잘라내지 않고 줄바꿈으로 흐른다 */
 export const LongContent: Story = {
   args: {

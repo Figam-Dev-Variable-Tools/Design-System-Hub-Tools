@@ -1,12 +1,18 @@
 import { Fragment } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Trash2, X } from 'lucide-react'
+import { mergeLabels, resolveLabel } from '../../shared/labels'
 import { Placeholder } from '../../shared/placeholders'
 import { AdminPageLayout } from '../AdminPageLayout/AdminPageLayout'
 import { Button } from '../Button/Button'
 import { DropZone } from '../DropZone/DropZone'
-import { FieldRow } from '../FieldRow/FieldRow'
-import { FormSection } from '../FormSection/FormSection'
+import { FieldRow, type FieldRowLabelPlacement } from '../FieldRow/FieldRow'
+import {
+  DEFAULT_FORM_SECTION_LABELS,
+  FormSection,
+  type FormSectionAppearance,
+  type FormSectionColumns,
+} from '../FormSection/FormSection'
 import { Image, type ImageProps } from '../Image/Image'
 import { InputBase } from '../InputBase/InputBase'
 import { PageHeaderBar, type PageHeaderBarTone } from '../PageHeaderBar/PageHeaderBar'
@@ -151,6 +157,10 @@ export type AdminFormSection<V> = {
   key: string
   title?: string
   description?: string
+  /** 이 섹션만 열 수를 바꾼다 — 없으면 폼 전체 columns를 따른다 */
+  columns?: FormSectionColumns
+  /** 이 섹션만 크롬을 바꾼다 — 없으면 폼 전체 sectionAppearance를 따른다 */
+  appearance?: FormSectionAppearance
   /**
    * 카드 번호. 주지 않으면 '보이는 섹션' 순서대로 1, 2, 3…으로 다시 매긴다
    * (앞 섹션이 꺼지면 뒷 섹션이 1번이 된다). 번호를 고정해야 하면 값을 주고, 없애려면 null.
@@ -361,6 +371,51 @@ export function AdminFormImageField({
   return previewVisible ? preview : dropZone
 }
 
+/* ── 문구 ────────────────────────────────────────────────────────────────── */
+
+/**
+ * 셸이 직접 그리는 문구.
+ * 확인창·표·검색처럼 공용 표면이 없어(폼은 제출/취소/스위치가 전부다) 공용 타입에서 가져올 것이 없다 —
+ * 대신 여기서 정한 이름을 자식(FormSection)이 그대로 받아 쓴다(같은 문구를 두 이름으로 만들지 않는다).
+ */
+export type AdminFormPageLabels = {
+  /** 제출 버튼 — 주면 mode와 무관하게 이 문구를 쓴다 */
+  submit?: string
+  /** mode별 제출 문구 — 기본 create='등록' / edit='저장' */
+  submitByMode?: { create?: string; edit?: string }
+  /** 저장 중 제출 버튼 — 기본 '저장 중…' */
+  submitting?: string
+  /** 취소 버튼 — 기본 '취소' */
+  cancel?: string
+  /**
+   * 스위치 문구 — 기본 'ON'/'OFF'. toggle 필드와 섹션 밴드가 함께 쓴다.
+   * (필드마다 onLabel/offLabel을 반복해 적던 것을 폼 전체 기본값 하나로 대신한다)
+   */
+  toggle?: { on?: string; off?: string }
+  /** image 필드 기본값 — 필드의 removeLabel/dropLabel/hint가 이긴다 */
+  image?: { removeLabel?: string; dropLabel?: string; hint?: string }
+}
+
+/*
+ * 기본 문구 값의 단일 출처 — Button.label처럼 string이 필수인 자리의 최종 폴백으로도 쓰인다.
+ */
+const DEFAULT_SUBMIT_CREATE = '등록'
+const DEFAULT_SUBMIT_EDIT = '저장'
+const DEFAULT_SUBMITTING_LABEL = '저장 중…'
+const DEFAULT_CANCEL_LABEL = '취소'
+
+export const DEFAULT_ADMIN_FORM_PAGE_LABELS: AdminFormPageLabels = {
+  submitByMode: { create: DEFAULT_SUBMIT_CREATE, edit: DEFAULT_SUBMIT_EDIT },
+  submitting: DEFAULT_SUBMITTING_LABEL,
+  cancel: DEFAULT_CANCEL_LABEL,
+  // 'ON'/'OFF'의 단일 출처는 FormSection이다 — 같은 값을 여기 다시 적지 않는다
+  toggle: {
+    on: DEFAULT_FORM_SECTION_LABELS.toggle.on,
+    off: DEFAULT_FORM_SECTION_LABELS.toggle.off,
+  },
+  // image 기본 문구('이미지 삭제' 등)는 AdminFormImageField가 갖는다 — 여기서 비워 두면 그 기본값이 그대로 쓰인다
+}
+
 /* ── 화면 ────────────────────────────────────────────────────────────────── */
 
 export type AdminFormPageProps<V extends object> = {
@@ -383,9 +438,20 @@ export type AdminFormPageProps<V extends object> = {
   headerActions?: ReactNode
 
   /* ── 액션 ── */
+  /**
+   * 제출 버튼 문구 (기본: mode='edit'이면 '저장', 아니면 '등록')
+   * @deprecated labels.submit / labels.submitByMode를 쓴다(개별 prop이 이긴다)
+   */
   submitLabel?: string
+  /**
+   * 취소 버튼 문구 (기본 '취소')
+   * @deprecated labels.cancel을 쓴다(개별 prop이 이긴다)
+   */
   cancelLabel?: string
-  /** 저장 중 제출 버튼 문구 — 기본 '저장 중…' */
+  /**
+   * 저장 중 제출 버튼 문구 — 기본 '저장 중…'
+   * @deprecated labels.submitting을 쓴다(개별 prop이 이긴다)
+   */
   submittingLabel?: string
   /** 저장 중 — 헤더·하단 버튼이 잠긴다 */
   submitting?: boolean
@@ -405,6 +471,30 @@ export type AdminFormPageProps<V extends object> = {
   stickyFooter?: boolean
   density?: 'compact' | 'comfortable'
   maxWidth?: 'md' | 'lg' | 'full'
+  /**
+   * 좌측 레일 — FormAnchorNav처럼 긴 폼의 앵커 내비.
+   * 레이아웃에는 있던 자리인데 셸이 통과시키지 않아 그런 화면은 셸을 못 쓰고 레이아웃을 직접 조립하고 있었다.
+   */
+  side?: ReactNode
+  /** 좌측 레일 폭 (기본 240) */
+  sideWidth?: number
+  /** 우측 레일 — MobilePreview 등 편집+미리보기 화면 */
+  aside?: ReactNode
+  /** 우측 레일 폭 (기본 360) */
+  asideWidth?: number
+  /** 우측 레일을 스크롤에 고정 (기본 true) */
+  asideSticky?: boolean
+  /** 섹션 본문 그리드 열 수 (기본 3) — 섹션별로 section.columns가 이긴다 */
+  columns?: FormSectionColumns
+  /** 섹션 크롬 (기본 card) — 섹션별로 section.appearance가 이긴다 */
+  sectionAppearance?: FormSectionAppearance
+  /** 필드 라벨 자리 (기본 top) — left는 어드민 설정 화면의 2열 폼 */
+  labelPlacement?: FieldRowLabelPlacement
+  /** labelPlacement='left'의 라벨 열 폭(px) */
+  labelWidth?: number
+
+  /** 문구 통로 — 개별 prop > labels.* > 기본값 */
+  labels?: AdminFormPageLabels
 }
 
 /**
@@ -429,8 +519,8 @@ export function AdminFormPage<V extends object>({
   headerBadge,
   headerActions,
   submitLabel,
-  cancelLabel = '취소',
-  submittingLabel = '저장 중…',
+  cancelLabel,
+  submittingLabel,
   submitting = false,
   loading = false,
   disabled = false,
@@ -440,8 +530,19 @@ export function AdminFormPage<V extends object>({
   stickyFooter = true,
   density = 'compact',
   maxWidth = 'lg',
+  side,
+  sideWidth,
+  aside,
+  asideWidth,
+  asideSticky,
+  columns = 3,
+  sectionAppearance = 'card',
+  labelPlacement = 'top',
+  labelWidth,
+  labels,
 }: AdminFormPageProps<V>) {
   const on = resolveShow(show)
+  const L = mergeLabels(DEFAULT_ADMIN_FORM_PAGE_LABELS, labels)
 
   const patch = (next: Partial<V>) => onChange({ ...value, ...next })
   const setField = (key: string, next: unknown) => patch({ [key]: next } as Partial<V>)
@@ -455,7 +556,16 @@ export function AdminFormPage<V extends object>({
 
   // 조회 중에도 액션 버튼은 남기되 잠근다
   const locked = submitting || loading
-  const submitText = submitting ? submittingLabel : (submitLabel ?? (mode === 'edit' ? '저장' : '등록'))
+
+  // 개별 prop > labels.* > 기본값 (기존 화면은 개별 prop만 쓰므로 화면이 바뀌지 않는다)
+  const modeSubmit =
+    mode === 'edit'
+      ? (L.submitByMode?.edit ?? DEFAULT_SUBMIT_EDIT)
+      : (L.submitByMode?.create ?? DEFAULT_SUBMIT_CREATE)
+  const submitDone = resolveLabel(submitLabel, L.submit) ?? modeSubmit
+  const submittingText = resolveLabel(submittingLabel, L.submitting) ?? DEFAULT_SUBMITTING_LABEL
+  const cancelText = resolveLabel(cancelLabel, L.cancel) ?? DEFAULT_CANCEL_LABEL
+  const submitText = submitting ? submittingText : submitDone
 
   const saveButton = (
     <Button variant="primary" size="md" label={submitText} disabled={locked} onClick={onSubmit} />
@@ -466,7 +576,7 @@ export function AdminFormPage<V extends object>({
       variant="secondary"
       appearance="outline"
       size="md"
-      label={cancelLabel}
+      label={cancelText}
       disabled={submitting}
       onClick={onCancel}
     />
@@ -530,13 +640,18 @@ export function AdminFormPage<V extends object>({
 
     if (field.kind === 'toggle') {
       const checked = bag[field.key] === true
+      // 필드의 onLabel/offLabel > 폼 전체 labels.toggle > 기본 'ON'/'OFF'
       return (
         <Toggle
           checked={checked}
           onChange={(next) => setField(field.key, next)}
           size={field.size}
           disabled={off}
-          label={checked ? (field.onLabel ?? 'ON') : (field.offLabel ?? 'OFF')}
+          label={
+            checked
+              ? resolveLabel(field.onLabel, L.toggle?.on)
+              : resolveLabel(field.offLabel, L.toggle?.off)
+          }
         />
       )
     }
@@ -554,12 +669,13 @@ export function AdminFormPage<V extends object>({
           previewHint={field.previewHint}
           alt={field.alt}
           remove={field.remove}
-          removeLabel={field.removeLabel}
+          // 필드 선언 > 폼 전체 labels.image > AdminFormImageField의 기본값
+          removeLabel={resolveLabel(field.removeLabel, L.image?.removeLabel)}
           removeIcon={field.removeIcon}
           accept={field.accept}
           maxSizeMb={field.maxSizeMb}
-          hint={field.hint}
-          dropLabel={field.dropLabel}
+          hint={resolveLabel(field.hint, L.image?.hint)}
+          dropLabel={resolveLabel(field.dropLabel, L.image?.dropLabel)}
           disabled={off}
         />
       )
@@ -585,6 +701,8 @@ export function AdminFormPage<V extends object>({
         description={field.description}
         error={errorOf(field.key)}
         span={field.span}
+        labelPlacement={labelPlacement}
+        labelWidth={labelWidth}
       >
         {renderControl(field)}
       </FieldRow>
@@ -614,6 +732,10 @@ export function AdminFormPage<V extends object>({
         toggleLabel={section.toggleLabel}
         toggleDescription={section.toggleDescription}
         disabledHint={section.disabledHint}
+        columns={section.columns ?? columns}
+        appearance={section.appearance ?? sectionAppearance}
+        // 밴드 스위치 문구는 폼 전체 labels.toggle을 그대로 통과시킨다(같은 문구를 두 번 선언하지 않는다)
+        labels={{ toggle: L.toggle }}
       >
         {loading && section.skeleton != null
           ? section.skeleton
@@ -639,6 +761,11 @@ export function AdminFormPage<V extends object>({
     <AdminPageLayout
       maxWidth={maxWidth}
       density={density}
+      side={side}
+      sideWidth={sideWidth}
+      aside={aside}
+      asideWidth={asideWidth}
+      asideSticky={asideSticky}
       // sticky가 아니면 액션 바를 본문 끝(아래)에 그대로 놓는다 — 레이아웃 슬롯은 비운다
       footer={footerVisible && stickyFooter ? actions : undefined}
     >

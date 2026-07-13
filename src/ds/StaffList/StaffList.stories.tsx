@@ -211,3 +211,31 @@ export const CustomCopy: Story = {
     emptyText: '등록된 파트너가 없습니다.',
   },
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 이 화면은 카피가 대부분 개별 prop으로 열려 있었고, 닫혀 있던 컬럼 머리글·기본 탭이 labels로 열렸다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Staff',
+      columns: {
+        nickname: 'Name',
+        account: 'Account',
+        group: 'Group',
+        joinedAt: 'Joined',
+        department: 'Department',
+        position: 'Title',
+        phone: 'Phone',
+        memo: 'Note',
+      },
+      tabs: { staff: 'Staff list' },
+      addGroup: 'Create staff group',
+      search: { searchPlaceholder: 'Search all staff' },
+      empty: { title: 'No staff members yet.' },
+      emptyCell: '—',
+    },
+    countUnit: ' people',
+  },
+}

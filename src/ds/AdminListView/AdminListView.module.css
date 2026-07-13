@@ -91,10 +91,11 @@
 }
 
 /* ── 하단 페이지네이션 — 1px 보더 한 줄 위에 가운데 정렬 ── */
+/* 가로 정렬은 래퍼가 아니라 Pagination의 align 축이 갖는다(paginationAlign).
+   여기서 justify-content로 가운데 정렬해 버리면 align 축이 먹지 않는 죽은 prop이 된다. */
 .footer {
   display: flex;
   align-items: center;
-  justify-content: center;
   padding-top: var(--ds-spacing-5);
   border-top: var(--ds-border-width) solid var(--ds-color-border);
 }

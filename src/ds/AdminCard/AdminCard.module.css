@@ -23,6 +23,25 @@
   border-color: var(--ds-color-primary-300);
 }
 
+/* ── appearance — 마감만 바꾼다(레이아웃·여백은 그대로) ──────────────
+   elevated: 보더 대신 그림자로 띄운다. 배경이 깔린 그리드에서 카드를 분리해 보이게 한다.
+   그림자 토큰(--ds-shadow-*)이 아직 없어 공용 Card와 같은 값·같은 방식(색만 토큰)으로 맞춘다. */
+.elevated {
+  border-color: transparent;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ds-color-text) 12%, transparent);
+}
+
+/* plain: 이미 보더가 있는 컨테이너 안에 카드를 깔 때 이중 테두리를 없앤다 */
+.plain {
+  border-color: transparent;
+}
+
+/* 테두리가 없는 마감에서는 hover 보더도 뜨지 않아야 한다 — 마감이 흔들리면 카드가 튄다 */
+.elevated:hover,
+.plain:hover {
+  border-color: transparent;
+}
+
 /* onClick이 있을 때만 카드 전체가 눌리는 느낌을 준다 */
 .clickable {
   cursor: pointer;

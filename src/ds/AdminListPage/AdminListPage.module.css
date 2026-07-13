@@ -23,6 +23,16 @@
   color: var(--ds-color-text);
 }
 
+/* chrome='card' — plain에 카드 껍데기만 더한다(모달·탭 패널 안에 얹는 목록).
+   plain은 껍데기가 없어 화면이 div를 덧대고 있었다. */
+.card {
+  box-sizing: border-box;
+  padding: var(--ds-spacing-5);
+  background: var(--ds-color-bg);
+  border: var(--ds-border-width) solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+}
+
 /* ── 카드형(renderCard) ─────────────────────────────── */
 
 /* 목록 래퍼 — 카드형 로딩 오버레이(position: absolute)의 기준 */

@@ -99,6 +99,15 @@ const meta = {
     title: { control: 'text' },
     description: { control: 'text' },
     submitLabel: { control: 'text' },
+    // 변형 축 — 기본값(6개 필수 · 20MB · neutral)이 레퍼런스 시안이다
+    requiredFields: {
+      control: 'check',
+      options: ['name', 'email', 'phone', 'type', 'title', 'content'],
+      description: '필수 입력 필드(라벨의 * 표시와 검증이 같은 배열을 본다)',
+    },
+    maxFileMb: { control: { type: 'range', min: 1, max: 50, step: 1 } },
+    submitVariant: { control: 'inline-radio', options: ['neutral', 'primary', 'success'] },
+    labels: { control: 'object' },
     map: { control: false },
     value: { control: false },
     onChange: { control: false },
@@ -154,4 +163,86 @@ export const AccentPrimary: Story = {
 /** 전송 중 — 버튼이 잠긴다. */
 export const Submitting: Story = {
   args: { value: FILLED_VALUE, submitting: true },
+}
+
+/**
+ * 전화번호를 받지 않는 사이트 — requiredFields에서 phone을 빼면
+ * 라벨의 * 표시와 검증이 함께 풀린다(둘이 갈라지면 사용자가 속는다).
+ * 첨부 상한도 사이트 정책에 맞춰 5MB로 낮췄다.
+ */
+export const OptionalPhone: Story = {
+  args: {
+    value: EMPTY_VALUE,
+    requiredFields: ['name', 'email', 'type', 'title', 'content'],
+    showAttachment: true,
+    maxFileMb: 5,
+  },
+}
+
+/**
+ * Labels — 영문 오버라이드. 라벨·플레이스홀더·유효성 메시지·동의·제출까지 전부 열려 있다.
+ * 개별 prop(title·description·submitLabel)을 넘기지 않아야 labels가 지배하므로 직접 렌더한다.
+ * 제출 버튼도 accent에 맞춰 success로 올렸다(기본은 레퍼런스의 검은 버튼).
+ */
+export const Labels: Story = {
+  render: () => (
+    <ControlledContactPage
+      value={EMPTY_VALUE}
+      onChange={() => {}}
+      onSubmit={() => {}}
+      types={[
+        { value: 'landscape', label: 'Landscape construction' },
+        { value: 'design', label: 'Landscape design' },
+        { value: 'estimate', label: 'Request a quote' },
+        { value: 'etc', label: 'Something else' },
+      ]}
+      map={<MockMap />}
+      showInfo
+      showAttachment
+      submitVariant="success"
+      location={{
+        address: ['152 Teheran-ro, Gangnam-gu', 'Seoul, Republic of Korea'],
+        phone: ['+82 2-1234-5678', 'Weekdays only · callback available'],
+        email: ['contact@spaceplanning.ai', 'Quotes answered within 24h'],
+        hours: ['Mon–Fri 09:00–18:00', 'Closed on weekends and holidays'],
+      }}
+      labels={{
+        title: 'Contact us',
+        description: 'Tell us about your project and we will get back to you.',
+        fields: {
+          type: 'Inquiry type',
+          name: 'Name',
+          email: 'Email',
+          phone: 'Phone',
+          title: 'Subject',
+          content: 'Message',
+        },
+        placeholders: {
+          type: 'Select a category',
+          name: 'Your name',
+          email: 'you@example.com',
+          phone: '+82 10-0000-0000',
+          title: 'What is this about?',
+          content: 'Tell us about the site, the schedule and the budget.',
+        },
+        errors: {
+          name: 'Please enter your name.',
+          email: 'Please enter your email.',
+          emailInvalid: 'That email address is not valid.',
+          phone: 'Please enter a phone number.',
+          type: 'Please choose an inquiry type.',
+          title: 'Please enter a subject.',
+          content: 'Please enter your message.',
+        },
+        attachment: {
+          label: 'Attachments',
+          hint: (maxMb) => `Site photos or drawings help a lot (up to ${maxMb}MB)`,
+        },
+        agreement: 'I agree to the collection and use of my personal information',
+        submit: 'Send inquiry',
+        submitting: 'Sending…',
+        mapPlaceholder: 'Map coming soon',
+      }}
+    />
+  ),
 }

@@ -75,6 +75,7 @@ const meta = {
     submitLabel: { control: 'text' },
     savingLabel: { control: 'text' },
     cancelLabel: { control: 'text' },
+    labels: { control: 'object' },
     // 아이콘 슬롯은 ReactNode라 컨트롤을 붙이지 않는다
     removeImageIcon: { control: false },
   },
@@ -182,5 +183,55 @@ export const CustomCopy: Story = {
     submitLabel: '변경사항 저장',
     cancelLabel: '되돌리기',
     removeImageLabel: '대표 이미지 지우기',
+  },
+}
+
+/**
+ * Labels — 영문 오버라이드. 타이틀(등록/수정)·상태 배지·섹션 2장·밴드 스위치·필드·이미지까지 전부 열려 있다.
+ * (카테고리 후보 문구는 데이터라 categories prop으로 넘긴다)
+ */
+export const Labels: Story = {
+  args: {
+    categories: [
+      { label: '🏢 Office', value: 'office' },
+      { label: '🛍️ Retail', value: 'retail' },
+      { label: '🏠 Residential', value: 'residential' },
+    ],
+    labels: {
+      title: { create: 'New portfolio item', edit: 'Edit portfolio item' },
+      description: 'Information shown in the catalog and on the detail page.',
+      status: { active: 'Live', inactive: 'Hidden' },
+      sections: { basic: 'Basics', media: 'Image & detail' },
+      sectionDescriptions: {
+        basic: 'Shown on the catalog card as-is.',
+        media: 'The cover image and body of the detail page.',
+      },
+      detailToggle: {
+        label: 'Use detail page',
+        description: 'When off, the card links straight to the URL.',
+        disabledHint: 'This item has no detail page — the cover image and body are not saved.',
+      },
+      fields: {
+        category: 'Category',
+        title: 'Title',
+        link: 'Link URL',
+        image: 'Cover image',
+        content: 'Detail',
+      },
+      placeholders: {
+        category: 'Choose a category',
+        title: 'Name of the project',
+        link: 'https://example.com/project',
+        content: 'Scope, role and outcome of the project.',
+      },
+      helpers: { link: 'Optional. If set, the card shows a shortcut.' },
+      image: {
+        removeLabel: 'Remove cover image',
+        hint: 'JPG · PNG · up to 10MB',
+        dropLabel: 'Drop the cover image or click to select',
+        alt: 'Cover image preview',
+      },
+      actions: { submit: 'Save changes', cancel: 'Cancel', saving: 'Saving…' },
+    },
   },
 }

@@ -19,17 +19,17 @@ import { StatusTimeline, type StatusStep } from '../StatusTimeline/StatusTimelin
 import { Tab } from '../Tab/Tab'
 import { Tag } from '../Tag/Tag'
 import { Toggle } from '../Toggle/Toggle'
+import {
+  mergeLabels,
+  type ConfirmDialogLabels,
+  type DeepPartialOneLevel,
+  type Formatters,
+  type LabelFn,
+} from '../../shared/labels'
 import styles from './ProductDetail.module.css'
 
 /** 판매 상태 — 판매중 · 품절 · 판매중지 · 임시저장 */
 export type ProductSaleStatus = 'onSale' | 'soldOut' | 'stopped' | 'draft'
-
-export const PRODUCT_STATUS_LABEL: Record<ProductSaleStatus, string> = {
-  onSale: '판매중',
-  soldOut: '품절',
-  stopped: '판매중지',
-  draft: '임시저장',
-}
 
 /** 상태 → Badge 톤. 판매중지/임시저장은 outline으로 "정상 판매 흐름 밖"임을 드러낸다. */
 const STATUS_BADGE: Record<ProductSaleStatus, Pick<BadgeProps, 'variant' | 'appearance'>> = {
@@ -101,13 +101,10 @@ export type ProductOrder = {
 /** 문의 처리 상태 — 답변대기 · 답변완료 · 종료 */
 export type ProductInquiryStatus = 'waiting' | 'answered' | 'closed'
 
-export const PRODUCT_INQUIRY_STATUS_LABEL: Record<ProductInquiryStatus, string> = {
-  waiting: '답변대기',
-  answered: '답변완료',
-  closed: '종료',
-}
+/** 문의 상태 → Badge 톤 */
+export type ProductInquiryTone = 'warning' | 'success' | 'secondary'
 
-const INQUIRY_STATUS_TONE: Record<ProductInquiryStatus, 'warning' | 'success' | 'secondary'> = {
+const INQUIRY_STATUS_TONE: Record<ProductInquiryStatus, ProductInquiryTone> = {
   waiting: 'warning',
   answered: 'success',
   closed: 'secondary',
@@ -194,6 +191,283 @@ export type ProductDetailShow = {
   footer?: boolean
 }
 
+/* ────────────────────────────────────────────────────────────
+ * 문구 — 상태 맵 · 섹션 제목 · 컬럼 머리글 · 확인창이 여기 한 곳으로 모인다
+ * ──────────────────────────────────────────────────────────── */
+
+/** 판매 진행 타임라인의 단계 키 */
+export type ProductFlowKey = 'draft' | 'review' | 'onSale' | 'stopped'
+
+export type ProductDetailLabels = {
+  /** 판매 상태 — 헤더 배지와 [노출 상태] 카드가 함께 쓴다 */
+  status: Record<ProductSaleStatus, string>
+  /** 문의 처리 상태 — 문의 표의 배지 */
+  inquiryStatus: Record<ProductInquiryStatus, string>
+  /** 판매 진행 단계 — value.statusSteps를 안 넘길 때 쓰인다 */
+  flow: Record<ProductFlowKey, string>
+  /** 본문 하단 탭 */
+  tabs: Record<ProductDetailTab, string>
+  /** 카드 제목 */
+  sections: {
+    gallery: string
+    basic: string
+    options: string
+    description: string
+    stats: string
+    visibility: string
+    taxonomy: string
+    timeline: string
+    manager: string
+    quickActions: string
+  }
+  /** 헤더 메타 */
+  meta: { code: string; createdAt: string; updatedAt: string; createdBy: string }
+  /** [기본 정보] 카드 — 라벨 + 값 문구 */
+  basic: {
+    price: string
+    stock: string
+    shippingFee: string
+    taxable: string
+    /** 배송비 0원 */
+    freeShipping: string
+    taxed: string
+    taxFree: string
+    /** 안전재고 이하 */
+    belowSafety: string
+    /** 재고 0(헤더 배지) */
+    zeroStock: string
+    /** 재고 0(기본 정보 배지) — 기존 soldOutLabel prop이 우선한다 */
+    soldOut: string
+  }
+  /** [담당자] 카드 */
+  manager: { md: string; createdBy: string; updatedAt: string; unassigned: string }
+  /** [재고 현황] 통계 */
+  stats: {
+    totalStock: string
+    soldOutOptions: string
+    sold6m: string
+    openInquiries: string
+    /** 총 재고 아래 보조 문구 — 인자는 포맷된 안전재고 */
+    safetyHint: LabelFn<string>
+    byOption: string
+    noOption: string
+    last6m: string
+    /** 미답변 문의 수의 단위 */
+    inquiryUnit: string
+  }
+  /** 옵션 표 — 컬럼 머리글 + 사용 여부 값 */
+  optionColumns: {
+    name: string
+    value: string
+    extraPrice: string
+    stock: string
+    active: string
+    activeYes: string
+    activeNo: string
+  }
+  /** 최근 주문 표 컬럼 머리글 */
+  orderColumns: {
+    orderNo: string
+    customer: string
+    option: string
+    quantity: string
+    amount: string
+    status: string
+    orderedAt: string
+  }
+  /**
+   * 주문상태 값 중 '경고 톤'으로 칠할 것들 — 주문상태는 자유 문자열(row.status)이라
+   * 톤 규칙이 문구 비교로 결정된다. 문구를 바꾸면 규칙도 함께 바뀌어야 해서 여기 둔다.
+   */
+  orderStatusAlert: string[]
+  /** 문의 표 컬럼 머리글 */
+  inquiryColumns: {
+    title: string
+    type: string
+    author: string
+    createdAt: string
+    status: string
+  }
+  /** 이미지 갤러리 */
+  gallery: {
+    zoom: string
+    /** 첫 번째 썸네일의 대표 표시 */
+    coverBadge: string
+    /** 카드 설명 — 인자는 이미지 장수 */
+    countHint: LabelFn<number>
+    /** 썸네일 버튼의 접근성 이름 */
+    zoomAria: LabelFn<{ name: string; index: number }>
+  }
+  /** [노출 상태] 카드 — 헤더의 판매 스위치도 sale을 쓴다 */
+  visibility: { display: string; displayHint: string; sale: string }
+  /** [카테고리 · 태그] 카드 */
+  taxonomy: { edit: string; category: string; tags: string; emptyTags: string }
+  /** 상세 설명 카드의 첨부 블록 */
+  description: { attachments: string }
+  /** 판매량 차트 */
+  chart: { title: string; series: string }
+  /** 옵션 표 카드의 설명 — 인자는 옵션 개수 */
+  optionCount: LabelFn<number>
+  /** 액션 — 빠른 액션 + 하단 바 */
+  actions: {
+    back: string
+    edit: string
+    duplicate: string
+    delete: string
+    save: string
+    saving: string
+  }
+  /** 빈 상태 — 기존 emptyText prop은 표 3종(options·orders·inquiries)을 한 번에 덮는다 */
+  empty: {
+    images: string
+    descriptionBody: string
+    sales: string
+    options: string
+    orders: string
+    inquiries: string
+  }
+  /** 복제 확인창 — description은 상품 전체를 받는다 */
+  duplicateDialog: Required<
+    Pick<ConfirmDialogLabels<ProductDetailValue>, 'title' | 'description' | 'confirmLabel'>
+  >
+  /** 삭제 확인창 */
+  deleteDialog: Required<Pick<ConfirmDialogLabels<ProductDetailValue>, 'title' | 'description'>>
+  /** 수량 단위 — 기존 countUnit prop이 우선한다 */
+  units: { count: string }
+  /** 값이 없는 칸에 찍히는 문자 */
+  emptyCell: string
+}
+
+export const DEFAULT_PRODUCT_DETAIL_LABELS: ProductDetailLabels = {
+  status: { onSale: '판매중', soldOut: '품절', stopped: '판매중지', draft: '임시저장' },
+  inquiryStatus: { waiting: '답변대기', answered: '답변완료', closed: '종료' },
+  flow: { draft: '등록', review: '검수', onSale: '판매중', stopped: '판매종료' },
+  tabs: { sales: '판매 통계', orders: '최근 주문', inquiries: '문의' },
+  sections: {
+    gallery: '상품 이미지',
+    basic: '기본 정보',
+    options: '옵션',
+    description: '상세 설명',
+    stats: '재고 현황',
+    visibility: '노출 상태',
+    taxonomy: '카테고리 · 태그',
+    timeline: '판매 진행',
+    manager: '담당자',
+    quickActions: '빠른 액션',
+  },
+  meta: { code: '상품코드', createdAt: '등록일', updatedAt: '수정일', createdBy: '등록자' },
+  basic: {
+    price: '판매가',
+    stock: '재고',
+    shippingFee: '배송비',
+    taxable: '과세여부',
+    freeShipping: '무료배송',
+    taxed: '과세',
+    taxFree: '면세',
+    belowSafety: '안전재고 이하',
+    zeroStock: '재고 0',
+    soldOut: '품절',
+  },
+  manager: { md: '담당 MD', createdBy: '등록자', updatedAt: '최근 수정', unassigned: '미지정' },
+  stats: {
+    totalStock: '총 재고',
+    soldOutOptions: '품절 옵션',
+    sold6m: '6개월 판매',
+    openInquiries: '미답변 문의',
+    safetyHint: (stock) => `안전재고 ${stock}`,
+    byOption: '옵션 기준',
+    noOption: '옵션 없음',
+    last6m: '최근 6개월',
+    inquiryUnit: '건',
+  },
+  optionColumns: {
+    name: '옵션명',
+    value: '옵션값',
+    extraPrice: '추가금액',
+    stock: '재고',
+    active: '사용',
+    activeYes: '사용',
+    activeNo: '미사용',
+  },
+  orderColumns: {
+    orderNo: '주문번호',
+    customer: '주문자',
+    option: '옵션',
+    quantity: '수량',
+    amount: '결제금액',
+    status: '주문상태',
+    orderedAt: '주문일',
+  },
+  orderStatusAlert: ['취소', '환불'],
+  inquiryColumns: {
+    title: '제목',
+    type: '유형',
+    author: '작성자',
+    createdAt: '등록일',
+    status: '처리상태',
+  },
+  gallery: {
+    zoom: '크게 보기',
+    coverBadge: '대표',
+    countHint: (count) => `총 ${count}장 · 첫 번째가 대표 이미지`,
+    zoomAria: ({ name, index }) => `${name} ${index + 1}번째 이미지 크게 보기`,
+  },
+  visibility: { display: '전시 노출', displayHint: '쇼핑몰 목록/검색 노출', sale: '판매' },
+  taxonomy: {
+    edit: '편집',
+    category: '카테고리',
+    tags: '태그',
+    emptyTags: '등록된 태그가 없습니다',
+  },
+  description: { attachments: '첨부 자료' },
+  chart: { title: '최근 6개월 판매량', series: '판매량' },
+  optionCount: (count) => `${count}개 옵션`,
+  actions: {
+    back: '목록',
+    edit: '수정',
+    duplicate: '복제',
+    delete: '삭제',
+    save: '저장',
+    saving: '저장 중…',
+  },
+  empty: {
+    images: '등록된 이미지가 없습니다',
+    descriptionBody: '상세 설명이 없습니다',
+    sales: '판매 데이터가 없습니다',
+    options: '등록된 옵션이 없습니다',
+    orders: '최근 주문이 없습니다',
+    inquiries: '등록된 문의가 없습니다',
+  },
+  duplicateDialog: {
+    title: '상품 복제',
+    description: (product) =>
+      `'${product.name}'을(를) 복사해 임시저장 상태의 새 상품을 만듭니다.`,
+    confirmLabel: '복제',
+  },
+  deleteDialog: {
+    title: '상품을 삭제할까요?',
+    description: (product) => `'${product.name}'(${product.code})을(를) 삭제합니다.`,
+  },
+  units: { count: '개' },
+  emptyCell: '-',
+}
+
+/**
+ * 판매 상태 문구 — DEFAULT_PRODUCT_DETAIL_LABELS.status의 별칭이다.
+ * 같은 값을 두 곳에 적으면 두 값은 갈라진다 — 문구의 단일 출처는 labels 기본값이다.
+ */
+export const PRODUCT_STATUS_LABEL: Record<ProductSaleStatus, string> =
+  DEFAULT_PRODUCT_DETAIL_LABELS.status
+
+/** 문의 상태 문구 — DEFAULT_PRODUCT_DETAIL_LABELS.inquiryStatus의 별칭 */
+export const PRODUCT_INQUIRY_STATUS_LABEL: Record<ProductInquiryStatus, string> =
+  DEFAULT_PRODUCT_DETAIL_LABELS.inquiryStatus
+
+/** ConfirmDialogLabels.description은 문자열이거나 인자 1개짜리 함수다 */
+function dialogDescription<A>(description: string | LabelFn<A>, arg: A): string {
+  return typeof description === 'function' ? description(arg) : description
+}
+
 export type ProductDetailProps = {
   value: ProductDetailValue
   /** 하단 탭 기본 선택 */
@@ -205,13 +479,28 @@ export type ProductDetailProps = {
   show?: ProductDetailShow
 
   /* ── 문구 — 미지정이면 현재 문구 그대로 ── */
+  /** 문구 — 개별 prop(emptyText·soldOutLabel·countUnit)이 있으면 그쪽이 이긴다 */
+  labels?: DeepPartialOneLevel<ProductDetailLabels>
+  /** 숫자·통화 표기 — 로케일·자릿수는 문구가 아니라 포맷이다(단위는 labels.units) */
+  formatters?: Formatters
+  /**
+   * 판매 상태별 배지 톤 — 넘긴 상태만 기본 톤을 덮어쓴다.
+   * 브랜드 톤 규약이 다른 서비스가 배지 색을 바꿀 수 있게 여는 열쇠다.
+   */
+  statusTone?: Partial<Record<ProductSaleStatus, Pick<BadgeProps, 'variant' | 'appearance'>>>
+  /** 문의 상태별 배지 톤 — 넘긴 상태만 기본 톤을 덮어쓴다 */
+  inquiryStatusTone?: Partial<Record<ProductInquiryStatus, ProductInquiryTone>>
   /** 헤더 제목 — 상품명 대신 다른 문구를 걸고 싶을 때만(기본은 value.name) */
   title?: string
   /** 표(옵션·주문·문의)의 빈 상태 문구를 한 번에 갈아끼운다 — 미지정이면 표별 기본 문구 */
   emptyText?: string
-  /** 재고 0일 때 기본 정보에 뜨는 배지 문구 */
+  /**
+   * @deprecated labels.basic.soldOut을 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   soldOutLabel?: string
-  /** 수량 단위 — 재고/판매량 표기에 붙는다(개 → 벌/box 등) */
+  /**
+   * @deprecated labels.units.count를 쓴다. 하위호환으로 유지되며, 넘기면 labels보다 우선한다.
+   */
   countUnit?: string
 
   /* ── 아이콘 슬롯 — 미지정이면 현재 lucide 아이콘 ── */
@@ -243,19 +532,11 @@ export type ProductDetailProps = {
 /** 본문 하단 탭 */
 export type ProductDetailTab = 'sales' | 'orders' | 'inquiries'
 
-const TAB_ITEMS: { value: ProductDetailTab; label: string }[] = [
-  { value: 'sales', label: '판매 통계' },
-  { value: 'orders', label: '최근 주문' },
-  { value: 'inquiries', label: '문의' },
-]
+/** 탭이 그려지는 순서 — 문구는 labels.tabs가 갖는다 */
+const TAB_KEYS: ProductDetailTab[] = ['sales', 'orders', 'inquiries']
 
-/** 상품 진행 단계 — statusSteps 미지정 시 status에서 파생 */
-const STATUS_FLOW: { key: string; label: string }[] = [
-  { key: 'draft', label: '등록' },
-  { key: 'review', label: '검수' },
-  { key: 'onSale', label: '판매중' },
-  { key: 'stopped', label: '판매종료' },
-]
+/** 상품 진행 단계의 순서 — statusSteps 미지정 시 status에서 파생. 문구는 labels.flow가 갖는다 */
+const STATUS_FLOW: ProductFlowKey[] = ['draft', 'review', 'onSale', 'stopped']
 
 /** show 기본값 — 스프레드로 합치면 명시적 undefined가 기본값을 덮어써서 하나씩 ?? true 로 푼다 */
 function resolveShow(show: ProductDetailShow = {}): Required<ProductDetailShow> {
@@ -275,15 +556,14 @@ function resolveShow(show: ProductDetailShow = {}): Required<ProductDetailShow> 
 }
 
 /** 원화 표기 — 표/요약에서 자릿수 정렬이 필요해 통화 기호 없이 '원'만 붙인다 */
-function formatKrw(value: number): string {
-  if (!Number.isFinite(value)) return '-'
+const DEFAULT_FORMAT_PRICE: NonNullable<Formatters['price']> = (value) => {
+  if (!Number.isFinite(value)) return DEFAULT_PRODUCT_DETAIL_LABELS.emptyCell
   return `${Math.round(value).toLocaleString('ko-KR')}원`
 }
 
-/** 수량 표기 — 단위는 호출부가 바꿀 수 있다(countUnit) */
-function formatCount(value: number, unit: string): string {
-  return `${value.toLocaleString('ko-KR')}${unit}`
-}
+/** 자릿수 구분만 — 단위는 labels.units.count가 붙인다 */
+const DEFAULT_FORMAT_NUMBER: NonNullable<Formatters['number']> = (value) =>
+  value.toLocaleString('ko-KR')
 
 /** 할인율 — 정가 대비 할인가. 정가가 0이거나 할인가가 없으면 null */
 function discountRate(price: number, salePrice?: number): number | null {
@@ -292,14 +572,19 @@ function discountRate(price: number, salePrice?: number): number | null {
 }
 
 /** status → StatusTimeline 단계. 임시저장은 등록 단계에 머문다. */
-export function buildProductStatusSteps(status: ProductSaleStatus): StatusStep[] {
+export function buildProductStatusSteps(
+  status: ProductSaleStatus,
+  /** 단계 문구 — 상세 화면이 labels로 갈아끼운 문구를 그대로 흘려보낸다 */
+  flowLabels: Record<ProductFlowKey, string> = DEFAULT_PRODUCT_DETAIL_LABELS.flow,
+): StatusStep[] {
   // 품절은 판매중 단계 안의 상태다 — 흐름 자체는 '판매중'에 머문다
-  const currentKey = status === 'soldOut' ? 'onSale' : status === 'draft' ? 'draft' : status
-  const currentIndex = STATUS_FLOW.findIndex((step) => step.key === currentKey)
+  const currentKey: ProductFlowKey =
+    status === 'soldOut' ? 'onSale' : status === 'draft' ? 'draft' : status
+  const currentIndex = STATUS_FLOW.indexOf(currentKey)
 
-  return STATUS_FLOW.map((step, index) => ({
-    key: step.key,
-    label: step.label,
+  return STATUS_FLOW.map((key, index) => ({
+    key,
+    label: flowLabels[key],
     state:
       index < currentIndex ? 'done' : index === currentIndex ? 'current' : ('todo' as const),
   }))
@@ -310,10 +595,14 @@ export function ProductDetail({
   defaultTab = 'sales',
   saving = false,
   show,
+  labels,
+  formatters,
+  statusTone,
+  inquiryStatusTone,
   title,
   emptyText,
-  soldOutLabel = '품절',
-  countUnit = '개',
+  soldOutLabel,
+  countUnit,
   editIcon,
   duplicateIcon,
   deleteIcon,
@@ -340,6 +629,18 @@ export function ProductDetail({
 
   const s = resolveShow(show)
 
+  // 우선순위: 개별 prop(soldOutLabel·countUnit) > labels > 기본값.
+  // mergeLabels는 그룹 안의 undefined를 걸러내므로, 넘기지 않은 개별 prop이 기본값을 지우지 않는다.
+  const L = mergeLabels(mergeLabels(DEFAULT_PRODUCT_DETAIL_LABELS, labels), {
+    basic: { soldOut: soldOutLabel },
+    units: { count: countUnit },
+  })
+
+  const formatPrice = formatters?.price ?? DEFAULT_FORMAT_PRICE
+  const formatNumber = formatters?.number ?? DEFAULT_FORMAT_NUMBER
+  /** 수량 표기 — 자릿수는 formatters, 단위는 labels */
+  const formatCount = (count: number) => `${formatNumber(count)}${L.units.count}`
+
   const { basic, options, images, tags = [], sales = [], orders = [], inquiries = [] } = value
   const attachments = value.attachments ?? []
   const heading = title ?? value.name
@@ -352,8 +653,8 @@ export function ProductDetail({
   const lowStock =
     basic.safetyStock != null && totalStock > 0 && totalStock <= basic.safetyStock
 
-  const badge = STATUS_BADGE[value.status]
-  const steps = value.statusSteps ?? buildProductStatusSteps(value.status)
+  const badge = statusTone?.[value.status] ?? STATUS_BADGE[value.status]
+  const steps = value.statusSteps ?? buildProductStatusSteps(value.status, L.flow)
   const rate = discountRate(basic.price, basic.salePrice)
   const soldTotal = sales.reduce((sum, point) => sum + point.count, 0)
 
@@ -375,123 +676,153 @@ export function ProductDetail({
   // ── 옵션 표 ──
   const optionColumns: AdminColumn<ProductOption>[] = [
     { kind: 'index', key: 'index' },
-    { kind: 'text', key: 'name', header: '옵션명', ratio: 2 },
-    { kind: 'title', key: 'value', header: '옵션값', ratio: 2 },
+    { kind: 'text', key: 'name', header: L.optionColumns.name, ratio: 2 },
+    { kind: 'title', key: 'value', header: L.optionColumns.value, ratio: 2 },
     {
       kind: 'price',
       key: 'extraPrice',
-      header: '추가금액',
-      // 0원은 '-'로 — 표가 0원으로 도배되지 않게
+      header: L.optionColumns.extraPrice,
+      // 0원은 빈 칸 문자로 — 표가 0원으로 도배되지 않게
       render: (row) => (
-        <span className={styles.num}>{row.extraPrice === 0 ? '-' : formatKrw(row.extraPrice)}</span>
+        <span className={styles.num}>
+          {row.extraPrice === 0 ? L.emptyCell : formatPrice(row.extraPrice)}
+        </span>
       ),
     },
-    { kind: 'number', key: 'stock', header: '재고', tone: () => 'error' },
+    { kind: 'number', key: 'stock', header: L.optionColumns.stock, tone: () => 'error' },
     {
       kind: 'badge',
       key: 'active',
-      header: '사용',
-      value: (row) => ((row.active ?? true) ? '사용' : '미사용'),
+      header: L.optionColumns.active,
+      value: (row) =>
+        (row.active ?? true) ? L.optionColumns.activeYes : L.optionColumns.activeNo,
       tone: (row) => ((row.active ?? true) ? 'success' : 'secondary'),
     },
   ]
 
   // ── 최근 주문 표 ──
   const orderColumns: AdminColumn<ProductOrder>[] = [
-    { kind: 'title', key: 'orderNo', header: '주문번호', ratio: 2, onClick: onOrderClick },
-    { kind: 'user', key: 'customer', header: '주문자' },
-    { kind: 'text', key: 'option', header: '옵션', value: (row) => row.option ?? '-' },
-    { kind: 'number', key: 'quantity', header: '수량' },
-    { kind: 'price', key: 'amount', header: '결제금액' },
+    {
+      kind: 'title',
+      key: 'orderNo',
+      header: L.orderColumns.orderNo,
+      ratio: 2,
+      onClick: onOrderClick,
+    },
+    { kind: 'user', key: 'customer', header: L.orderColumns.customer },
+    {
+      kind: 'text',
+      key: 'option',
+      header: L.orderColumns.option,
+      value: (row) => row.option ?? L.emptyCell,
+    },
+    { kind: 'number', key: 'quantity', header: L.orderColumns.quantity },
+    { kind: 'price', key: 'amount', header: L.orderColumns.amount },
     {
       kind: 'badge',
       key: 'status',
-      header: '주문상태',
-      tone: (row) => (row.status === '취소' || row.status === '환불' ? 'error' : 'primary'),
+      header: L.orderColumns.status,
+      // 주문상태는 자유 문자열이라 톤 규칙도 문구 비교다 — 비교 대상은 labels가 갖는다
+      tone: (row) => (L.orderStatusAlert.includes(row.status) ? 'error' : 'primary'),
     },
-    { kind: 'date', key: 'orderedAt', header: '주문일' },
+    { kind: 'date', key: 'orderedAt', header: L.orderColumns.orderedAt },
   ]
 
   // ── 문의 표 ──
   const inquiryColumns: AdminColumn<ProductInquiry>[] = [
-    { kind: 'title', key: 'title', header: '제목', ratio: 4, onClick: onInquiryClick },
-    { kind: 'text', key: 'type', header: '유형', ratio: 1, value: (row) => row.type ?? '-' },
-    { kind: 'user', key: 'author', header: '작성자' },
-    { kind: 'date', key: 'createdAt', header: '등록일' },
+    {
+      kind: 'title',
+      key: 'title',
+      header: L.inquiryColumns.title,
+      ratio: 4,
+      onClick: onInquiryClick,
+    },
+    {
+      kind: 'text',
+      key: 'type',
+      header: L.inquiryColumns.type,
+      ratio: 1,
+      value: (row) => row.type ?? L.emptyCell,
+    },
+    { kind: 'user', key: 'author', header: L.inquiryColumns.author },
+    { kind: 'date', key: 'createdAt', header: L.inquiryColumns.createdAt },
     {
       kind: 'badge',
       key: 'status',
-      header: '처리상태',
-      value: (row) => PRODUCT_INQUIRY_STATUS_LABEL[row.status],
-      tone: (row) => INQUIRY_STATUS_TONE[row.status],
+      header: L.inquiryColumns.status,
+      value: (row) => L.inquiryStatus[row.status],
+      tone: (row) => inquiryStatusTone?.[row.status] ?? INQUIRY_STATUS_TONE[row.status],
     },
   ]
 
   // ── 사이드: 재고 현황 ──
   const stats: StatItem[] = [
     {
-      label: '총 재고',
-      value: formatCount(totalStock, countUnit),
+      label: L.stats.totalStock,
+      value: formatCount(totalStock),
       hint:
         basic.safetyStock != null
-          ? `안전재고 ${formatCount(basic.safetyStock, countUnit)}`
+          ? L.stats.safetyHint(formatCount(basic.safetyStock))
           : undefined,
     },
     {
-      label: '품절 옵션',
-      value: options.length > 0 ? `${soldOutOptions}/${options.length}` : '-',
-      hint: options.length > 0 ? '옵션 기준' : '옵션 없음',
+      label: L.stats.soldOutOptions,
+      value: options.length > 0 ? `${soldOutOptions}/${options.length}` : L.emptyCell,
+      hint: options.length > 0 ? L.stats.byOption : L.stats.noOption,
     },
-    { label: '6개월 판매', value: formatCount(soldTotal, countUnit), hint: '최근 6개월' },
-    { label: '미답변 문의', value: `${inquiries.filter((i) => i.status === 'waiting').length}건` },
+    { label: L.stats.sold6m, value: formatCount(soldTotal), hint: L.stats.last6m },
+    {
+      label: L.stats.openInquiries,
+      value: `${inquiries.filter((i) => i.status === 'waiting').length}${L.stats.inquiryUnit}`,
+    },
   ]
 
   // ── 헤더 메타 · 기본 정보 · 담당자 — 라벨/값 블록은 공용 DefinitionList 하나로 통일한다 ──
   // (divider={false}: 카드 안에서 선 없이 읽히던 기존 레이아웃을 유지)
   const metaItems: DefinitionItem[] = [
-    { label: '상품코드', value: <span className={styles.code}>{value.code}</span> },
-    { label: '등록일', value: value.createdAt },
-    { label: '수정일', value: value.updatedAt ?? '-' },
-    { label: '등록자', value: value.createdBy },
+    { label: L.meta.code, value: <span className={styles.code}>{value.code}</span> },
+    { label: L.meta.createdAt, value: value.createdAt },
+    { label: L.meta.updatedAt, value: value.updatedAt ?? L.emptyCell },
+    { label: L.meta.createdBy, value: value.createdBy },
   ]
 
   const basicItems: DefinitionItem[] = [
     {
-      label: '판매가',
+      label: L.basic.price,
       value:
         rate != null ? (
           <span className={styles.priceGroup}>
-            <s className={styles.strike}>{formatKrw(basic.price)}</s>
-            <strong className={styles.salePrice}>{formatKrw(basic.salePrice ?? 0)}</strong>
+            <s className={styles.strike}>{formatPrice(basic.price)}</s>
+            <strong className={styles.salePrice}>{formatPrice(basic.salePrice ?? 0)}</strong>
             <Badge variant="error" appearance="soft" size="sm" label={`${rate}%`} />
           </span>
         ) : (
-          <strong className={styles.salePrice}>{formatKrw(basic.price)}</strong>
+          <strong className={styles.salePrice}>{formatPrice(basic.price)}</strong>
         ),
     },
     {
-      label: '재고',
+      label: L.basic.stock,
       value: isSoldOut ? (
-        <Badge variant="error" appearance="soft" size="sm" label={soldOutLabel} />
+        <Badge variant="error" appearance="soft" size="sm" label={L.basic.soldOut} />
       ) : lowStock ? (
         <span className={styles.stockWarn}>
-          {formatCount(totalStock, countUnit)} · 안전재고 이하
+          {formatCount(totalStock)} · {L.basic.belowSafety}
         </span>
       ) : (
-        formatCount(totalStock, countUnit)
+        formatCount(totalStock)
       ),
     },
     {
-      label: '배송비',
-      value: basic.shippingFee === 0 ? '무료배송' : formatKrw(basic.shippingFee),
+      label: L.basic.shippingFee,
+      value: basic.shippingFee === 0 ? L.basic.freeShipping : formatPrice(basic.shippingFee),
     },
-    { label: '과세여부', value: basic.taxable ? '과세' : '면세' },
+    { label: L.basic.taxable, value: basic.taxable ? L.basic.taxed : L.basic.taxFree },
   ]
 
   const managerItems: DefinitionItem[] = [
-    { label: '담당 MD', value: value.manager ?? '미지정' },
-    { label: '등록자', value: value.createdBy },
-    { label: '최근 수정', value: value.updatedAt ?? '-' },
+    { label: L.manager.md, value: value.manager ?? L.manager.unassigned },
+    { label: L.manager.createdBy, value: value.createdBy },
+    { label: L.manager.updatedAt, value: value.updatedAt ?? L.emptyCell },
   ]
 
   // ── 본문 ──
@@ -509,17 +840,17 @@ export function ProductDetail({
                 variant={badge.variant}
                 appearance={badge.appearance}
                 size="md"
-                label={PRODUCT_STATUS_LABEL[value.status]}
+                label={L.status[value.status]}
               />
               {/* 판매중으로 잡혀 있어도 재고가 0이면 품절을 함께 알린다 */}
               {isSoldOut && value.status !== 'soldOut' && (
-                <Badge variant="warning" appearance="soft" size="md" label="재고 0" />
+                <Badge variant="warning" appearance="soft" size="md" label={L.basic.zeroStock} />
               )}
               <Tag label={value.category} tone="primary" size="sm" />
             </div>
 
             <div className={styles.headerSwitch}>
-              <span className={styles.switchLabel}>판매</span>
+              <span className={styles.switchLabel}>{L.visibility.sale}</span>
               <Toggle
                 checked={value.status === 'onSale'}
                 size="sm"
@@ -537,15 +868,15 @@ export function ProductDetail({
       {/* 이미지 갤러리 — 대표 + 추가 이미지. 클릭하면 ImagePreview 라이트박스 */}
       {s.gallery && (
         <PageSection
-          title="상품 이미지"
-          description={hasImages ? `총 ${shownImages.length}장 · 첫 번째가 대표 이미지` : undefined}
+          title={L.sections.gallery}
+          description={hasImages ? L.gallery.countHint(shownImages.length) : undefined}
           actions={
             hasImages ? (
               <Button
                 variant="secondary"
                 appearance="outline"
                 size="sm"
-                label="크게 보기"
+                label={L.gallery.zoom}
                 showLeftIcon
                 leftIcon={zoomIcon ?? <Maximize2 size={14} />}
                 onClick={() => openPreview(0)}
@@ -564,7 +895,7 @@ export function ProductDetail({
                     variant="secondary"
                     appearance="outline"
                     size="sm"
-                    label="크게 보기"
+                    label={L.gallery.zoom}
                     showLeftIcon
                     leftIcon={zoomIcon ?? <Maximize2 size={16} />}
                     onClick={() => openPreview(0)}
@@ -580,10 +911,15 @@ export function ProductDetail({
                       type="button"
                       className={styles.thumb}
                       onClick={() => openPreview(index)}
-                      aria-label={`${image.alt ?? value.name} ${index + 1}번째 이미지 크게 보기`}
+                      aria-label={L.gallery.zoomAria({
+                        name: image.alt ?? value.name,
+                        index,
+                      })}
                     >
                       <img className={styles.thumbImage} src={image.url} alt="" loading="lazy" />
-                      {index === 0 && <span className={styles.thumbBadge}>대표</span>}
+                      {index === 0 && (
+                        <span className={styles.thumbBadge}>{L.gallery.coverBadge}</span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -592,33 +928,33 @@ export function ProductDetail({
           ) : (
             // 이미지 없음 — 공용 플레이스홀더로 통일
             <div className={styles.galleryEmpty}>
-              <Placeholder kind="image" size="fill" label="등록된 이미지가 없습니다" />
+              <Placeholder kind="image" size="fill" label={L.empty.images} />
             </div>
           )}
         </PageSection>
       )}
 
       {/* 기본 정보 */}
-      <PageSection title="기본 정보">
+      <PageSection title={L.sections.basic}>
         <DefinitionList items={basicItems} columns={2} divider={false} density="compact" />
       </PageSection>
 
       {/* 옵션 목록 — 상세는 읽기 전용, 편집은 '수정'(ProductForm)에서 */}
       {s.options && (
-        <PageSection title="옵션" description={`${options.length}개 옵션`}>
+        <PageSection title={L.sections.options} description={L.optionCount(options.length)}>
           <AdminTable
             columns={optionColumns}
             rows={options}
             rowKey={(row) => row.id}
             density="compact"
-            emptyText={emptyText ?? '등록된 옵션이 없습니다'}
+            emptyText={emptyText ?? L.empty.options}
           />
         </PageSection>
       )}
 
       {/* 상세 설명 — RichTextEditor 결과 HTML을 읽기 전용으로 렌더 */}
       {s.description && (
-        <PageSection title="상세 설명">
+        <PageSection title={L.sections.description}>
           {value.descriptionHtml.trim() !== '' ? (
             // 어드민이 저장한 신뢰된 HTML만 들어온다(외부 입력이면 호출부에서 sanitize 필요)
             <div
@@ -627,13 +963,13 @@ export function ProductDetail({
             />
           ) : (
             <div className={styles.emptyBlock}>
-              <Placeholder kind="empty" size={72} label="상세 설명이 없습니다" />
+              <Placeholder kind="empty" size={72} label={L.empty.descriptionBody} />
             </div>
           )}
 
           {attachments.length > 0 && (
             <div className={styles.attachments}>
-              <span className={styles.blockLabel}>첨부 자료</span>
+              <span className={styles.blockLabel}>{L.description.attachments}</span>
               <AttachmentList items={attachments} onDownload={onAttachmentDownload} compact />
             </div>
           )}
@@ -645,15 +981,18 @@ export function ProductDetail({
         <PageSection>
           <div className={styles.tabs}>
             <Tab
-              items={TAB_ITEMS.map((item) => ({
-                value: item.value,
-                label:
-                  item.value === 'orders' && orders.length > 0
-                    ? `${item.label} (${orders.length})`
-                    : item.value === 'inquiries' && inquiries.length > 0
-                      ? `${item.label} (${inquiries.length})`
-                      : item.label,
-              }))}
+              items={TAB_KEYS.map((key) => {
+                const label = L.tabs[key]
+                return {
+                  value: key,
+                  label:
+                    key === 'orders' && orders.length > 0
+                      ? `${label} (${orders.length})`
+                      : key === 'inquiries' && inquiries.length > 0
+                        ? `${label} (${inquiries.length})`
+                        : label,
+                }
+              })}
               value={tab}
               onChange={(next) => setTab(next as ProductDetailTab)}
               variant="underline"
@@ -666,15 +1005,19 @@ export function ProductDetail({
                     kind="bar"
                     labels={sales.map((point) => point.month)}
                     series={[
-                      { label: '판매량', data: sales.map((point) => point.count), tone: 'primary' },
+                      {
+                        label: L.chart.series,
+                        data: sales.map((point) => point.count),
+                        tone: 'primary',
+                      },
                     ]}
-                    title="최근 6개월 판매량"
+                    title={L.chart.title}
                     height={260}
-                    valueFormat={(n) => formatCount(n, countUnit)}
+                    valueFormat={(n) => formatCount(n)}
                   />
                 ) : (
                   <div className={styles.emptyBlock}>
-                    <Placeholder kind="empty" size={72} label="판매 데이터가 없습니다" />
+                    <Placeholder kind="empty" size={72} label={L.empty.sales} />
                   </div>
                 ))}
 
@@ -684,7 +1027,7 @@ export function ProductDetail({
                   rows={orders}
                   rowKey={(row) => row.id}
                   density="compact"
-                  emptyText={emptyText ?? '최근 주문이 없습니다'}
+                  emptyText={emptyText ?? L.empty.orders}
                 />
               )}
 
@@ -694,7 +1037,7 @@ export function ProductDetail({
                   rows={inquiries}
                   rowKey={(row) => row.id}
                   density="compact"
-                  emptyText={emptyText ?? '등록된 문의가 없습니다'}
+                  emptyText={emptyText ?? L.empty.inquiries}
                 />
               )}
             </div>
@@ -709,7 +1052,7 @@ export function ProductDetail({
 
   if (s.stats) {
     asideCards.push(
-      <PageSection key="stats" title="재고 현황" card={false}>
+      <PageSection key="stats" title={L.sections.stats} card={false}>
         <Statistics items={stats} columns={2} />
       </PageSection>,
     )
@@ -717,19 +1060,14 @@ export function ProductDetail({
 
   if (s.visibility) {
     asideCards.push(
-      <PageSection key="visibility" title="노출 상태">
+      <PageSection key="visibility" title={L.sections.visibility}>
         {/* 라벨 + 보조설명 + 컨트롤 규격은 공용 FieldRow가 갖는다 — 여기서 다시 짜지 않는다 */}
         <div className={styles.switchRows}>
-          <FieldRow label="전시 노출" description="쇼핑몰 목록/검색 노출">
+          <FieldRow label={L.visibility.display} description={L.visibility.displayHint}>
             <Toggle checked={value.visible} onChange={onVisibleChange} />
           </FieldRow>
 
-          <FieldRow
-            label="판매"
-            description={
-              value.status === 'onSale' ? '판매중' : PRODUCT_STATUS_LABEL[value.status]
-            }
-          >
+          <FieldRow label={L.visibility.sale} description={L.status[value.status]}>
             <Toggle
               checked={value.status === 'onSale'}
               onChange={(next) => onStatusChange?.(next ? 'onSale' : 'stopped')}
@@ -744,13 +1082,13 @@ export function ProductDetail({
     asideCards.push(
       <PageSection
         key="taxonomy"
-        title="카테고리 · 태그"
+        title={L.sections.taxonomy}
         actions={
           <Button
             variant="secondary"
             appearance="ghost"
             size="sm"
-            label="편집"
+            label={L.taxonomy.edit}
             showLeftIcon
             leftIcon={editIcon ?? <Pencil size={14} />}
             onClick={onCategoryEdit}
@@ -759,14 +1097,14 @@ export function ProductDetail({
       >
         <div className={styles.taxonomy}>
           <div className={styles.taxonomyRow}>
-            <span className={styles.blockLabel}>카테고리</span>
+            <span className={styles.blockLabel}>{L.taxonomy.category}</span>
             <div className={styles.tagList}>
               <Tag label={value.category} tone="primary" size="sm" />
             </div>
           </div>
 
           <div className={styles.taxonomyRow}>
-            <span className={styles.blockLabel}>태그</span>
+            <span className={styles.blockLabel}>{L.taxonomy.tags}</span>
             {tags.length > 0 ? (
               <div className={styles.tagList}>
                 {tags.map((tag) => (
@@ -784,7 +1122,7 @@ export function ProductDetail({
                 ))}
               </div>
             ) : (
-              <span className={styles.muted}>등록된 태그가 없습니다</span>
+              <span className={styles.muted}>{L.taxonomy.emptyTags}</span>
             )}
           </div>
         </div>
@@ -794,7 +1132,7 @@ export function ProductDetail({
 
   if (s.timeline) {
     asideCards.push(
-      <PageSection key="timeline" title="판매 진행">
+      <PageSection key="timeline" title={L.sections.timeline}>
         <StatusTimeline steps={steps} />
       </PageSection>,
     )
@@ -802,7 +1140,7 @@ export function ProductDetail({
 
   if (s.manager) {
     asideCards.push(
-      <PageSection key="manager" title="담당자">
+      <PageSection key="manager" title={L.sections.manager}>
         <DefinitionList items={managerItems} columns={1} divider={false} density="compact" />
       </PageSection>,
     )
@@ -810,13 +1148,13 @@ export function ProductDetail({
 
   if (s.quickActions) {
     asideCards.push(
-      <PageSection key="quickActions" title="빠른 액션">
+      <PageSection key="quickActions" title={L.sections.quickActions}>
         <div className={styles.quickActions}>
           <Button
             variant="secondary"
             appearance="outline"
             size="md"
-            label="수정"
+            label={L.actions.edit}
             showLeftIcon
             leftIcon={editIcon ?? <Pencil size={16} />}
             onClick={onEdit}
@@ -825,7 +1163,7 @@ export function ProductDetail({
             variant="secondary"
             appearance="outline"
             size="md"
-            label="복제"
+            label={L.actions.duplicate}
             showLeftIcon
             leftIcon={duplicateIcon ?? <Copy size={16} />}
             onClick={() => setDuplicateOpen(true)}
@@ -834,7 +1172,7 @@ export function ProductDetail({
             variant="error"
             appearance="outline"
             size="md"
-            label="삭제"
+            label={L.actions.delete}
             showLeftIcon
             leftIcon={deleteIcon ?? <Trash2 size={16} />}
             onClick={() => setDeleteOpen(true)}
@@ -854,7 +1192,7 @@ export function ProductDetail({
           variant="secondary"
           appearance="outline"
           size="md"
-          label="목록"
+          label={L.actions.back}
           onClick={onBackToList}
         />
       </div>
@@ -863,7 +1201,7 @@ export function ProductDetail({
         variant="error"
         appearance="outline"
         size="md"
-        label="삭제"
+        label={L.actions.delete}
         showLeftIcon
         leftIcon={deleteIcon ?? <Trash2 size={16} />}
         disabled={saving}
@@ -873,17 +1211,23 @@ export function ProductDetail({
         variant="secondary"
         appearance="outline"
         size="md"
-        label="복제"
+        label={L.actions.duplicate}
         showLeftIcon
         leftIcon={duplicateIcon ?? <Copy size={16} />}
         disabled={saving}
         onClick={() => setDuplicateOpen(true)}
       />
-      <Button variant="secondary" size="md" label="수정" disabled={saving} onClick={onEdit} />
+      <Button
+        variant="secondary"
+        size="md"
+        label={L.actions.edit}
+        disabled={saving}
+        onClick={onEdit}
+      />
       <Button
         variant="primary"
         size="md"
-        label={saving ? '저장 중…' : '저장'}
+        label={saving ? L.actions.saving : L.actions.save}
         disabled={saving}
         onClick={onSave}
       />
@@ -909,9 +1253,9 @@ export function ProductDetail({
       <CrudDialog
         open={duplicateOpen}
         mode="create"
-        title="상품 복제"
-        description={`'${value.name}'을(를) 복사해 임시저장 상태의 새 상품을 만듭니다.`}
-        confirmLabel="복제"
+        title={L.duplicateDialog.title}
+        description={dialogDescription(L.duplicateDialog.description, value)}
+        confirmLabel={L.duplicateDialog.confirmLabel}
         onConfirm={() => {
           onDuplicate?.()
           setDuplicateOpen(false)
@@ -923,8 +1267,8 @@ export function ProductDetail({
       <CrudDialog
         open={deleteOpen}
         mode="delete"
-        title="상품을 삭제할까요?"
-        description={`'${value.name}'(${value.code})을(를) 삭제합니다.`}
+        title={L.deleteDialog.title}
+        description={dialogDescription(L.deleteDialog.description, value)}
         onConfirm={() => {
           onDelete?.()
           setDeleteOpen(false)

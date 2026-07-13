@@ -262,3 +262,32 @@ export const CustomCopy: Story = {
     emptyText: '조회된 작가가 없습니다.',
   },
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글과 [필터] 버튼이 labels로 열렸다. 금액의 '원'은 문구가 아니라 포맷이라 formatters로 연다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Customers',
+      description: 'Browse members and keep notes on each account.',
+      columns: {
+        nickname: 'Name · Phone',
+        email: 'Email',
+        memberType: 'Member type',
+        joinPath: 'Sign-up path',
+        joinedAt: 'Joined',
+        orderCount: 'Orders',
+        totalPurchase: 'Lifetime spend',
+        memo: 'Note',
+      },
+      toolbar: { export: 'Export to Excel', filter: 'Filter' },
+      search: { searchPlaceholder: 'Search by name, email or phone' },
+      empty: { title: 'No customers found.' },
+    },
+    // 통화는 labels가 아니라 formatters의 몫이다 — '1,284,000원' → '$1,284,000'
+    formatters: { price: (value) => `$${Math.round(value).toLocaleString('en-US')}` },
+    countUnit: ' people',
+  },
+}

@@ -26,6 +26,28 @@
   grid-column: span 3;
 }
 
+/*
+ * 좌측 라벨(2열) — 라벨 열 폭은 --fr-label-w(기본 140).
+ * 메시지(설명·에러)는 라벨 아래가 아니라 컨트롤 아래에 서야 읽는 순서가 맞는다 → 2열 그리드의 2번 열.
+ */
+.row[data-label-placement='left'] {
+  display: grid;
+  grid-template-columns: var(--fr-label-w) minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--ds-spacing-4);
+}
+
+/* 컨트롤의 첫 줄 텍스트와 라벨이 같은 높이에서 읽히도록 위 여백만 준다(세로 가운데 정렬이 아니다 —
+   textarea처럼 키가 큰 컨트롤에서는 라벨이 한가운데로 떠내려간다) */
+.row[data-label-placement='left'] .label {
+  padding-top: var(--ds-spacing-2);
+}
+
+.row[data-label-placement='left'] .description,
+.row[data-label-placement='left'] .error {
+  grid-column: 2;
+}
+
 /* ── 라벨 + 필수 ── */
 .label {
   display: flex;
@@ -90,5 +112,15 @@
   .row[data-span='2'],
   .row[data-span='3'] {
     grid-column: 1 / -1;
+  }
+
+  /* 좌측 라벨도 함께 풀린다 — 좁은 폭에서 140px 라벨 열은 컨트롤을 짓누른다 */
+  .row[data-label-placement='left'] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .row[data-label-placement='left'] .label {
+    padding-top: 0;
   }
 }

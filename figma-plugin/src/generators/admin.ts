@@ -363,10 +363,10 @@ function buildSet(
   set.fills = [solid('#FBFCFE')]
 
   if (props) {
-    props.texts?.forEach((t) => {
-      addTextProp(set, t.prop, t.layer, t.def)
-      addBoolProp(set, `Show ${t.prop}`, t.layer, true) // 텍스트 on/off 토글
-    })
+    // TEXT마다 `Show <prop>` 불리언을 자동 생성하지 않는다 — 대응하는 React prop이 없는 "유령 속성"이라
+    // 규약 §3(BOOLEAN 이름 = show* prop 이름 그대로)을 기계적으로 위반한다. 텍스트 on/off가 필요하면
+    // 코드에 show* prop을 만들고 props.bools에 명시적으로 선언하라.
+    props.texts?.forEach((t) => addTextProp(set, t.prop, t.layer, t.def))
     props.bools?.forEach((b) => addBoolProp(set, b.prop, b.layer, b.def))
     props.swaps?.forEach((s) => addSwapProp(set, s.prop, s.layer, s.defKey))
   }
@@ -736,7 +736,7 @@ function renderAdminTopbar(ctx: Ctx, combo: Record<string, string>): ComponentNo
   }
   // plain(화면 페이지 헤더)은 셸 topbar보다 한 단계 큰 활자를 쓴다 — 화면 규격 24/14.
   const title = boundText(ctx, '상품 목록', plain ? 24 : 20, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   left.appendChild(title)
   if (stacked) {
     const desc = boundText(
@@ -746,7 +746,7 @@ function renderAdminTopbar(ctx: Ctx, combo: Record<string, string>): ComponentNo
       'color/secondary',
       SUB,
     )
-    desc.name = 'Description'
+    desc.name = 'description'
     left.appendChild(desc)
   }
   c.appendChild(left)
@@ -770,10 +770,10 @@ function renderAdminTopbar(ctx: Ctx, combo: Record<string, string>): ComponentNo
   utext.counterAxisAlignItems = 'MAX'
   utext.itemSpacing = 2
   const uname = boundText(ctx, '홍길동', 13, 'color/text', INK, true)
-  uname.name = 'User Name'
+  uname.name = 'user.name'
   utext.appendChild(uname)
   const urole = boundText(ctx, '운영 관리자', 11, 'color/secondary/400', MUTED)
-  urole.name = 'User Role'
+  urole.name = 'user.role'
   utext.appendChild(urole)
   user.appendChild(utext)
   user.appendChild(avatar(ctx, 32))
@@ -820,13 +820,13 @@ const TBL_DEF: TblCol[] = [
   { label: '', w: TBL_COLS.select, layer: 'Select', align: 'CENTER' },
   { label: '상품번호', w: TBL_COLS.code, layer: 'Code', align: 'MIN' },
   { label: '이미지', w: TBL_COLS.thumb, layer: 'Thumb', align: 'CENTER' },
-  { label: '상품명', w: TBL_COLS.title, layer: 'Title', align: 'MIN', grow: true },
+  { label: '상품명', w: TBL_COLS.title, layer: 'title', align: 'MIN', grow: true },
   { label: '판매가', w: TBL_COLS.price, layer: 'Price', align: 'MAX' },
   { label: '상태', w: TBL_COLS.status, layer: 'Status', align: 'CENTER' },
   { label: '재고', w: TBL_COLS.stock, layer: 'Stock', align: 'MAX' },
   { label: '카테고리', w: TBL_COLS.category, layer: 'Category', align: 'MIN' },
   { label: '등록일', w: TBL_COLS.date, layer: 'Date', align: 'MIN' },
-  { label: '관리', w: TBL_COLS.actions, layer: 'Actions', align: 'CENTER' },
+  { label: '관리', w: TBL_COLS.actions, layer: 'Show Actions', align: 'CENTER' },
 ]
 
 // 행 데이터 — [상품번호, 상품명, 판매가, 상태, 톤, 재고, 카테고리, 등록일, 선택됨]
@@ -992,7 +992,7 @@ function renderAdminCard(ctx: Ctx, combo: Record<string, string>): ComponentNode
   body.paddingTop = body.paddingBottom = 14
   body.paddingLeft = body.paddingRight = 14
   const title = boundText(ctx, '프리미엄 원목 책상', 15, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   body.appendChild(title)
   const subtitle = boundText(ctx, '가구 · 서재', 12, 'color/secondary', SUB)
   subtitle.name = 'Subtitle'
@@ -1174,7 +1174,7 @@ function renderCrudDialog(ctx: Ctx, combo: Record<string, string>): ComponentNod
   head.paddingLeft = head.paddingRight = 20
   bottomBorder(ctx, head)
   const ttl = boundText(ctx, title, 16, 'color/text', INK, true)
-  ttl.name = 'Title'
+  ttl.name = 'title'
   head.appendChild(ttl)
   head.appendChild(icon('_Icon/Close', 'Close', 16, MUTED))
   c.appendChild(head)
@@ -1204,7 +1204,7 @@ function renderCrudDialog(ctx: Ctx, combo: Record<string, string>): ComponentNod
     dtext.layoutGrow = 1
     dtext.itemSpacing = 4
     const d1 = boundText(ctx, '선택한 상품 3건을 삭제합니다.', 14, 'color/text', INK)
-    d1.name = 'Description'
+    d1.name = 'description'
     dtext.appendChild(d1)
     const d2 = boundText(ctx, '삭제한 데이터는 되돌릴 수 없습니다.', 12, 'color/error', VARIANT_HEX.error)
     d2.name = 'Warning'
@@ -1266,16 +1266,16 @@ function renderDropZone(ctx: Ctx, combo: Record<string, string>): ComponentNode 
     dragging ? ACCENT : INK,
     true,
   )
-  label.name = 'Label'
+  label.name = 'label'
   c.appendChild(label)
   const hint = boundText(ctx, 'PNG, JPG · 파일당 최대 10MB', 12, 'color/secondary', SUB)
-  hint.name = 'Hint'
+  hint.name = 'hint'
   c.appendChild(hint)
   // 파일 선택 버튼 — 드롭이 안 되는 환경(클릭 업로드)용.
   // 버튼 프레임과 라벨 레이어 이름을 같게 두면 BOOLEAN 'Show Action'이 둘 다 끈다
   // → 껐을 때 빈 버튼 껍데기가 남지 않는다(ON/OFF 규약).
   const action = btn(ctx, '파일 선택', 'outline', 'Action Label', 'sm')
-  action.name = 'Action Label'
+  action.name = 'Action'
   c.appendChild(action)
   return c
 }
@@ -1425,7 +1425,7 @@ function renderTodoSummary(ctx: Ctx, _combo: Record<string, string>): ComponentN
   head.paddingLeft = head.paddingRight = 20
   bottomBorder(ctx, head)
   const title = boundText(ctx, '오늘의 할일', 15, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   head.appendChild(title)
   // 칩 프레임 이름을 텍스트 레이어와 같게 둔다 → 자동 생성되는 'Show Total'이 칩째 끈다(빈 껍데기가 남지 않는다).
   const totalChip = badge(ctx, '38건', 'primary', 'Total')
@@ -1518,7 +1518,7 @@ function renderActivityLog(ctx: Ctx, _combo: Record<string, string>): ComponentN
   head.counterAxisAlignItems = 'CENTER'
   head.paddingBottom = 8
   const title = boundText(ctx, '최근 활동', 15, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   head.appendChild(title)
   const viewAll = autoFrame('view all', 'HORIZONTAL')
   viewAll.counterAxisAlignItems = 'CENTER'
@@ -1590,14 +1590,14 @@ function renderMemoBox(ctx: Ctx, _combo: Record<string, string>): ComponentNode 
   head.layoutAlign = 'STRETCH'
   head.itemSpacing = 4
   const title = boundText(ctx, '관리자 메모', 15, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   head.appendChild(title)
   const descRow = autoFrame('desc', 'HORIZONTAL')
   descRow.counterAxisAlignItems = 'CENTER'
   descRow.itemSpacing = 4
   descRow.appendChild(icon('_Icon/EyeOff', 'Desc Icon', 13, MUTED))
   const desc = boundText(ctx, '고객에게 노출되지 않습니다.', 12, 'color/secondary/400', MUTED)
-  desc.name = 'Description'
+  desc.name = 'description'
   descRow.appendChild(desc)
   head.appendChild(descRow)
   c.appendChild(head)
@@ -1611,7 +1611,7 @@ function renderMemoBox(ctx: Ctx, _combo: Record<string, string>): ComponentNode 
   editor.strokeWeight = 1
   editor.strokeAlign = 'INSIDE'
   const ph = boundText(ctx, '고객 응대 시 참고할 내용을 남겨 주세요.', 13, 'color/secondary/400', MUTED)
-  ph.name = 'Placeholder'
+  ph.name = 'placeholder'
   editor.appendChild(ph)
   c.appendChild(editor)
 
@@ -1756,17 +1756,17 @@ const ADMIN_CATEGORY: CategoryDef = {
           (c) => renderAdminTopbar(ctx, c),
           {
             texts: [
-              { prop: 'Title', layer: 'Title', def: '상품 목록' },
-              { prop: 'Description', layer: 'Description', def: '등록된 상품을 확인하고 판매 상태를 관리합니다.' },
-              { prop: 'Action 1', layer: 'Action 1 Label', def: '엑셀 다운로드' },
-              { prop: 'Action 2', layer: 'Action 2 Label', def: '상품 등록' },
-              { prop: 'User Name', layer: 'User Name', def: '홍길동' },
-              { prop: 'User Role', layer: 'User Role', def: '운영 관리자' },
+              { prop: 'title', layer: 'title', def: '상품 목록' },
+              { prop: 'description', layer: 'description', def: '등록된 상품을 확인하고 판매 상태를 관리합니다.' },
+              { prop: 'Action 1', layer: 'Action 1', def: '엑셀 다운로드' },
+              { prop: 'Action 2', layer: 'Action 2', def: '상품 등록' },
+              { prop: 'user.name', layer: 'user.name', def: '홍길동' },
+              { prop: 'user.role', layer: 'user.role', def: '운영 관리자' },
             ],
             bools: [
-              { prop: 'Show Breadcrumb', layer: 'breadcrumb', def: true },
-              { prop: 'Show Actions', layer: 'Actions', def: true },
-              { prop: 'Show User', layer: 'User', def: true },
+              { prop: 'showBreadcrumb', layer: 'showBreadcrumb', def: true },
+              { prop: 'Show Actions', layer: 'Show Actions', def: true },
+              { prop: 'Show User', layer: 'Show User', def: true },
             ],
           },
         ),
@@ -1839,7 +1839,7 @@ const ADMIN_CATEGORY: CategoryDef = {
           (c) => renderAdminCard(ctx, c),
           {
             texts: [
-              { prop: 'Title', layer: 'Title', def: '프리미엄 원목 책상' },
+              { prop: 'title', layer: 'title', def: '프리미엄 원목 책상' },
               { prop: 'Price', layer: 'Price', def: '₩129,000' },
             ],
           },
@@ -1881,8 +1881,8 @@ const ADMIN_CATEGORY: CategoryDef = {
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/SearchPanel', [{ name: 'state', values: ['default'] }], (c) => renderSearchPanel(ctx, c), {
           texts: [
-            { prop: 'Search', layer: 'Search Label', def: '검색' },
-            { prop: 'Reset', layer: 'Reset Label', def: '초기화' },
+            { prop: 'Search', layer: 'Search', def: '검색' },
+            { prop: 'Reset', layer: 'Reset', def: '초기화' },
           ],
         }),
       states: [{ caption: '기본 (4필드)', props: {} }],
@@ -1895,8 +1895,8 @@ const ADMIN_CATEGORY: CategoryDef = {
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/CrudDialog', [{ name: 'mode', values: ['create', 'edit', 'delete'] }], (c) => renderCrudDialog(ctx, c), {
           texts: [
-            { prop: 'Title', layer: 'Title', def: '등록' },
-            { prop: 'Confirm', layer: 'Confirm Label', def: '등록' },
+            { prop: 'title', layer: 'title', def: '등록' },
+            { prop: 'Confirm', layer: 'Confirm', def: '등록' },
           ],
         }),
       states: [
@@ -1915,9 +1915,9 @@ const ADMIN_CATEGORY: CategoryDef = {
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/DropZone', [{ name: 'state', values: ['idle', 'dragging'] }], (c) => renderDropZone(ctx, c), {
           texts: [
-            { prop: 'Label', layer: 'Label', def: '파일을 끌어다 놓거나 클릭해서 선택하세요' },
-            { prop: 'Hint', layer: 'Hint', def: 'PNG, JPG · 파일당 최대 10MB' },
-            { prop: 'Action', layer: 'Action Label', def: '파일 선택' },
+            { prop: 'label', layer: 'label', def: '파일을 끌어다 놓거나 클릭해서 선택하세요' },
+            { prop: 'hint', layer: 'hint', def: 'PNG, JPG · 파일당 최대 10MB' },
+            { prop: 'Action', layer: 'Action', def: '파일 선택' },
           ],
         }),
       states: [
@@ -1963,7 +1963,7 @@ const ADMIN_CATEGORY: CategoryDef = {
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/TodoSummary', [{ name: 'state', values: ['default'] }], (c) => renderTodoSummary(ctx, c), {
           texts: [
-            { prop: 'Title', layer: 'Title', def: '오늘의 할일' },
+            { prop: 'title', layer: 'title', def: '오늘의 할일' },
             { prop: 'Total', layer: 'Total', def: '38건' },
             { prop: 'Updated', layer: 'Updated', def: '2026-07-13 09:41 기준' },
             ...flatProps(
@@ -1984,7 +1984,7 @@ const ADMIN_CATEGORY: CategoryDef = {
       desc: '최근 활동 로그. 타입별 아이콘 칩(문의·주문·상품·회원) + 문장 + 상대 시각, 안 읽은 항목엔 primary 점.',
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/ActivityLog', [{ name: 'state', values: ['default'] }], (c) => renderActivityLog(ctx, c), {
-          texts: [{ prop: 'Title', layer: 'Title', def: '최근 활동' }],
+          texts: [{ prop: 'title', layer: 'title', def: '최근 활동' }],
         }),
       states: [{ caption: '기본', props: {} }],
     },
@@ -1996,11 +1996,11 @@ const ADMIN_CATEGORY: CategoryDef = {
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/MemoBox', [{ name: 'state', values: ['default'] }], (c) => renderMemoBox(ctx, c), {
           texts: [
-            { prop: 'Title', layer: 'Title', def: '관리자 메모' },
-            { prop: 'Description', layer: 'Description', def: '고객에게 노출되지 않습니다.' },
-            { prop: 'Placeholder', layer: 'Placeholder', def: '고객 응대 시 참고할 내용을 남겨 주세요.' },
+            { prop: 'title', layer: 'title', def: '관리자 메모' },
+            { prop: 'description', layer: 'description', def: '고객에게 노출되지 않습니다.' },
+            { prop: 'placeholder', layer: 'placeholder', def: '고객 응대 시 참고할 내용을 남겨 주세요.' },
             { prop: 'Counter', layer: 'Counter', def: '0/500' },
-            { prop: 'Save', layer: 'Save Label', def: '저장' },
+            { prop: 'Save', layer: 'Save', def: '저장' },
           ],
         }),
       states: [{ caption: '기본', props: {} }],

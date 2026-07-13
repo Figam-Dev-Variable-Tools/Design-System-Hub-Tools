@@ -49,9 +49,19 @@ const meta = {
     // ON/OFF · 문구 — dense만 기본 false(나머지는 지금까지의 표 그대로)
     showHeader: { control: 'boolean' },
     dimZero: { control: 'boolean' },
-    dense: { control: 'boolean' },
-    emptyText: { control: 'text' },
-    emptyDescription: { control: 'text' },
+    dense: { control: 'boolean', description: '@deprecated — density="compact"를 쓰세요' },
+    density: {
+      control: 'inline-radio',
+      options: ['comfortable', 'compact'],
+      description: 'DS 공통 밀도 축(AdminTable·AdminCard·DefinitionList와 같은 이름·같은 값)',
+    },
+    striped: { control: 'boolean', description: '짝수 행 줄무늬 — 긴 표에서 가로 추적을 돕는다' },
+    stickyHeader: { control: 'boolean', description: '끄면 인쇄·리포트 캡처에서 헤더가 따라오지 않는다' },
+    stickySummary: { control: 'boolean' },
+    emptyText: { control: 'text', description: '@deprecated — labels.empty.title을 쓰세요' },
+    emptyDescription: { control: 'text', description: '@deprecated — labels.empty.description을 쓰세요' },
+    labels: { control: 'object' },
+    formatters: { control: false },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -173,6 +183,58 @@ export const CustomEmptyCopy: Story = {
     summaries: [],
     emptyText: '집계된 방문 기록이 없습니다',
     emptyDescription: '수집 스크립트가 설치됐는지 확인해 보세요.',
+  },
+}
+
+/** striped + summaryTone — 긴 표에서 행을 눈으로 따라가고, 합계만 결론으로 눌러 강조한다 */
+export const StripedWithStrongSummary: Story = {
+  args: {
+    striped: true,
+    density: 'compact',
+    summaries: [
+      { label: '일 평균', row: { orders: 74, sales: 2_665_142, visitors: 2_266, signups: 13, inquiries: 4, reviews: 5 } },
+      {
+        label: '합계',
+        tone: 'strong',
+        row: { orders: 521, sales: 18_656_000, visitors: 15_864, signups: 92, inquiries: 29, reviews: 36 },
+      },
+    ],
+  },
+}
+
+/** sticky OFF — 인쇄·리포트 캡처처럼 고정이 오히려 방해가 되는 맥락 */
+export const NoSticky: Story = {
+  args: { stickyHeader: false, stickySummary: false },
+}
+
+/**
+ * Labels: 영문 오버라이드 — 빈 셀('-')·boolean('Y'/'N')·빈 상태·표 접근성 이름이
+ * labels 통로로 화면까지 닿는다. 숫자 로케일은 문구가 아니라 formatters로 연다.
+ */
+export const Labels: Story = {
+  args: {
+    columns: [
+      { key: 'date', label: 'Date', align: 'left' },
+      { key: 'orders', label: 'Orders', align: 'right' },
+      { key: 'sales', label: 'Revenue', align: 'right' },
+      { key: 'refunded', label: 'Refunded' },
+      { key: 'note', label: 'Note', align: 'left' },
+    ],
+    rows: [
+      { date: '2026-07-11', orders: 54, sales: 1_720_000, refunded: false, note: null },
+      { date: '2026-07-12', orders: 12, sales: 384_000, refunded: true, note: 'partial' },
+      { date: '2026-07-13', orders: 0, sales: 0, refunded: false, note: null },
+    ],
+    summaries: [{ label: 'Total', tone: 'strong', row: { orders: 66, sales: 2_104_000 } }],
+    labels: {
+      emptyCell: 'N/A',
+      boolTrue: 'Yes',
+      boolFalse: 'No',
+      caption: 'Daily performance, last 3 days',
+      empty: { title: 'No data for this period', description: 'Try a different date range.' },
+    },
+    // 로케일은 문구가 아니라 포맷 — en-US 자릿수로 갈아끼운다
+    formatters: { number: (value: number) => value.toLocaleString('en-US') },
   },
 }
 

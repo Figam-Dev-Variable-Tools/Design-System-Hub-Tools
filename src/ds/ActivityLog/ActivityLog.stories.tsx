@@ -148,3 +148,28 @@ export const CustomTypeIcons: Story = {
     viewAllLabel: '활동 로그 전체',
   },
 }
+
+/**
+ * Labels: 영문 오버라이드 — 제목·전체보기·미읽음 이름은 물론, 문장 조사('님이')와
+ * 상대 시간('3분 전')까지 labels 통로로 화면까지 닿는다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      title: 'Recent activity',
+      viewAll: 'View all',
+      unread: 'Unread',
+      // 영어에는 조사가 없다 — 빈 문자열이면 이름과 동작이 바로 이어진다
+      actorSuffix: '',
+      empty: { title: 'No activity yet.' },
+      relativeTime: {
+        justNow: 'just now',
+        minutes: (n) => `${n}m ago`,
+        hours: (n) => `${n}h ago`,
+        days: (n) => `${n}d ago`,
+        absolute: (date) => date.toLocaleDateString('en-US'),
+      },
+    },
+    onViewAll: () => {},
+  },
+}

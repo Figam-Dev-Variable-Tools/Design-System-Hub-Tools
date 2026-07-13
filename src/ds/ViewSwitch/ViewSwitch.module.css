@@ -51,3 +51,20 @@
   font-size: var(--ds-font-size-sm);
   padding: 6px 12px;
 }
+
+/* 사이트 히어로 아래 큰 툴바 — Select(md/lg) 같은 이웃 컨트롤과 줄을 맞춘다 */
+.lg .option {
+  font-size: var(--ds-font-size-md);
+  padding: 8px 16px;
+}
+
+/* 세로 배치(사이드 레일) — 방향키는 이미 상하 키를 받는다.
+   세그먼트는 폭을 서로 맞춰야 글자 길이에 따라 들쭉날쭉해지지 않는다. */
+.vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.vertical .option {
+  justify-content: flex-start;
+}

@@ -185,13 +185,36 @@ const meta = {
     errors: { control: false },
     headerBadge: { control: false },
     headerActions: { control: false },
+    side: { control: false },
+    aside: { control: false },
     show: { control: 'object' },
+    labels: { control: 'object', description: '문구 통로 — 개별 prop > labels.* > 기본값' },
     mode: { control: 'radio', options: ['create', 'edit'] },
     submitting: { control: 'boolean' },
     loading: { control: 'boolean' },
     stickyFooter: { control: 'boolean' },
     maxWidth: { control: 'radio', options: ['md', 'lg', 'full'] },
     density: { control: 'radio', options: ['compact', 'comfortable'] },
+    submitLabel: { control: 'text', description: '@deprecated labels.submit' },
+    cancelLabel: { control: 'text', description: '@deprecated labels.cancel' },
+    submittingLabel: { control: 'text', description: '@deprecated labels.submitting' },
+    // 변형 축
+    columns: {
+      control: 'inline-radio',
+      options: [1, 2, 3],
+      description: '섹션 본문 열 수(기본 3) — 섹션별로 section.columns가 이긴다',
+    },
+    sectionAppearance: {
+      control: 'inline-radio',
+      options: ['card', 'plain'],
+      description: 'plain=모달·드로어 안에서 카드 보더가 겹치지 않게',
+    },
+    labelPlacement: {
+      control: 'inline-radio',
+      options: ['top', 'left'],
+      description: 'left=어드민 설정 화면의 2열 폼',
+    },
+    labelWidth: { control: { type: 'number', min: 80, step: 20 } },
   },
   parameters: {
     design: { type: 'figma', url: `${FIGMA_FILE}?node-id=0-1` },
@@ -249,5 +272,92 @@ export const WithErrors: Story = {
       image: '대표 이미지를 등록하세요.',
       link: 'http:// 또는 https:// 로 시작하는 주소를 입력하세요.',
     },
+  },
+}
+
+/**
+ * 문구 전면 교체(labels) — 개별 prop을 하나도 주지 않고 통로 하나로 영문화한다.
+ * labels.toggle 하나가 toggle 필드와 섹션 밴드 스위치를 함께 바꾼다
+ * (지금까지는 필드마다 onLabel/offLabel을 반복해 적어야 했다).
+ */
+export const Labels: Story = {
+  args: {
+    mode: 'edit',
+    value: FILLED,
+    title: 'Edit portfolio',
+    description: 'Same shell, English copy — nothing but labels changed.',
+    labels: {
+      submitByMode: { create: 'Create', edit: 'Save' },
+      submitting: 'Saving…',
+      cancel: 'Cancel',
+      toggle: { on: 'On', off: 'Off' },
+      image: { removeLabel: 'Remove image', dropLabel: 'Drop an image or click to upload' },
+    },
+  },
+}
+
+/**
+ * 설정 화면 규격 — 1열 + 좌측 라벨(labelPlacement='left') + 크롬 없는 섹션.
+ * 세 축 모두 없어서 이런 화면은 셸을 버리고 폼을 직접 조립하고 있었다.
+ */
+export const SettingsForm: Story = {
+  args: {
+    value: FILLED,
+    mode: 'edit',
+    title: '서비스 설정',
+    description: '좌측 라벨 2열 폼 — 어드민 설정 화면의 흔한 규격입니다.',
+    maxWidth: 'md',
+    columns: 1,
+    labelPlacement: 'left',
+    labelWidth: 160,
+    stickyFooter: false,
+  },
+}
+
+/**
+ * 좌측 앵커 내비 + 우측 미리보기 — AdminPageLayout의 side/aside 자리를 셸이 이제 통과시킨다.
+ * (긴 폼과 편집+미리보기 화면이 레이아웃을 직접 조립하지 않아도 된다)
+ */
+export const WithRails: Story = {
+  args: {
+    value: FILLED,
+    mode: 'edit',
+    maxWidth: 'full',
+    columns: 2,
+    side: (
+      <nav
+        style={{
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--ds-spacing-2)',
+          padding: 'var(--ds-spacing-5)',
+          background: 'var(--ds-color-bg)',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-lg)',
+          fontSize: 'var(--ds-font-size-sm)',
+          color: 'var(--ds-color-secondary)',
+        }}
+      >
+        <span>1. 기본 정보</span>
+        <span>2. 미디어</span>
+        <span>3. 링크·노출</span>
+      </nav>
+    ),
+    aside: (
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: 'var(--ds-spacing-5)',
+          background: 'var(--ds-color-bg)',
+          border: 'var(--ds-border-width) solid var(--ds-color-border)',
+          borderRadius: 'var(--ds-radius-lg)',
+          fontSize: 'var(--ds-font-size-sm)',
+          color: 'var(--ds-color-secondary)',
+        }}
+      >
+        미리보기 자리(MobilePreview)
+      </div>
+    ),
   },
 }

@@ -15,6 +15,12 @@
   gap: var(--ds-spacing-4);
 }
 
+/* 1열(columns=1) — 모달·태블릿 분할처럼 폭이 좁은 자리에서 필드가 짓눌리지 않게 한다.
+   기본(2열)은 위 규칙 그대로다. 좁은 화면에서는 파일 뒤의 반응형 규칙이 어차피 1열로 접는다. */
+.cols1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .col {
   display: flex;
   flex-direction: column;

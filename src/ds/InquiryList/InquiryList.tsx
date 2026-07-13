@@ -2,6 +2,18 @@ import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CheckCheck, Eye, Paperclip, SlidersHorizontal, UserCog } from 'lucide-react'
 import styles from './InquiryList.module.css'
+import {
+  mergeLabels,
+  resolveLabel,
+  type ColumnLabels,
+  type ConfirmDialogLabels,
+  type DeepPartialOneLevel,
+  type EmptyLabels,
+  type LabelFn,
+  type RowScopedActionLabels,
+  type StatusLabels,
+  type TabLabels,
+} from '../../shared/labels'
 import { AdminListPage } from '../AdminListPage/AdminListPage'
 import {
   type AdminBulkAction,
@@ -17,6 +29,27 @@ import { Tag } from '../Tag/Tag'
 
 /** 문의 처리 상태 — 접수 → 확인중 → 답변완료, 그 밖에 보류/종료 */
 export type InquiryStatus = 'received' | 'checking' | 'answered' | 'hold' | 'closed'
+
+/** 표 컬럼 — labels.columns의 키이자 AdminTable 컬럼 key */
+export type InquiryColumnKey =
+  | 'no'
+  | 'type'
+  | 'title'
+  | 'productName'
+  | 'orderNo'
+  | 'author'
+  | 'memberGrade'
+  | 'assignee'
+  | 'createdAt'
+  | 'answeredAt'
+  | 'views'
+  | 'status'
+  | 'isPublic'
+  | 'hasAttachment'
+  | 'detail'
+
+/** 제목 앞 태그 */
+export type InquiryTagKey = 'urgent' | 'reported'
 
 export type InquiryRow = {
   id: string
@@ -37,6 +70,170 @@ export type InquiryRow = {
   urgent?: boolean
   reported?: boolean
 }
+
+/* ── 문구(labels) ───────────────────────────────────────────────────────────
+   컬럼 머리글·상태·탭·태그·검색 13조건·일괄 버튼·확인창 2종을 한 통로로 연다.
+   검색 조건은 label/placeholder를 '한 단계'로 편다 — 2단계로 파면 mergeLabels가 그룹을 통째로
+   교체해 placeholder만 넘겨도 label 기본값이 사라진다.
+   우선순위: 개별 prop(emptyText) > labels.* > 기본값. */
+type InquiryListLabelsResolved = {
+  columns: Record<InquiryColumnKey, string>
+  /** 배지·탭·검색 Select가 함께 쓰는 처리상태 문구 */
+  status: Record<InquiryStatus, string>
+  /** 필터 탭 — 상태 축과 플래그 축(긴급·신고)이 한 줄에 있다 */
+  tabs: Record<InquiryTabKey, string>
+  /** 제목 앞 태그 */
+  tags: Record<InquiryTagKey, string>
+  /** 검색 패널 조건 — <키> = 라벨, <키>Placeholder = 입력 힌트 */
+  search: {
+    keyword: string
+    keywordPlaceholder: string
+    inquiryNo: string
+    inquiryNoPlaceholder: string
+    orderNo: string
+    orderNoPlaceholder: string
+    productName: string
+    productNamePlaceholder: string
+    member: string
+    memberPlaceholder: string
+    author: string
+    authorPlaceholder: string
+    email: string
+    emailPlaceholder: string
+    phone: string
+    phonePlaceholder: string
+    period: string
+    type: string
+    status: string
+    assignee: string
+    visibility: string
+  }
+  /** 셀 값 — 공개여부·첨부·미배정 */
+  cells: {
+    public: string
+    private: string
+    attached: string
+    notAttached: string
+    /** 첨부 아이콘의 접근성 이름(아이콘만 있는 셀이라 이름이 없으면 읽히지 않는다) */
+    attachedAria: string
+    unassigned: string
+  }
+  /** 선택 시 표 하단에 뜨는 일괄 처리 버튼 */
+  bulk: { answered: string; assign: string; status: string }
+  /** 우측 '상세보기' 아이콘 버튼 — 툴팁이자 접근성 이름이다(행 제목을 끼워 넣는다) */
+  rowActions: Required<Pick<RowScopedActionLabels, 'view'>>
+  empty: EmptyLabels
+  /** 값이 없는 칸(상품명·주문번호·회원등급·답변일)에 찍히는 문자 */
+  emptyCell: string
+  /** 담당자 변경 확인창 — 대상 건수를 받는다 */
+  assignDialog: ConfirmDialogLabels<number> & { fieldLabel: string; placeholder: string }
+  /** 처리상태 변경 확인창 */
+  statusDialog: ConfirmDialogLabels<number> & { fieldLabel: string }
+  /**
+   * 삭제 확인창 — 취소 버튼은 열지 않는다.
+   * 셸(AdminListPage.deleteConfirm)에 cancelLabel 축이 없어 CrudDialog 기본값('취소')이 그대로 뜬다.
+   */
+  deleteDialog: Required<Pick<ConfirmDialogLabels<string[]>, 'title' | 'description'>> &
+    Pick<ConfirmDialogLabels<string[]>, 'confirmLabel'>
+}
+
+export const DEFAULT_INQUIRY_LIST_LABELS: InquiryListLabelsResolved = {
+  columns: {
+    no: '문의번호',
+    type: '문의유형',
+    title: '제목',
+    productName: '상품명',
+    orderNo: '주문번호',
+    author: '작성자',
+    memberGrade: '회원등급',
+    assignee: '담당자',
+    createdAt: '등록일',
+    answeredAt: '답변일',
+    views: '조회수',
+    status: '처리상태',
+    isPublic: '공개여부',
+    hasAttachment: '첨부',
+    detail: '상세보기',
+  },
+  status: {
+    received: '접수',
+    checking: '확인중',
+    answered: '답변완료',
+    hold: '보류',
+    closed: '종료',
+  },
+  tabs: {
+    all: '전체',
+    unanswered: '미답변',
+    answered: '답변완료',
+    hold: '보류',
+    closed: '종료',
+    urgent: '긴급',
+    reported: '신고',
+  },
+  tags: { urgent: '긴급', reported: '신고' },
+  search: {
+    keyword: '검색어',
+    keywordPlaceholder: '제목·내용으로 검색',
+    inquiryNo: '문의번호',
+    inquiryNoPlaceholder: 'INQ-0000',
+    orderNo: '주문번호',
+    orderNoPlaceholder: 'ORD-0000',
+    productName: '상품명',
+    productNamePlaceholder: '상품명 입력',
+    member: '회원명',
+    memberPlaceholder: '회원명 입력',
+    author: '작성자',
+    authorPlaceholder: '작성자 입력',
+    email: '이메일',
+    emailPlaceholder: 'user@example.com',
+    phone: '휴대폰번호',
+    phonePlaceholder: '010-0000-0000',
+    period: '기간',
+    type: '문의유형',
+    status: '처리상태',
+    assignee: '담당자',
+    visibility: '공개여부',
+  },
+  cells: {
+    public: '공개',
+    private: '비공개',
+    attached: '있음',
+    notAttached: '없음',
+    attachedAria: '첨부파일 있음',
+    unassigned: '미배정',
+  },
+  bulk: { answered: '답변 완료', assign: '담당자 변경', status: '상태 변경' },
+  rowActions: { view: (title) => `${title} 상세보기` },
+  empty: { title: '문의 내역이 없습니다.' },
+  emptyCell: '-',
+  assignDialog: {
+    title: '담당자 변경',
+    description: (count) => `선택한 ${count}건의 담당자를 변경합니다.`,
+    confirmLabel: '변경',
+    fieldLabel: '담당자',
+    placeholder: '담당자 선택',
+  },
+  statusDialog: {
+    title: '상태 변경',
+    description: (count) => `선택한 ${count}건의 처리상태를 변경합니다.`,
+    confirmLabel: '변경',
+    fieldLabel: '처리상태',
+  },
+  deleteDialog: {
+    title: '선택한 문의를 삭제할까요?',
+    description: (ids) => `문의 ${ids.length}건이 목록에서 제거됩니다.`,
+  },
+} as const
+
+export type InquiryListLabels = DeepPartialOneLevel<InquiryListLabelsResolved>
+
+/** 컬럼 머리글만 갈아끼울 때 — labels.columns와 같은 모양 */
+export type InquiryColumnLabels = ColumnLabels<InquiryColumnKey>
+/** 처리상태 문구만 갈아끼울 때 — labels.status와 같은 모양 */
+export type InquiryStatusLabels = StatusLabels<InquiryStatus>
+/** 탭 라벨만 갈아끼울 때 */
+export type InquiryTabLabels = TabLabels<InquiryTabKey>
 
 export type InquiryListProps = {
   rows: InquiryRow[]
@@ -67,25 +264,27 @@ export type InquiryListProps = {
   exportable?: boolean
 
   /* ── 문구 ── */
-  /** 표가 빌 때 문구 */
+  /** @deprecated labels.empty.title 을 쓰세요 (개별 prop이 labels보다 우선한다) */
   emptyText?: string
   /** 내보내기 파일명 (기본 '문의목록') */
   exportFilename?: string
+  /** 화면 문구를 통째로 갈아끼우는 단일 통로 — 개별 카피 prop이 우선한다 */
+  labels?: InquiryListLabels
+
+  /* ── 톤 ── */
+  /** 처리상태 배지 톤 — 넘긴 키만 기본 톤을 덮어쓴다 */
+  statusTone?: Partial<Record<InquiryStatus, AdminColumnTone>>
 
   /* ── 아이콘 슬롯 ── */
   /** 우측 '상세보기' 버튼 아이콘 (기본 Eye) */
   viewIcon?: ReactNode
 }
 
-const STATUS_LABEL: Record<InquiryStatus, string> = {
-  received: '접수',
-  checking: '확인중',
-  answered: '답변완료',
-  hold: '보류',
-  closed: '종료',
-}
+/** @deprecated DEFAULT_INQUIRY_LIST_LABELS.status 를 쓰세요 (기존 이름 유지용 alias) */
+export const STATUS_LABEL: Record<InquiryStatus, string> = DEFAULT_INQUIRY_LIST_LABELS.status
 
-// 접수=secondary · 확인중=primary · 답변완료=success · 보류=warning · 종료=secondary(흐리게)
+// 접수=secondary · 확인중=primary · 답변완료=success · 보류=warning · 종료=secondary(흐리게).
+// statusTone prop으로 키 단위 교체한다
 const STATUS_TONE: Record<InquiryStatus, AdminColumnTone> = {
   received: 'secondary',
   checking: 'primary',
@@ -95,11 +294,6 @@ const STATUS_TONE: Record<InquiryStatus, AdminColumnTone> = {
 }
 
 const STATUS_ORDER: InquiryStatus[] = ['received', 'checking', 'answered', 'hold', 'closed']
-
-const STATUS_OPTIONS = STATUS_ORDER.map((status) => ({
-  label: STATUS_LABEL[status],
-  value: status,
-}))
 
 /** 문의유형 기본값 — types prop으로 덮어쓸 수 있다 */
 const DEFAULT_TYPES = [
@@ -111,30 +305,28 @@ const DEFAULT_TYPES = [
 ]
 
 /** 필터 탭 — 상태 축(미답변/답변완료/보류/종료)과 플래그 축(긴급/신고)을 한 줄에 둔다 */
-type TabKey = 'all' | 'unanswered' | 'answered' | 'hold' | 'closed' | 'urgent' | 'reported'
+export type InquiryTabKey =
+  | 'all'
+  | 'unanswered'
+  | 'answered'
+  | 'hold'
+  | 'closed'
+  | 'urgent'
+  | 'reported'
 
-const TAB_LABEL: Record<TabKey, string> = {
-  all: '전체',
-  unanswered: '미답변',
-  answered: '답변완료',
-  hold: '보류',
-  closed: '종료',
-  urgent: '긴급',
-  reported: '신고',
-}
-
-const TAB_ORDER: TabKey[] = ['all', 'unanswered', 'answered', 'hold', 'closed', 'urgent', 'reported']
-
-/** 건수는 셸이 matchesTab으로 rows에서 센다 — 여기서는 라벨·순서만 선언한다 */
-const TAB_ITEMS: CategoryTabItem[] = TAB_ORDER.map((key) => ({
-  label: TAB_LABEL[key],
-  value: key,
-  fixed: true,
-}))
+const TAB_ORDER: InquiryTabKey[] = [
+  'all',
+  'unanswered',
+  'answered',
+  'hold',
+  'closed',
+  'urgent',
+  'reported',
+]
 
 /** 탭 판정 — 미답변은 '접수 + 확인중' */
 function matchesTab(row: InquiryRow, tab: string): boolean {
-  switch (tab as TabKey) {
+  switch (tab as InquiryTabKey) {
     case 'all':
       return true
     case 'unanswered':
@@ -159,6 +351,11 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 /** 값을 골라야 하는 일괄 처리 — 삭제 확인창은 셸(deleteConfirm)이 갖는다 */
 type DialogKind = 'assign' | 'status'
+
+/** 확인창 설명 — 문자열이면 그대로, 함수면 대상 건수를 끼워 넣는다 */
+function dialogText(description: string | LabelFn<number> | undefined, count: number): string | undefined {
+  return typeof description === 'function' ? description(count) : description
+}
 
 /**
  * InquiryList — 문의 목록 화면 프리셋.
@@ -189,42 +386,90 @@ export function InquiryList({
   showCount = true,
   columnPicker = true,
   exportable = true,
-  emptyText = '문의 내역이 없습니다.',
+  // 카피의 기본값은 DEFAULT_INQUIRY_LIST_LABELS가 갖는다 — 여기서 기본값을 주면
+  // 넘기지 않은 개별 prop이 labels를 항상 이겨 통로가 막힌다
+  emptyText,
   exportFilename = '문의목록',
+  labels,
+  statusTone,
   viewIcon,
 }: InquiryListProps) {
+  const L = mergeLabels(DEFAULT_INQUIRY_LIST_LABELS, labels)
+  // 톤은 문구가 아니다 — 키마다 덮어쓰고 넘기지 않은 키는 기본 톤을 지킨다
+  const tone: Record<InquiryStatus, AdminColumnTone> = { ...STATUS_TONE, ...statusTone }
+
+  const statusOptions = STATUS_ORDER.map((status) => ({ label: L.status[status], value: status }))
+
+  /** 건수는 셸이 matchesTab으로 rows에서 센다 — 여기서는 라벨·순서만 선언한다 */
+  const tabItems: CategoryTabItem[] = TAB_ORDER.map((key) => ({
+    label: L.tabs[key],
+    value: key,
+    fixed: true,
+  }))
+
   // ── 검색 조건 — 값·초기화·엔터는 셸이 굴린다. 여기서는 조건 목록만 선언한다 ──
   const fields = useMemo<SearchFieldDef[]>(
     () => [
-      { kind: 'text', key: 'keyword', label: '검색어', placeholder: '제목·내용으로 검색', span: 2 },
-      { kind: 'text', key: 'inquiryNo', label: '문의번호', placeholder: 'INQ-0000' },
-      { kind: 'text', key: 'orderNo', label: '주문번호', placeholder: 'ORD-0000' },
-      { kind: 'text', key: 'productName', label: '상품명', placeholder: '상품명 입력' },
-      { kind: 'text', key: 'member', label: '회원명', placeholder: '회원명 입력' },
-      { kind: 'text', key: 'author', label: '작성자', placeholder: '작성자 입력' },
-      { kind: 'text', key: 'email', label: '이메일', placeholder: 'user@example.com' },
-      { kind: 'text', key: 'phone', label: '휴대폰번호', placeholder: '010-0000-0000' },
+      {
+        kind: 'text',
+        key: 'keyword',
+        label: L.search.keyword,
+        placeholder: L.search.keywordPlaceholder,
+        span: 2,
+      },
+      {
+        kind: 'text',
+        key: 'inquiryNo',
+        label: L.search.inquiryNo,
+        placeholder: L.search.inquiryNoPlaceholder,
+      },
+      {
+        kind: 'text',
+        key: 'orderNo',
+        label: L.search.orderNo,
+        placeholder: L.search.orderNoPlaceholder,
+      },
+      {
+        kind: 'text',
+        key: 'productName',
+        label: L.search.productName,
+        placeholder: L.search.productNamePlaceholder,
+      },
+      {
+        kind: 'text',
+        key: 'member',
+        label: L.search.member,
+        placeholder: L.search.memberPlaceholder,
+      },
+      {
+        kind: 'text',
+        key: 'author',
+        label: L.search.author,
+        placeholder: L.search.authorPlaceholder,
+      },
+      { kind: 'text', key: 'email', label: L.search.email, placeholder: L.search.emailPlaceholder },
+      { kind: 'text', key: 'phone', label: L.search.phone, placeholder: L.search.phonePlaceholder },
       {
         kind: 'daterange',
         key: 'period',
-        label: '기간',
+        label: L.search.period,
         presets: ['today', '7d', '30d', '90d'],
         span: 2,
       },
-      { kind: 'select', key: 'type', label: '문의유형', options: types },
-      { kind: 'select', key: 'status', label: '처리상태', options: STATUS_OPTIONS },
-      { kind: 'select', key: 'assignee', label: '담당자', options: assignees },
+      { kind: 'select', key: 'type', label: L.search.type, options: types },
+      { kind: 'select', key: 'status', label: L.search.status, options: statusOptions },
+      { kind: 'select', key: 'assignee', label: L.search.assignee, options: assignees },
       {
         kind: 'select',
         key: 'visibility',
-        label: '공개여부',
+        label: L.search.visibility,
         options: [
-          { label: '공개', value: 'public' },
-          { label: '비공개', value: 'private' },
+          { label: L.cells.public, value: 'public' },
+          { label: L.cells.private, value: 'private' },
         ],
       },
     ],
-    [types, assignees],
+    [types, assignees, statusOptions, L.search, L.cells],
   )
 
   // 선택은 확인창이 대상 건수를 읽어야 해서 이 화면이 들고 있는다(셸에는 제어값으로 넘긴다)
@@ -259,7 +504,7 @@ export function InquiryList({
   if (onBulkAnswered != null) {
     bulkActions.push({
       key: 'answered',
-      label: '답변 완료',
+      label: L.bulk.answered,
       tone: 'primary',
       icon: <CheckCheck size={14} aria-hidden="true" />,
       onAction: (ids) => finish(() => onBulkAnswered(ids)),
@@ -268,7 +513,7 @@ export function InquiryList({
   if (onBulkAssign != null && assignees.length > 0) {
     bulkActions.push({
       key: 'assign',
-      label: '담당자 변경',
+      label: L.bulk.assign,
       icon: <UserCog size={14} aria-hidden="true" />,
       onAction: openAssign,
     })
@@ -276,7 +521,7 @@ export function InquiryList({
   if (onBulkStatus != null) {
     bulkActions.push({
       key: 'status',
-      label: '상태 변경',
+      label: L.bulk.status,
       icon: <SlidersHorizontal size={14} aria-hidden="true" />,
       onAction: openStatus,
     })
@@ -288,7 +533,7 @@ export function InquiryList({
     {
       kind: 'text',
       key: 'no',
-      header: '문의번호',
+      header: L.columns.no,
       sortable: true,
       pinned: 'left',
       onClick: onRowOpen,
@@ -297,7 +542,7 @@ export function InquiryList({
     {
       kind: 'type',
       key: 'type',
-      header: '문의유형',
+      header: L.columns.type,
       sortable: true,
       // 색은 처리상태가 갖는다 — 유형 배지는 중립 톤으로 둬 표가 알록달록해지지 않게
       tone: () => 'secondary',
@@ -305,7 +550,7 @@ export function InquiryList({
     {
       kind: 'title',
       key: 'title',
-      header: '제목',
+      header: L.columns.title,
       ratio: 4,
       sortable: true,
       onClick: onRowOpen,
@@ -313,8 +558,8 @@ export function InquiryList({
         <span className={styles.titleCell}>
           {(row.urgent === true || row.reported === true) && (
             <span className={styles.tags}>
-              {row.urgent === true && <Tag label="긴급" tone="error" size="sm" />}
-              {row.reported === true && <Tag label="신고" tone="warning" size="sm" />}
+              {row.urgent === true && <Tag label={L.tags.urgent} tone="error" size="sm" />}
+              {row.reported === true && <Tag label={L.tags.reported} tone="warning" size="sm" />}
             </span>
           )}
           <span className={styles.titleText}>{row.title}</span>
@@ -324,42 +569,52 @@ export function InquiryList({
     {
       kind: 'text',
       key: 'productName',
-      header: '상품명',
-      value: (row) => row.productName ?? '-',
+      header: L.columns.productName,
+      value: (row) => row.productName ?? L.emptyCell,
     },
     {
       kind: 'text',
       key: 'orderNo',
-      header: '주문번호',
+      header: L.columns.orderNo,
       ratio: 1,
-      value: (row) => row.orderNo ?? '-',
+      value: (row) => row.orderNo ?? L.emptyCell,
     },
-    { kind: 'user', key: 'author', header: '작성자', sortable: true },
-    { kind: 'user', key: 'memberGrade', header: '회원등급', value: (row) => row.memberGrade ?? '-' },
-    { kind: 'user', key: 'assignee', header: '담당자', value: (row) => row.assignee ?? '미배정' },
-    { kind: 'date', key: 'createdAt', header: '등록일', sortable: true },
+    { kind: 'user', key: 'author', header: L.columns.author, sortable: true },
+    {
+      kind: 'user',
+      key: 'memberGrade',
+      header: L.columns.memberGrade,
+      value: (row) => row.memberGrade ?? L.emptyCell,
+    },
+    {
+      kind: 'user',
+      key: 'assignee',
+      header: L.columns.assignee,
+      value: (row) => row.assignee ?? L.cells.unassigned,
+    },
+    { kind: 'date', key: 'createdAt', header: L.columns.createdAt, sortable: true },
     {
       kind: 'date',
       key: 'answeredAt',
-      header: '답변일',
+      header: L.columns.answeredAt,
       sortable: true,
-      value: (row) => row.answeredAt ?? '-',
+      value: (row) => row.answeredAt ?? L.emptyCell,
     },
-    { kind: 'number', key: 'views', header: '조회수', sortable: true },
+    { kind: 'number', key: 'views', header: L.columns.views, sortable: true },
     {
       kind: 'badge',
       key: 'status',
-      header: '처리상태',
+      header: L.columns.status,
       sortable: true,
       // 내보내기는 한글 라벨로 — 화면은 톤 배지, 종료는 흐리게
-      value: (row) => STATUS_LABEL[row.status],
+      value: (row) => L.status[row.status],
       render: (row) => (
         <span className={row.status === 'closed' ? styles.dim : styles.tone}>
           <Badge
-            variant={STATUS_TONE[row.status]}
+            variant={tone[row.status]}
             appearance="soft"
             size="sm"
-            label={STATUS_LABEL[row.status]}
+            label={L.status[row.status]}
           />
         </span>
       ),
@@ -367,18 +622,19 @@ export function InquiryList({
     {
       kind: 'badge',
       key: 'isPublic',
-      header: '공개여부',
-      value: (row) => (row.isPublic ? '공개' : '비공개'),
+      header: L.columns.isPublic,
+      value: (row) => (row.isPublic ? L.cells.public : L.cells.private),
       tone: (row) => (row.isPublic ? 'primary' : 'secondary'),
     },
     {
       kind: 'badge',
       key: 'hasAttachment',
-      header: '첨부',
-      value: (row) => (row.hasAttachment === true ? '있음' : '없음'),
+      header: L.columns.hasAttachment,
+      // 내보내기는 '있음/없음' 문자열로 — 화면은 클립 아이콘 하나
+      value: (row) => (row.hasAttachment === true ? L.cells.attached : L.cells.notAttached),
       render: (row) =>
         row.hasAttachment === true ? (
-          <span className={styles.attach} role="img" aria-label="첨부파일 있음">
+          <span className={styles.attach} role="img" aria-label={L.cells.attachedAria}>
             <Paperclip size={15} aria-hidden="true" />
           </span>
         ) : (
@@ -390,13 +646,13 @@ export function InquiryList({
     {
       kind: 'actions',
       key: 'detail',
-      header: '상세보기',
+      header: L.columns.detail,
       pinned: 'right',
       render: (row) => (
         <button
           type="button"
           className={styles.detailButton}
-          aria-label={`${row.title} 상세보기`}
+          aria-label={L.rowActions.view(row.title)}
           onClick={() => onRowOpen?.(row)}
         >
           {viewIcon ?? <Eye size={15} aria-hidden="true" />}
@@ -415,7 +671,7 @@ export function InquiryList({
         loading={loading}
         // 페이지 헤더 없이 조각만 쌓는다 — 바깥이 이미 PageContainer다
         chrome="plain"
-        tabs={TAB_ITEMS}
+        tabs={tabItems}
         matchTab={matchesTab}
         search="panel"
         searchFields={fields}
@@ -427,14 +683,15 @@ export function InquiryList({
         clearSelectionOnBulk={false}
         onBulkDelete={onBulkDelete}
         deleteConfirm={{
-          title: '선택한 문의를 삭제할까요?',
-          description: (ids) => `문의 ${ids.length}건이 목록에서 제거됩니다.`,
+          title: L.deleteDialog.title,
+          description: L.deleteDialog.description,
+          confirmLabel: L.deleteDialog.confirmLabel,
         }}
         columnPicker={columnPicker}
         exportable={exportable}
         exportFilename={exportFilename}
         pageSizeOptions={PAGE_SIZE_OPTIONS}
-        emptyText={emptyText}
+        emptyText={resolveLabel(emptyText, L.empty.title)}
         // 문의 한 건이 길어 행에 숨 쉴 자리를 준다(표 기본 밀도)
         density="comfortable"
         show={{ tabs: showTabs, search: showSearch, count: showCount }}
@@ -444,9 +701,10 @@ export function InquiryList({
         <CrudDialog
           open
           mode="edit"
-          title="담당자 변경"
-          description={`선택한 ${selectedIds.length}건의 담당자를 변경합니다.`}
-          confirmLabel="변경"
+          title={L.assignDialog.title}
+          description={dialogText(L.assignDialog.description, selectedIds.length)}
+          confirmLabel={L.assignDialog.confirmLabel}
+          cancelLabel={L.assignDialog.cancelLabel}
           onCancel={closeDialog}
           onConfirm={() => {
             if (assignDraft == null) return
@@ -455,10 +713,10 @@ export function InquiryList({
         >
           <div className={styles.field}>
             <Select
-              label="담당자"
+              label={L.assignDialog.fieldLabel}
               value={assignDraft}
               options={assignees}
-              placeholder="담당자 선택"
+              placeholder={L.assignDialog.placeholder}
               onChange={setAssignDraft}
             />
           </div>
@@ -469,17 +727,18 @@ export function InquiryList({
         <CrudDialog
           open
           mode="edit"
-          title="상태 변경"
-          description={`선택한 ${selectedIds.length}건의 처리상태를 변경합니다.`}
-          confirmLabel="변경"
+          title={L.statusDialog.title}
+          description={dialogText(L.statusDialog.description, selectedIds.length)}
+          confirmLabel={L.statusDialog.confirmLabel}
+          cancelLabel={L.statusDialog.cancelLabel}
           onCancel={closeDialog}
           onConfirm={() => finish(() => onBulkStatus?.(selectedIds, statusDraft))}
         >
           <div className={styles.field}>
             <Select
-              label="처리상태"
+              label={L.statusDialog.fieldLabel}
               value={statusDraft}
-              options={STATUS_OPTIONS}
+              options={statusOptions}
               onChange={(value) => setStatusDraft(value as InquiryStatus)}
             />
           </div>

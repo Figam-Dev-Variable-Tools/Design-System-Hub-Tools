@@ -258,3 +258,78 @@ export const CustomCopy: Story = {
     </Canvas>
   ),
 }
+
+/**
+ * labels — 화면의 모든 글자를 통로 하나로 갈아끼운다(영문 오버라이드).
+ * 컬럼 머리글은 표와 CSV/Excel 머리글이 함께 쓴다(같은 값을 두 곳에 적지 않는다).
+ * 검색 9조건 · 판매상태 · 재고/할인 배지 · 일괄 버튼 · 카드 meta · 확인창 2종까지 labels가 소유한다.
+ */
+export const Labels: Story = {
+  args: {
+    labels: {
+      columns: {
+        index: 'No.',
+        thumbnail: 'Image',
+        name: 'Product',
+        code: 'SKU',
+        category: 'Category',
+        price: 'Price',
+        salePrice: 'Sale price',
+        stock: 'Stock',
+        active: 'Status',
+        createdAt: 'Created',
+        updatedAt: 'Updated',
+        createdBy: 'Created by',
+        actions: 'Manage',
+      },
+      status: { active: 'On sale', inactive: 'Paused' },
+      search: {
+        name: 'Product',
+        namePlaceholder: 'Enter a product name',
+        code: 'SKU',
+        codePlaceholder: 'P-0000',
+        category: 'Category',
+        active: 'Status',
+        priceMin: 'Price (min)',
+        priceMax: 'Price (max)',
+        stockMin: 'Stock (min)',
+        stockMax: 'Stock (max)',
+        period: 'Created',
+      },
+      stock: {
+        soldOut: 'Sold out',
+        low: 'Low stock',
+        discount: (rate) => `${rate}% off`,
+      },
+      tabs: { all: 'All' },
+      bulk: {
+        activate: 'Put on sale',
+        deactivate: 'Pause',
+        category: 'Change category',
+        clear: 'Clear selection',
+      },
+      toolbar: { exportCsv: 'Export CSV', exportExcel: 'Export Excel', totalLabel: 'Total' },
+      card: { price: 'Price', stock: 'Stock', createdAt: 'Created' },
+      empty: { title: 'No products yet.' },
+      emptyCell: '—',
+      categoryDialog: {
+        title: 'Change category',
+        description: (count) => `Change the category of ${count} product(s).`,
+        confirmLabel: 'Apply',
+        cancelLabel: 'Cancel',
+        fieldLabel: 'Category',
+        placeholder: 'Pick a category',
+      },
+      deleteDialog: {
+        title: 'Delete the selected products?',
+        description: (count) => `${count} product(s) will be removed from the list.`,
+      },
+    },
+    countUnit: ' pcs',
+  },
+  render: (args) => (
+    <Canvas>
+      <ProductListDemo {...args} />
+    </Canvas>
+  ),
+}

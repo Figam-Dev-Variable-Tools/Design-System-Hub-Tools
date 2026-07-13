@@ -72,34 +72,37 @@ const meta = {
     onChange: () => {},
     onSave: () => {},
     maxLength: 500,
-    title: '관리자 메모',
-    description: '고객에게 노출되지 않습니다.',
     saving: false,
     showCounter: true,
     showHeader: true,
     framed: true,
     requireContent: false,
-    saveLabel: '저장',
-    savingLabel: '저장 중',
+    composer: 'bottom',
   },
   argTypes: {
     value: { control: 'text' },
     maxLength: { control: { type: 'number', min: 50, step: 50 } },
-    title: { control: 'text' },
-    description: { control: 'text' },
-    placeholder: { control: 'text' },
     saving: { control: 'boolean' },
     // 요소 ON/OFF
     showCounter: { control: 'boolean' },
     showHeader: { control: 'boolean' },
     framed: { control: 'boolean' },
     requireContent: { control: 'boolean' },
+    composer: {
+      control: 'inline-radio',
+      options: ['bottom', 'top', 'none'],
+      description: "작성 칸의 자리 — none이면 읽기 전용 이력이 된다(onSave 생략은 '버튼'만 숨긴다)",
+    },
     // 누적 목록 — 넘겨야 목록 영역이 생긴다([]면 빈 상태)
     items: { control: false },
-    emptyText: { control: 'text' },
-    // 문구
-    saveLabel: { control: 'text' },
-    savingLabel: { control: 'text' },
+    // 문구 — 개별 prop은 @deprecated지만 계속 동작하며 labels보다 우선한다
+    labels: { control: false, description: '제목·안내·플레이스홀더·저장·빈 목록·행 액션 문구' },
+    title: { control: 'text', description: '@deprecated — labels.title' },
+    description: { control: 'text', description: '@deprecated — labels.description' },
+    placeholder: { control: 'text', description: '@deprecated — labels.placeholder' },
+    emptyText: { control: 'text', description: '@deprecated — labels.empty' },
+    saveLabel: { control: 'text', description: '@deprecated — labels.save' },
+    savingLabel: { control: 'text', description: '@deprecated — labels.saving' },
     // 노드 슬롯
     saveIcon: { control: false },
     onChange: { control: false },
@@ -212,5 +215,61 @@ export const WithoutCounter: Story = {
   args: {
     showCounter: false,
     value: '카운터 없이 입력만.',
+  },
+}
+
+/**
+ * 작성 칸의 자리 — 최신 메모를 위에 쌓는 화면에서는 입력을 먼저 만나게 한다(top).
+ * 구분선도 함께 아래로 내려가 '쓰는 곳'과 '읽는 곳'을 그대로 가른다.
+ */
+export const ComposerTop: Story = {
+  args: {
+    composer: 'top',
+    items: MEMOS,
+    requireContent: true,
+    onItemEdit: () => {},
+    onItemDelete: () => {},
+  },
+}
+
+/**
+ * 읽기 전용 이력 — composer='none'이면 작성 칸 자체가 없다.
+ * onSave를 생략하는 것과 다르다: 그건 저장 '버튼'만 숨기고 입력칸은 그대로 남는다.
+ */
+export const ReadOnlyHistory: Story = {
+  args: {
+    composer: 'none',
+    items: MEMOS,
+    onItemEdit: () => {},
+    onItemDelete: () => {},
+  },
+}
+
+/**
+ * 문구 오버라이드 — 카드 문구뿐 아니라 그동안 안에 박혀 있던 것들까지 연다:
+ * 목록 행의 '(수정 …)' 접미와, 행 아이콘 버튼의 접근성 이름(공용 RowActionsLabels).
+ */
+export const Labels: Story = {
+  args: {
+    items: MEMOS,
+    requireContent: true,
+    onItemEdit: () => {},
+    onItemDelete: () => {},
+    // 개별 prop을 함께 넘기면 그쪽이 이기므로 여기서는 labels만 넘긴다
+    title: undefined,
+    description: undefined,
+    placeholder: undefined,
+    saveLabel: undefined,
+    savingLabel: undefined,
+    labels: {
+      title: 'Internal note',
+      description: 'Not visible to the customer.',
+      placeholder: 'Leave a note for the next agent.',
+      empty: 'No notes yet.',
+      save: 'Add note',
+      saving: 'Saving…',
+      updatedSuffix: (updatedAt) => ` (edited ${updatedAt})`,
+      itemActions: { group: 'Note actions', edit: 'Edit note', delete: 'Delete note' },
+    },
   },
 }

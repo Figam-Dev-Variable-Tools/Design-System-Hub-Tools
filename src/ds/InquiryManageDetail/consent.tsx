@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react'
 import { Badge } from '../Badge/Badge'
+import { mergeLabels } from '../../shared/labels'
 import styles from './InquiryManageDetail.module.css'
 
 /**
@@ -26,8 +27,27 @@ export type MetaLineItem = {
   value: string
 }
 
+/** 배지 문구 — 항목명 뒤에 붙는 접미사다('개인정보' + ' ' + '동의') */
+export type ConsentBadgeLabels = {
+  agreed: string
+  denied: string
+}
+
+export const DEFAULT_CONSENT_BADGE_LABELS: ConsentBadgeLabels = {
+  agreed: '동의',
+  denied: '미동의',
+}
+
 /** 동의 배지 줄 — ✓/✕ 마크는 장식이고, 의미는 배지 라벨('동의'/'미동의')이 글로 말한다 */
-export function ConsentBadges({ consents }: { consents: ConsentBadgeItem[] }) {
+export function ConsentBadges({
+  consents,
+  labels,
+}: {
+  consents: ConsentBadgeItem[]
+  labels?: Partial<ConsentBadgeLabels>
+}) {
+  const L = mergeLabels(DEFAULT_CONSENT_BADGE_LABELS, labels)
+
   return (
     <div className={styles.consents}>
       {consents.map((consent) => (
@@ -42,7 +62,7 @@ export function ConsentBadges({ consents }: { consents: ConsentBadgeItem[] }) {
             variant={consent.agreed ? 'success' : 'secondary'}
             appearance="soft"
             size="sm"
-            label={`${consent.label} ${consent.agreed ? '동의' : '미동의'}`}
+            label={`${consent.label} ${consent.agreed ? L.agreed : L.denied}`}
           />
         </span>
       ))}

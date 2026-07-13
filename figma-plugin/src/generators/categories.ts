@@ -316,10 +316,10 @@ function buildSet(
 
   // 속성 만들기: 텍스트(+표시 on/off)·불리언·인스턴스 스왑
   if (props) {
-    props.texts?.forEach((t) => {
-      addTextProp(set, t.prop, t.layer, t.def)
-      addBoolProp(set, `Show ${t.prop}`, t.layer, true) // 오너: 라벨/텍스트 on/off 토글
-    })
+    // TEXT마다 `Show <prop>` 불리언을 자동 생성하지 않는다 — 대응하는 React prop이 없는 "유령 속성"이라
+    // 규약 §3(BOOLEAN 이름 = show* prop 이름 그대로)을 기계적으로 위반한다. 텍스트 on/off가 필요하면
+    // 코드에 show* prop을 만들고 props.bools에 명시적으로 선언하라.
+    props.texts?.forEach((t) => addTextProp(set, t.prop, t.layer, t.def))
     props.bools?.forEach((b) => addBoolProp(set, b.prop, b.layer, b.def))
     props.swaps?.forEach((s) => addSwapProp(set, s.prop, s.layer, s.defKey))
   }
@@ -396,7 +396,7 @@ function renderInput(ctx: Ctx, def: InputDef, combo: Record<string, string>): Co
   const labelRow = autoFrame('label-row', 'HORIZONTAL')
   labelRow.itemSpacing = 2
   const labelText = boundText(ctx, def.label, 13, 'color/text', INK, true)
-  labelText.name = 'Label'
+  labelText.name = 'label'
   labelRow.appendChild(labelText)
   if (required) labelRow.appendChild(txt(ctx, '*', 13, '#F04452', true))
   c.appendChild(labelRow)
@@ -442,7 +442,7 @@ function renderInput(ctx: Ctx, def: InputDef, combo: Record<string, string>): Co
       input.appendChild(lead)
     }
     const val = boundText(ctx, def.placeholder, sz[size].f, 'color/secondary', MUTED)
-    val.name = 'Value'
+    val.name = 'placeholder'
     val.layoutGrow = 1
     val.textAutoResize = 'HEIGHT'
     input.appendChild(val)
@@ -462,7 +462,7 @@ function renderInput(ctx: Ctx, def: InputDef, combo: Record<string, string>): Co
   const helperMsg = error ? errorMsg(def.key) : success ? '사용 가능합니다.' : def.helper
   {
     const helper = boundText(ctx, helperMsg || def.helper || ' ', 12, toneVar ?? 'color/secondary', toneHex ?? SUB)
-    helper.name = 'Helper'
+    helper.name = 'helperText'
     helper.visible = !!helperMsg
     helper.layoutAlign = 'STRETCH'
     helper.textAutoResize = 'HEIGHT'
@@ -471,9 +471,10 @@ function renderInput(ctx: Ctx, def: InputDef, combo: Record<string, string>): Co
   return c
 }
 function makeInputSet(ctx: Ctx, def: InputDef, page: PageNode): ComponentSetNode {
-  const props: PropSpec = { texts: [{ prop: 'Label', layer: 'Label', def: def.label }] }
-  if (!def.affordance.otp) props.texts!.push({ prop: 'Value', layer: 'Value', def: def.placeholder })
-  props.texts!.push({ prop: 'Helper', layer: 'Helper', def: def.helper })
+  // 속성·레이어 이름은 INPUT 계열 React prop 그대로다(TextFieldProps: label / placeholder / helperText).
+  const props: PropSpec = { texts: [{ prop: 'label', layer: 'label', def: def.label }] }
+  if (!def.affordance.otp) props.texts!.push({ prop: 'placeholder', layer: 'placeholder', def: def.placeholder })
+  props.texts!.push({ prop: 'helperText', layer: 'helperText', def: def.helper })
   props.swaps = []
   if (def.affordance.leading === 'search') props.swaps.push({ prop: 'Leading Icon', layer: 'Leading Icon', defKey: '_Icon/Search' })
   if (def.affordance.trailing === 'eye' || def.affordance.trailing === 'clear')
@@ -514,7 +515,7 @@ function renderToggle(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   track.appendChild(knob)
   c.appendChild(track)
   const lbl = boundText(ctx, '알림 받기', 14, 'color/text', INK)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   return c
 }
@@ -554,7 +555,7 @@ function renderCheckbox(ctx: Ctx, combo: Record<string, string>): ComponentNode 
   }
   c.appendChild(box)
   const lbl = boundText(ctx, '약관에 동의합니다', 14, 'color/text', INK)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   return c
 }
@@ -585,7 +586,7 @@ function renderRadio(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   }
   c.appendChild(outer)
   const lbl = boundText(ctx, '선택 옵션', 14, 'color/text', INK)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   return c
 }
@@ -618,7 +619,7 @@ function renderChip(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     selected ? onHex(ctx, 'primary') : INK,
     true,
   )
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   if (combo.removable === 'true') {
     c.paddingRight = 8
@@ -693,17 +694,17 @@ function renderButton(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   // 왼쪽 아이콘(기본 숨김, 토글 대상) — 아이콘도 글자와 같은 색 변수를 따라간다(currentColor와 동일).
   // iconOnly 변형은 Storybook의 IconOnly 스토리(iconOnly + showLeftIcon 조합)와 같이 기본으로 보여준다 —
   // 이 visible은 이 변형만의 기본값이고, "Show Left Icon" 공유 속성 바인딩은 인스턴스별로 계속 덮어쓸 수 있다.
-  const li = iconInstance(ICON_DEFAULT, 'Left Icon', ipx)
+  const li = iconInstance(ICON_DEFAULT, 'leftIcon', ipx)
   li.visible = iconOnly
   recolorIconVar(ctx, li, fgVar, fgHex)
   c.appendChild(li)
   const lbl = boundText(ctx, '버튼', pad[size].f, fgVar, fgHex, true)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   // iconOnly = 라벨을 화면에서 감춘다(characters 자체는 남아 접근성 이름 역할을 계속한다).
   lbl.visible = !iconOnly
   c.appendChild(lbl)
   // 오른쪽 아이콘(기본 숨김, 토글 대상)
-  const ri = iconInstance('_Icon/ChevronRight', 'Right Icon', ipx)
+  const ri = iconInstance('_Icon/ChevronRight', 'rightIcon', ipx)
   ri.visible = false
   recolorIconVar(ctx, ri, fgVar, fgHex)
   c.appendChild(ri)
@@ -748,7 +749,7 @@ function renderBadge(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     }
   }
   const lbl = boundText(ctx, 'Badge', size === 'sm' ? 11 : 13, fgVar, fgHex, true)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   return c
 }
@@ -784,7 +785,7 @@ function renderTag(ctx: Ctx, combo: Record<string, string>): ComponentNode {
 
   // 라벨은 톤이 아니라 중립 텍스트색 — Tag는 "낮은 강조"라 여러 개를 나열해도 시끄럽지 않다.
   const lbl = boundText(ctx, '태그', dim.f, 'color/text', INK)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
 
   // 제거 버튼(onRemove) — 기본 숨김, "Show Remove" 속성으로 토글.
@@ -839,10 +840,10 @@ function renderAlert(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   col.layoutGrow = 1
   col.itemSpacing = 2
   const title = boundText(ctx, FB_TITLE[variant], 13, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   col.appendChild(title)
   const amsg = boundText(ctx, FB_MSG[variant], 12, 'color/secondary', SUB)
-  amsg.name = 'Message'
+  amsg.name = 'message'
   col.appendChild(amsg)
   c.appendChild(col)
   return c
@@ -862,7 +863,7 @@ function renderToast(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   recolorIcon(ticon, VARIANT_HEX[FB_TONE[variant]])
   c.appendChild(ticon)
   const msg = boundText(ctx, FB_MSG[variant], 13, 'color/text', INK)
-  msg.name = 'Message'
+  msg.name = 'message'
   msg.layoutGrow = 1
   c.appendChild(msg)
   const closeI = iconInstance('_Icon/Close', 'Close Icon', 16)
@@ -889,7 +890,7 @@ function renderSnackbar(ctx: Ctx, combo: Record<string, string>): ComponentNode 
     c.appendChild(dot)
   }
   const msg = txt(ctx, '링크를 복사했어요.', 13, WHITE)
-  msg.name = 'Message'
+  msg.name = 'message'
   msg.layoutGrow = 1
   c.appendChild(msg)
   if (withAction) {
@@ -929,7 +930,7 @@ function renderTooltip(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   bubble.cornerRadius = 6
   bubble.fills = [solid('#191F28')]
   const tipText = txt(ctx, '도움말 텍스트', 12, WHITE)
-  tipText.name = 'Label'
+  tipText.name = 'label'
   bubble.appendChild(tipText)
   const arrowFirst = p === 'bottom' || p === 'right'
   if (arrowFirst) c.appendChild(tri())
@@ -966,7 +967,7 @@ function renderLoading(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     c.appendChild(licon)
   }
   const ltext = boundText(ctx, '불러오는 중…', 13, 'color/secondary', SUB)
-  ltext.name = 'Label'
+  ltext.name = 'label'
   c.appendChild(ltext)
   return c
 }
@@ -998,7 +999,7 @@ function renderTab(ctx: Ctx, combo: Record<string, string>): ComponentNode {
       active ? onHex(ctx, 'primary') : INK,
       active,
     )
-    t.name = 'Label'
+    t.name = 'label'
     c.appendChild(t)
     return c
   }
@@ -1011,7 +1012,7 @@ function renderTab(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.paddingTop = c.paddingBottom = 4
   c.fills = []
   const t = boundText(ctx, '메뉴', 14, active ? 'color/primary' : 'color/secondary', active ? ACCENT : SUB, active)
-  t.name = 'Label'
+  t.name = 'label'
   c.appendChild(t)
   const ul = figma.createRectangle()
   ul.resize(40, 2)
@@ -1249,7 +1250,7 @@ function renderCard(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.strokeWeight = 1
   c.strokeAlign = 'INSIDE'
   const title = boundText(ctx, '카드 제목', 16, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   c.appendChild(title)
   const body = boundText(ctx, '카드 본문 텍스트가 들어갑니다. 여러 줄로 늘어날 수 있어요.', 13, 'color/secondary', SUB)
   body.name = 'Body'
@@ -1362,7 +1363,7 @@ function renderAccordion(ctx: Ctx, combo: Record<string, string>): ComponentNode
   header.paddingLeft = header.paddingRight = 16
   header.itemSpacing = 8
   const title = boundText(ctx, '섹션 제목', 14, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   header.appendChild(title)
   const chev = iconInstance(expanded ? '_Icon/ChevronUp' : '_Icon/ChevronDown', 'Chevron', 18)
   recolorIcon(chev, SUB)
@@ -1408,7 +1409,7 @@ function renderDivider(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   c.appendChild(line())
   if (withLabel) {
     const t = boundText(ctx, '또는', 12, 'color/secondary', MUTED)
-    t.name = 'Label'
+    t.name = 'label'
     c.appendChild(t)
     c.appendChild(line())
   }
@@ -1439,7 +1440,7 @@ function renderModal(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   header.paddingRight = 16
   header.itemSpacing = 8
   const title = boundText(ctx, '모달 제목', 18, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   header.appendChild(title)
   const close = iconInstance('_Icon/Close', 'Close Icon', 20)
   recolorIcon(close, SUB)
@@ -1504,7 +1505,7 @@ function renderDialog(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   bindFillVar(ctx, c, 'color/bg', WHITE)
   c.effects = [{ type: 'DROP_SHADOW', color: { r: 0.1, g: 0.12, b: 0.16, a: 0.24 }, offset: { x: 0, y: 12 }, radius: 40, spread: 0, visible: true, blendMode: 'NORMAL' }]
   const title = boundText(ctx, danger ? '삭제하시겠어요?' : '계속하시겠어요?', 17, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   c.appendChild(title)
   const msg = boundText(ctx, danger ? '이 작업은 되돌릴 수 없습니다.' : '선택한 작업을 진행합니다.', 14, 'color/secondary', SUB)
   msg.name = 'Body'
@@ -1571,7 +1572,7 @@ function renderPopover(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   bubble.strokeAlign = 'INSIDE'
   bubble.effects = [{ type: 'DROP_SHADOW', color: { r: 0.1, g: 0.12, b: 0.16, a: 0.16 }, offset: { x: 0, y: 6 }, radius: 20, spread: 0, visible: true, blendMode: 'NORMAL' }]
   const title = boundText(ctx, '팝오버 제목', 14, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   bubble.appendChild(title)
   const body = boundText(ctx, '간단한 부가 설명을 담는 팝오버입니다.', 13, 'color/secondary', SUB)
   body.name = 'Body'
@@ -1640,10 +1641,10 @@ function renderStatistics(ctx: Ctx, combo: Record<string, string>): ComponentNod
   c.strokeWeight = 1
   c.strokeAlign = 'INSIDE'
   const label = boundText(ctx, '총 매출', 13, 'color/secondary', SUB)
-  label.name = 'Label'
+  label.name = 'label'
   c.appendChild(label)
   const value = boundText(ctx, '₩12,400,000', 24, 'color/text', INK, true)
-  value.name = 'Value'
+  value.name = 'value'
   c.appendChild(value)
   const dir = combo.delta || 'up'
   const dmap: Record<string, [string, string, string, string]> = {
@@ -1678,7 +1679,7 @@ function renderProgress(ctx: Ctx, combo: Record<string, string>): ComponentNode 
   labelRow.primaryAxisSizingMode = 'FIXED'
   labelRow.primaryAxisAlignItems = 'SPACE_BETWEEN'
   const lb = boundText(ctx, '진행률', 13, 'color/text', INK, true)
-  lb.name = 'Label'
+  lb.name = 'label'
   labelRow.appendChild(lb)
   const pv = boundText(ctx, pct + '%', 13, 'color/secondary', SUB)
   pv.name = 'Percent'
@@ -1714,7 +1715,7 @@ function inputShell(ctx: Ctx, label: string, disabled: boolean): { c: ComponentN
   c.fills = []
   if (disabled) c.opacity = 0.45
   const lbl = boundText(ctx, label, 13, 'color/text', INK, true)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   return { c, addField: (f) => c.appendChild(f) }
 }
@@ -1804,7 +1805,7 @@ function renderSelect(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   if (combo.fullWidth === 'true') c.resize(480, c.height)
   const row = fieldRow(ctx, error ? 'color/error' : null, error ? '#F04452' : null, disabled)
   const val = boundText(ctx, '선택하세요', 15, 'color/secondary', MUTED)
-  val.name = 'Value'
+  val.name = 'value'
   val.layoutGrow = 1
   row.appendChild(val)
   const chev = iconInstance('_Icon/ChevronDown', 'Icon', 18)
@@ -1856,7 +1857,7 @@ function renderSlider(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   meta.primaryAxisSizingMode = 'FIXED'
   meta.primaryAxisAlignItems = 'SPACE_BETWEEN'
   const pv = boundText(ctx, pct + '%', 13, 'color/secondary', SUB)
-  pv.name = 'Value'
+  pv.name = 'value'
   const spacer = txt(ctx, '', 13, SUB)
   meta.appendChild(spacer)
   meta.appendChild(pv)
@@ -1940,7 +1941,7 @@ function renderDrawer(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   header.paddingLeft = 20
   header.paddingRight = 16
   const title = boundText(ctx, '메뉴', 17, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   header.appendChild(title)
   const close = iconInstance('_Icon/Close', 'Close Icon', 20)
   recolorIcon(close, SUB)
@@ -1992,7 +1993,7 @@ function renderBottomSheet(ctx: Ctx, _combo: Record<string, string>): ComponentN
   bindFillVar(ctx, handle, 'color/border', BORDER)
   c.appendChild(handle)
   const title = boundText(ctx, '옵션 선택', 17, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   c.appendChild(title)
   const body = boundText(ctx, '아래에서 원하는 항목을 선택하세요.', 14, 'color/secondary', SUB)
   body.name = 'Body'
@@ -2107,7 +2108,7 @@ function renderNavbar(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
   recolorIcon(logo, ACCENT)
   brand.appendChild(logo)
   const brandT = boundText(ctx, 'TDS', 18, 'color/text', INK, true)
-  brandT.name = 'Brand'
+  brandT.name = 'brand'
   brand.appendChild(brandT)
   c.appendChild(brand)
   const right = autoFrame('right', 'HORIZONTAL')
@@ -2145,7 +2146,7 @@ function renderHeader(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
   recolorIcon(menu, INK)
   left.appendChild(menu)
   const title = boundText(ctx, '페이지 제목', 17, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   left.appendChild(title)
   c.appendChild(left)
   const right = autoFrame('right', 'HORIZONTAL')
@@ -2172,7 +2173,7 @@ function renderFooter(ctx: Ctx, _combo: Record<string, string>): ComponentNode {
   c.paddingLeft = c.paddingRight = 24
   bindFillVar(ctx, c, 'color/bgSubtle', SURFACE)
   const copy = boundText(ctx, '© 2026 TDS. All rights reserved.', 13, 'color/secondary', SUB)
-  copy.name = 'Copyright'
+  copy.name = 'copyright'
   c.appendChild(copy)
   const links = autoFrame('links', 'HORIZONTAL')
   links.counterAxisAlignItems = 'CENTER'
@@ -2212,7 +2213,7 @@ function renderSidebar(ctx: Ctx, _combo: Record<string, string>): ComponentNode 
   recolorIcon(logo, ACCENT)
   brand.appendChild(logo)
   const brandT = boundText(ctx, 'TDS Console', 16, 'color/text', INK, true)
-  brandT.name = 'Brand'
+  brandT.name = 'brand'
   brand.appendChild(brandT)
   c.appendChild(brand)
   const items: Array<[string, string]> = [
@@ -2275,7 +2276,7 @@ function renderCalendar(ctx: Ctx, _combo: Record<string, string>): ComponentNode
   recolorIcon(prev, SUB)
   header.appendChild(prev)
   const title = boundText(ctx, '2026년 7월', 16, 'color/text', INK, true)
-  title.name = 'Title'
+  title.name = 'title'
   header.appendChild(title)
   const next = iconInstance('_Icon/ChevronRight', 'Next', 20)
   recolorIcon(next, SUB)
@@ -2352,7 +2353,7 @@ function pickerField(ctx: Ctx, labelDef: string, valueDef: string, iconKey: stri
   c.fills = []
   c.resize(300, c.height)
   const label = boundText(ctx, labelDef, 13, 'color/secondary', SUB)
-  label.name = 'Label'
+  label.name = 'label'
   c.appendChild(label)
   const field = autoFrame('field', 'HORIZONTAL')
   field.layoutAlign = 'STRETCH'
@@ -2367,7 +2368,7 @@ function pickerField(ctx: Ctx, labelDef: string, valueDef: string, iconKey: stri
   field.strokeWeight = 1
   field.strokeAlign = 'INSIDE'
   const value = boundText(ctx, valueDef, 15, 'color/text', INK)
-  value.name = 'Value'
+  value.name = 'value'
   field.appendChild(value)
   const icon = iconInstance(iconKey, 'Icon', 18)
   recolorIcon(icon, SUB)
@@ -2689,7 +2690,7 @@ function krSubField(ctx: Ctx, spec: KrSpec, filled = false): FrameNode {
   f.appendChild(lbl)
   const row = fieldRow(ctx, null, null, false)
   const val = boundText(ctx, spec.ph, 15, filled ? 'color/text' : 'color/secondary', filled ? INK : MUTED)
-  val.name = 'Value'
+  val.name = 'value'
   val.layoutGrow = 1
   row.appendChild(val)
   if (spec.trailing === 'eye' || spec.trailing === 'chevron') {
@@ -2731,7 +2732,7 @@ function krField(ctx: Ctx, spec: KrSpec, combo: Record<string, string>): Compone
   if (spec.narrow) c.resize(200, c.height)
   const row = fieldRow(ctx, error ? 'color/error' : filled ? 'color/success' : null, error ? '#F04452' : filled ? '#00C471' : null, disabled)
   const val = boundText(ctx, spec.ph, 15, filled ? 'color/text' : 'color/secondary', filled ? INK : MUTED)
-  val.name = 'Value'
+  val.name = 'value'
   val.layoutGrow = 1
   row.appendChild(val)
   if (spec.trailing === 'eye' || spec.trailing === 'chevron') {
@@ -2812,7 +2813,7 @@ function renderKrCarrier(ctx: Ctx, _combo: Record<string, string>): ComponentNod
   c.itemSpacing = 8
   c.fills = []
   const lbl = boundText(ctx, '통신사', 13, 'color/text', INK, true)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   const wrap = figma.createFrame()
   wrap.name = 'pills'
@@ -2865,7 +2866,7 @@ function renderKrAuthMethod(ctx: Ctx, _combo: Record<string, string>): Component
   c.itemSpacing = 8
   c.fills = []
   const lbl = boundText(ctx, '본인인증 수단', 13, 'color/text', INK, true)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   methods.forEach(([title, desc, mark], i) => {
     const sel = i === 0
@@ -2891,7 +2892,7 @@ function renderKrAuthMethod(ctx: Ctx, _combo: Record<string, string>): Component
     col.itemSpacing = 2
     col.layoutGrow = 1
     const t = boundText(ctx, title, 14, 'color/text', INK, true)
-    t.name = 'Title'
+    t.name = 'title'
     col.appendChild(t)
     col.appendChild(boundText(ctx, desc, 12, 'color/secondary', SUB))
     r.appendChild(col)
@@ -2914,7 +2915,7 @@ function renderKrSignature(ctx: Ctx, _combo: Record<string, string>): ComponentN
   c.itemSpacing = 10
   c.fills = []
   const lbl = boundText(ctx, '전자서명', 13, 'color/text', INK, true)
-  lbl.name = 'Label'
+  lbl.name = 'label'
   c.appendChild(lbl)
   const canvas = figma.createFrame()
   canvas.name = 'canvas'
@@ -2946,7 +2947,7 @@ function renderKrAutocomplete(ctx: Ctx, _combo: Record<string, string>): Compone
   const { c, addField } = inputShell(ctx, '주소', false)
   const row = fieldRow(ctx, null, null, false)
   const val = boundText(ctx, '도로명, 지번, 건물명으로 검색', 15, 'color/secondary', MUTED)
-  val.name = 'Value'
+  val.name = 'value'
   val.layoutGrow = 1
   row.appendChild(val)
   const si = iconInstance('_Icon/Search', 'Icon', 18)
@@ -3002,7 +3003,7 @@ function krFormCard(ctx: Ctx, title: string): { c: ComponentNode; add: (n: Scene
   c.strokeWeight = 1
   c.strokeAlign = 'INSIDE'
   const t = boundText(ctx, title, 17, 'color/text', INK, true)
-  t.name = 'Title'
+  t.name = 'title'
   c.appendChild(t)
   return { c, add: (n) => c.appendChild(n) }
 }
@@ -3382,7 +3383,7 @@ function renderTplEmptyState(ctx: Ctx, _combo: Record<string, string>): Componen
   recolorIcon(icon, MUTED)
   c.appendChild(icon)
   const t = boundText(ctx, '데이터가 없습니다', 17, 'color/text', INK, true)
-  t.name = 'Title'
+  t.name = 'title'
   c.appendChild(t)
   const d = boundText(ctx, '새 항목을 추가해 시작하세요.', 14, 'color/secondary', SUB)
   d.name = 'Body'
@@ -3450,7 +3451,7 @@ function renderAutocomplete(ctx: Ctx, combo: Record<string, string>): ComponentN
   const { c, addField } = inputShell(ctx, '검색', disabled)
   const row = fieldRow(ctx, null, null, disabled)
   const val = boundText(ctx, '검색어를 입력하세요', 15, 'color/secondary', MUTED)
-  val.name = 'Value'
+  val.name = 'value'
   val.layoutGrow = 1
   row.appendChild(val)
   const si = iconInstance('_Icon/Search', 'Icon', 18)
@@ -3695,7 +3696,7 @@ function cardBadge(ctx: Ctx): FrameNode {
   b.cornerRadius = 999
   bindSolidFill(ctx, b, 'primary')
   const t = boundText(ctx, 'NEW', 12, onVarName('primary'), onHex(ctx, 'primary'), true)
-  t.name = 'Badge'
+  t.name = 'badge'
   b.appendChild(t)
   return b
 }
@@ -3765,7 +3766,7 @@ function renderImageCard(ctx: Ctx, combo: Record<string, string>): ComponentNode
     body.counterAxisAlignItems = align === 'center' ? 'CENTER' : 'MIN'
     body.resize(W - 32, body.height)
     const t = boundText(ctx, '이미지 카드', 18, 'color/bg', WHITE, true) // 이미지 위 글자 = 흰색(color/bg)
-    t.name = 'Title'
+    t.name = 'title'
     t.layoutAlign = 'STRETCH'
     t.textAutoResize = 'HEIGHT'
     if (align === 'center') t.textAlignHorizontal = 'CENTER'
@@ -3793,10 +3794,10 @@ function renderImageCard(ctx: Ctx, combo: Record<string, string>): ComponentNode
     body.paddingLeft = body.paddingRight = 16
     // eyebrow — 제목 위 한 줄 라벨(분류). below 배치에서만 그린다(Storybook과 동일).
     const eyebrow = boundText(ctx, '카테고리', 12, 'color/secondary', SUB, true)
-    eyebrow.name = 'Eyebrow'
+    eyebrow.name = 'eyebrow'
     body.appendChild(eyebrow)
     const t = boundText(ctx, '이미지 카드', 16, 'color/text', INK, true)
-    t.name = 'Title'
+    t.name = 'title'
     body.appendChild(t)
     const d = boundText(ctx, '이미지 위에 제목과 설명이 붙는 카드입니다.', 13, 'color/secondary', SUB)
     d.name = 'Body'
@@ -3996,7 +3997,7 @@ function renderCallout(ctx: Ctx, combo: Record<string, string>): ComponentNode {
   col.layoutGrow = 1
   col.itemSpacing = 3
   const t = boundText(ctx, '안내 제목', 14, 'color/text', INK, true)
-  t.name = 'Title'
+  t.name = 'title'
   col.appendChild(t)
   const b = boundText(ctx, '강조해서 보여줄 안내 문구를 담습니다.', 13, 'color/secondary', SUB)
   b.name = 'Body'
@@ -4068,7 +4069,7 @@ function renderSocial(ctx: Ctx, combo: Record<string, string>): ComponentNode {
     c.appendChild(logo)
   }
   const t = txt(ctx, s.label, lg ? 16 : 14, s.fg, true)
-  t.name = 'Label'
+  t.name = 'label'
   c.appendChild(t)
   return c
 }
@@ -4103,7 +4104,7 @@ const INPUT_CATEGORY: CategoryDef = {
       setName: 'DS/Select',
       eyebrow: 'ORGANISM · INPUT',
       desc: '옵션 목록에서 하나를 고르는 단일 선택. fullWidth 축은 폼 그리드 열을 채우는 넓은 폭을 보여줍니다.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Select', [{ name: 'open', values: ['false', 'true'] }, { name: 'error', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }, { name: 'fullWidth', values: ['false', 'true'] }], (c) => renderSelect(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '카테고리' }, { prop: 'Value', layer: 'Value', def: '선택하세요' }, { prop: 'Helper', layer: 'Helper', def: '하나를 선택하세요.' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/ChevronDown' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Select', [{ name: 'open', values: ['false', 'true'] }, { name: 'error', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }, { name: 'fullWidth', values: ['false', 'true'] }], (c) => renderSelect(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '카테고리' }, { prop: 'value', layer: 'value', def: '선택하세요' }, { prop: 'Helper', layer: 'Helper', def: '하나를 선택하세요.' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/ChevronDown' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'Open', props: { open: 'true' } }, { caption: 'Error', props: { error: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }, { caption: 'Full Width', props: { fullWidth: 'true' } }],
     },
     {
@@ -4111,7 +4112,7 @@ const INPUT_CATEGORY: CategoryDef = {
       setName: 'DS/MultiSelect',
       eyebrow: 'ORGANISM · INPUT',
       desc: '여러 항목을 칩으로 선택하는 다중 선택.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/MultiSelect', [{ name: 'open', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderMultiSelect(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '기술 스택' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/ChevronDown' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/MultiSelect', [{ name: 'open', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderMultiSelect(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '기술 스택' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/ChevronDown' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'Open', props: { open: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4119,7 +4120,7 @@ const INPUT_CATEGORY: CategoryDef = {
       setName: 'DS/Slider',
       eyebrow: 'MOLECULE · INPUT',
       desc: '드래그로 수치를 조절하는 슬라이더.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Slider', [{ name: 'value', values: ['0', '50', '100'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderSlider(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '볼륨' }, { prop: 'Value', layer: 'Value', def: '50%' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Slider', [{ name: 'value', values: ['0', '50', '100'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderSlider(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '볼륨' }, { prop: 'Value', layer: 'value', def: '50%' }] }),
       states: [{ caption: 'Min', props: { value: '0' } }, { caption: 'Mid', props: { value: '50' } }, { caption: 'Max', props: { value: '100' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4127,7 +4128,7 @@ const INPUT_CATEGORY: CategoryDef = {
       setName: 'DS/Upload',
       eyebrow: 'ORGANISM · INPUT',
       desc: '클릭/드래그로 파일을 올리는 드롭존.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Upload', [{ name: 'disabled', values: ['false', 'true'] }], (c) => renderUpload(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '첨부 파일' }, { prop: 'Prompt', layer: 'Prompt', def: '파일을 끌어다 놓거나 클릭' }, { prop: 'Hint', layer: 'Hint', def: 'PDF, PNG · 최대 10MB' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Upload' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Upload', [{ name: 'disabled', values: ['false', 'true'] }], (c) => renderUpload(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '첨부 파일' }, { prop: 'Prompt', layer: 'Prompt', def: '파일을 끌어다 놓거나 클릭' }, { prop: 'Hint', layer: 'Hint', def: 'PDF, PNG · 최대 10MB' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Upload' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4135,7 +4136,7 @@ const INPUT_CATEGORY: CategoryDef = {
       setName: 'DS/Autocomplete',
       eyebrow: 'MOLECULE · INPUT',
       desc: '입력 + 필터 제안 목록 자동완성.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Autocomplete', [{ name: 'state', values: ['default', 'disabled'] }], (c) => renderAutocomplete(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '검색' }, { prop: 'Value', layer: 'Value', def: '검색어를 입력하세요' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Search' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Autocomplete', [{ name: 'state', values: ['default', 'disabled'] }], (c) => renderAutocomplete(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '검색' }, { prop: 'value', layer: 'value', def: '검색어를 입력하세요' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Search' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'Disabled', props: { state: 'disabled' } }],
     },
     // DS/FileUpload · DS/ImageUpload는 제거했다 — Storybook src/ds에서 삭제된 컴포넌트라 세트만 남아 있었다(둘 다 DS/Upload로 흡수).
@@ -4152,7 +4153,7 @@ const SELECTION_CATEGORY: CategoryDef = {
       setName: 'DS/Toggle',
       eyebrow: 'ATOM · SELECTION',
       desc: '켜짐/꺼짐을 전환하는 스위치.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Toggle', [{ name: 'checked', values: ['false', 'true'] }, { name: 'size', values: ['md', 'sm'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderToggle(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '알림 받기' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Toggle', [{ name: 'checked', values: ['false', 'true'] }, { name: 'size', values: ['md', 'sm'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderToggle(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '알림 받기' }] }),
       states: [{ caption: 'Off', props: {} }, { caption: 'On', props: { checked: 'true' } }, { caption: 'Small (On)', props: { checked: 'true', size: 'sm' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4160,7 +4161,7 @@ const SELECTION_CATEGORY: CategoryDef = {
       setName: 'DS/Checkbox',
       eyebrow: 'ATOM · SELECTION',
       desc: '여러 항목을 독립적으로 선택하는 체크박스.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Checkbox', [{ name: 'checked', values: ['false', 'true'] }, { name: 'indeterminate', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderCheckbox(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '약관에 동의합니다' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Checkbox', [{ name: 'checked', values: ['false', 'true'] }, { name: 'indeterminate', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderCheckbox(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '약관에 동의합니다' }] }),
       states: [{ caption: 'Unchecked', props: {} }, { caption: 'Checked', props: { checked: 'true' } }, { caption: 'Indeterminate', props: { indeterminate: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4168,7 +4169,7 @@ const SELECTION_CATEGORY: CategoryDef = {
       setName: 'DS/Radio',
       eyebrow: 'ATOM · SELECTION',
       desc: '한 그룹에서 하나만 고르는 라디오.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Radio', [{ name: 'selected', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderRadio(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '선택 옵션' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Radio', [{ name: 'selected', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderRadio(ctx, c), { texts: [{ prop: 'Label', layer: 'label', def: '선택 옵션' }] }),
       states: [{ caption: 'Unselected', props: {} }, { caption: 'Selected', props: { selected: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4176,7 +4177,7 @@ const SELECTION_CATEGORY: CategoryDef = {
       setName: 'DS/Chip',
       eyebrow: 'MOLECULE · SELECTION',
       desc: '선택 가능한 필터/태그 칩.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Chip', [{ name: 'selected', values: ['false', 'true'] }, { name: 'removable', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderChip(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '필터' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Chip', [{ name: 'selected', values: ['false', 'true'] }, { name: 'removable', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderChip(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '필터' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'Selected', props: { selected: 'true' } }, { caption: 'Removable', props: { selected: 'true', removable: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
   ],
@@ -4194,14 +4195,14 @@ const ACTION_CATEGORY: CategoryDef = {
       desc: '주요 액션을 실행하는 버튼. variant·size 축을 가집니다.',
       build: (ctx, page) =>
         buildSet(ctx, page, 'DS/Button', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] }, { name: 'appearance', values: ['solid', 'outline', 'ghost'] }, { name: 'size', values: ['md', 'sm', 'lg'] }, { name: 'disabled', values: ['false', 'true'] }, { name: 'fullWidth', values: ['false', 'true'] }, { name: 'iconOnly', values: ['false', 'true'] }], (c) => renderButton(ctx, c), {
-          texts: [{ prop: 'Label', layer: 'Label', def: '버튼' }],
+          texts: [{ prop: 'label', layer: 'label', def: '버튼' }],
           bools: [
-            { prop: 'Show Left Icon', layer: 'Left Icon', def: false },
-            { prop: 'Show Right Icon', layer: 'Right Icon', def: false },
+            { prop: 'showLeftIcon', layer: 'leftIcon', def: false },
+            { prop: 'showRightIcon', layer: 'rightIcon', def: false },
           ],
           swaps: [
-            { prop: 'Left Icon', layer: 'Left Icon', defKey: '_Icon/Star' },
-            { prop: 'Right Icon', layer: 'Right Icon', defKey: '_Icon/ChevronRight' },
+            { prop: 'leftIcon', layer: 'leftIcon', defKey: '_Icon/Star' },
+            { prop: 'rightIcon', layer: 'rightIcon', defKey: '_Icon/ChevronRight' },
           ],
         }),
       states: [{ caption: 'Primary', props: { variant: 'primary' } }, { caption: 'Secondary', props: { variant: 'secondary' } }, { caption: 'Error', props: { variant: 'error' } }, { caption: 'Success', props: { variant: 'success' } }, { caption: 'Neutral', props: { variant: 'neutral' } }, { caption: 'Small', props: { size: 'sm' } }, { caption: 'Large', props: { size: 'lg' } }, { caption: 'Disabled', props: { disabled: 'true' } }, { caption: 'Full Width', props: { fullWidth: 'true' } }, { caption: 'Icon Only', props: { iconOnly: 'true' } }],
@@ -4211,7 +4212,7 @@ const ACTION_CATEGORY: CategoryDef = {
       setName: 'DS/Badge',
       eyebrow: 'ATOM · ACTION',
       desc: '상태·분류를 표시하는 배지. variant·size 축을 가집니다.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Badge', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] }, { name: 'appearance', values: ['soft', 'solid', 'outline'] }, { name: 'size', values: ['md', 'sm'] }], (c) => renderBadge(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: 'Badge' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Badge', [{ name: 'variant', values: ['primary', 'secondary', 'error', 'success', 'warning', 'neutral'] }, { name: 'appearance', values: ['soft', 'solid', 'outline'] }, { name: 'size', values: ['md', 'sm'] }], (c) => renderBadge(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: 'Badge' }] }),
       states: [{ caption: 'Primary', props: { variant: 'primary' } }, { caption: 'Secondary', props: { variant: 'secondary' } }, { caption: 'Error', props: { variant: 'error' } }, { caption: 'Success', props: { variant: 'success' } }, { caption: 'Neutral', props: { variant: 'neutral' } }, { caption: 'Small', props: { size: 'sm' } }],
     },
     {
@@ -4231,7 +4232,7 @@ const ACTION_CATEGORY: CategoryDef = {
             { name: 'size', values: ['md', 'sm'] },
           ],
           (c) => renderTag(ctx, c),
-          { texts: [{ prop: 'Label', layer: 'Label', def: '태그' }] },
+          { texts: [{ prop: 'label', layer: 'label', def: '태그' }] },
         )
         addBoolProp(set, 'Show Dot', 'Dot', true)
         addBoolProp(set, 'Show Remove', 'Remove', false)
@@ -4258,7 +4259,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
       eyebrow: 'MOLECULE · FEEDBACK',
       desc: '페이지 안에 인라인으로 상태를 알리는 배너.',
       build: (ctx, page) =>
-        buildSet(ctx, page, 'DS/Alert', [{ name: 'variant', values: ['info', 'success', 'warning', 'error'] }], (c) => renderAlert(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '안내' }, { prop: 'Message', layer: 'Message', def: '메시지 내용' }] }),
+        buildSet(ctx, page, 'DS/Alert', [{ name: 'variant', values: ['info', 'success', 'warning', 'error'] }], (c) => renderAlert(ctx, c), { texts: [{ prop: 'Title', layer: 'title', def: '안내' }, { prop: 'Message', layer: 'message', def: '메시지 내용' }] }),
       states: [
         { caption: 'Info', props: { variant: 'info' } },
         { caption: 'Success', props: { variant: 'success' } },
@@ -4272,7 +4273,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
       eyebrow: 'MOLECULE · FEEDBACK',
       desc: '일시적으로 떠서 결과를 알리는 카드(그림자).',
       build: (ctx, page) =>
-        buildSet(ctx, page, 'DS/Toast', [{ name: 'variant', values: ['info', 'success', 'warning', 'error'] }], (c) => renderToast(ctx, c), { texts: [{ prop: 'Message', layer: 'Message', def: '메시지 내용' }] }),
+        buildSet(ctx, page, 'DS/Toast', [{ name: 'variant', values: ['info', 'success', 'warning', 'error'] }], (c) => renderToast(ctx, c), { texts: [{ prop: 'message', layer: 'message', def: '메시지 내용' }] }),
       states: [
         { caption: 'Info', props: { variant: 'info' } },
         { caption: 'Success', props: { variant: 'success' } },
@@ -4286,7 +4287,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
       eyebrow: 'MOLECULE · FEEDBACK',
       desc: '하단에서 간단한 메시지와 실행취소를 제공하는 바.',
       build: (ctx, page) =>
-        buildSet(ctx, page, 'DS/Snackbar', [{ name: 'variant', values: ['default', 'success', 'error'] }, { name: 'action', values: ['false', 'true'] }], (c) => renderSnackbar(ctx, c), { texts: [{ prop: 'Message', layer: 'Message', def: '링크를 복사했어요.' }, { prop: 'Action', layer: 'Action', def: '실행 취소' }] }),
+        buildSet(ctx, page, 'DS/Snackbar', [{ name: 'variant', values: ['default', 'success', 'error'] }, { name: 'action', values: ['false', 'true'] }], (c) => renderSnackbar(ctx, c), { texts: [{ prop: 'message', layer: 'message', def: '링크를 복사했어요.' }, { prop: 'Action', layer: 'Action', def: '실행 취소' }] }),
       states: [
         { caption: 'Default', props: {} },
         { caption: 'With Action', props: { action: 'true' } },
@@ -4300,7 +4301,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
       eyebrow: 'ATOM · FEEDBACK',
       desc: '요소에 대한 짧은 도움말 말풍선.',
       build: (ctx, page) =>
-        buildSet(ctx, page, 'DS/Tooltip', [{ name: 'placement', values: ['bottom', 'top', 'left', 'right'] }], (c) => renderTooltip(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '도움말 텍스트' }] }),
+        buildSet(ctx, page, 'DS/Tooltip', [{ name: 'placement', values: ['bottom', 'top', 'left', 'right'] }], (c) => renderTooltip(ctx, c), { texts: [{ prop: 'Label', layer: 'label', def: '도움말 텍스트' }] }),
       states: [
         { caption: 'Bottom', props: { placement: 'bottom' } },
         { caption: 'Top', props: { placement: 'top' } },
@@ -4314,7 +4315,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
       eyebrow: 'ATOM · FEEDBACK',
       desc: '처리 중임을 나타내는 로딩 표시.',
       build: (ctx, page) =>
-        buildSet(ctx, page, 'DS/Loading', [{ name: 'variant', values: ['spinner', 'dots'] }, { name: 'size', values: ['md', 'sm', 'lg'] }], (c) => renderLoading(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '불러오는 중…' }] }),
+        buildSet(ctx, page, 'DS/Loading', [{ name: 'variant', values: ['spinner', 'dots'] }, { name: 'size', values: ['md', 'sm', 'lg'] }], (c) => renderLoading(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '불러오는 중…' }] }),
       states: [
         { caption: 'Spinner', props: {} },
         { caption: 'Dots', props: { variant: 'dots' } },
@@ -4335,7 +4336,7 @@ const FEEDBACK_CATEGORY: CategoryDef = {
       setName: 'DS/Callout',
       eyebrow: 'MOLECULE · FEEDBACK',
       desc: '강조 안내 블록(톤별).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Callout', [{ name: 'tone', values: ['info', 'success', 'warning', 'error'] }], (c) => renderCallout(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '안내 제목' }, { prop: 'Body', layer: 'Body', def: '강조해서 보여줄 안내 문구를 담습니다.' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Callout', [{ name: 'tone', values: ['info', 'success', 'warning', 'error'] }], (c) => renderCallout(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '안내 제목' }, { prop: 'Body', layer: 'Body', def: '강조해서 보여줄 안내 문구를 담습니다.' }] }),
       states: [{ caption: 'Info', props: {} }, { caption: 'Success', props: { tone: 'success' } }, { caption: 'Warning', props: { tone: 'warning' } }, { caption: 'Error', props: { tone: 'error' } }],
     },
   ],
@@ -4351,7 +4352,7 @@ const NAVIGATION_CATEGORY: CategoryDef = {
       setName: 'DS/Tab',
       eyebrow: 'MOLECULE · NAVIGATION',
       desc: '섹션을 전환하는 탭 아이템(활성/비활성).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Tab', [{ name: 'active', values: ['false', 'true'] }, { name: 'variant', values: ['underline', 'segmented'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderTab(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '메뉴' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Tab', [{ name: 'active', values: ['false', 'true'] }, { name: 'variant', values: ['underline', 'segmented'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderTab(ctx, c), { texts: [{ prop: 'Label', layer: 'label', def: '메뉴' }] }),
       states: [{ caption: 'Underline (Active)', props: { active: 'true' } }, { caption: 'Underline', props: {} }, { caption: 'Segmented (Active)', props: { active: 'true', variant: 'segmented' } }, { caption: 'Segmented', props: { variant: 'segmented' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4443,7 +4444,7 @@ const LAYOUT_CATEGORY: CategoryDef = {
       setName: 'DS/Card',
       eyebrow: 'MOLECULE · LAYOUT',
       desc: '제목·본문·(선택)푸터를 담는 카드.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Card', [{ name: 'footer', values: ['false', 'true'] }], (c) => renderCard(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '카드 제목' }, { prop: 'Body', layer: 'Body', def: '카드 본문 텍스트가 들어갑니다.' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Card', [{ name: 'footer', values: ['false', 'true'] }], (c) => renderCard(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '카드 제목' }, { prop: 'Body', layer: 'Body', def: '카드 본문 텍스트가 들어갑니다.' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'With Footer', props: { footer: 'true' } }],
     },
     {
@@ -4469,7 +4470,7 @@ const LAYOUT_CATEGORY: CategoryDef = {
       setName: 'DS/Accordion',
       eyebrow: 'MOLECULE · LAYOUT',
       desc: '제목을 눌러 본문을 펼치고 접는 아코디언.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Accordion', [{ name: 'expanded', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderAccordion(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '섹션 제목' }, { prop: 'Body', layer: 'Body', def: '펼쳐진 본문 내용' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Accordion', [{ name: 'expanded', values: ['false', 'true'] }, { name: 'disabled', values: ['false', 'true'] }], (c) => renderAccordion(ctx, c), { texts: [{ prop: 'Title', layer: 'title', def: '섹션 제목' }, { prop: 'Body', layer: 'Body', def: '펼쳐진 본문 내용' }] }),
       states: [{ caption: 'Collapsed', props: {} }, { caption: 'Expanded', props: { expanded: 'true' } }, { caption: 'Disabled', props: { disabled: 'true' } }],
     },
     {
@@ -4477,7 +4478,7 @@ const LAYOUT_CATEGORY: CategoryDef = {
       setName: 'DS/Divider',
       eyebrow: 'ATOM · LAYOUT',
       desc: '콘텐츠를 나누는 구분선(라벨 옵션).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Divider', [{ name: 'label', values: ['false', 'true'] }], (c) => renderDivider(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '또는' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Divider', [{ name: 'label', values: ['false', 'true'] }], (c) => renderDivider(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '또는' }] }),
       states: [{ caption: 'Plain', props: {} }, { caption: 'With Label', props: { label: 'true' } }],
     },
     {
@@ -4501,7 +4502,7 @@ const OVERLAY_CATEGORY: CategoryDef = {
       setName: 'DS/Modal',
       eyebrow: 'ORGANISM · OVERLAY',
       desc: '제목·본문·액션 버튼을 담는 모달 대화상자.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Modal', [{ name: 'size', values: ['md', 'sm', 'lg'] }], (c) => renderModal(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '모달 제목' }, { prop: 'Body', layer: 'Body', def: '모달 본문 내용' }, { prop: 'Cancel', layer: 'Cancel', def: '취소' }, { prop: 'Confirm', layer: 'Confirm', def: '확인' }], swaps: [{ prop: 'Close Icon', layer: 'Close Icon', defKey: '_Icon/Close' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Modal', [{ name: 'size', values: ['md', 'sm', 'lg'] }], (c) => renderModal(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '모달 제목' }, { prop: 'Body', layer: 'Body', def: '모달 본문 내용' }, { prop: 'Cancel', layer: 'Cancel', def: '취소' }, { prop: 'Confirm', layer: 'Confirm', def: '확인' }], swaps: [{ prop: 'Close Icon', layer: 'Close Icon', defKey: '_Icon/Close' }] }),
       states: [{ caption: 'Medium', props: { size: 'md' } }, { caption: 'Small', props: { size: 'sm' } }, { caption: 'Large', props: { size: 'lg' } }],
     },
     {
@@ -4509,7 +4510,7 @@ const OVERLAY_CATEGORY: CategoryDef = {
       setName: 'DS/Dialog',
       eyebrow: 'MOLECULE · OVERLAY',
       desc: '확인/취소를 묻는 간단한 다이얼로그.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Dialog', [{ name: 'variant', values: ['confirm', 'alert', 'prompt'] }, { name: 'danger', values: ['false', 'true'] }], (c) => renderDialog(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '계속하시겠어요?' }, { prop: 'Body', layer: 'Body', def: '선택한 작업을 진행합니다.' }, { prop: 'Cancel', layer: 'Cancel', def: '취소' }, { prop: 'Confirm', layer: 'Confirm', def: '확인' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Dialog', [{ name: 'variant', values: ['confirm', 'alert', 'prompt'] }, { name: 'danger', values: ['false', 'true'] }], (c) => renderDialog(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '계속하시겠어요?' }, { prop: 'Body', layer: 'Body', def: '선택한 작업을 진행합니다.' }, { prop: 'Cancel', layer: 'Cancel', def: '취소' }, { prop: 'Confirm', layer: 'Confirm', def: '확인' }] }),
       states: [{ caption: 'Confirm', props: {} }, { caption: 'Alert', props: { variant: 'alert' } }, { caption: 'Prompt', props: { variant: 'prompt' } }, { caption: 'Danger', props: { danger: 'true' } }],
     },
     {
@@ -4517,7 +4518,7 @@ const OVERLAY_CATEGORY: CategoryDef = {
       setName: 'DS/Popover',
       eyebrow: 'MOLECULE · OVERLAY',
       desc: '요소 옆에 붙는 작은 부가정보 팝오버.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Popover', [{ name: 'placement', values: ['top', 'bottom'] }], (c) => renderPopover(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '팝오버 제목' }, { prop: 'Body', layer: 'Body', def: '간단한 부가 설명' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Popover', [{ name: 'placement', values: ['top', 'bottom'] }], (c) => renderPopover(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '팝오버 제목' }, { prop: 'Body', layer: 'Body', def: '간단한 부가 설명' }] }),
       states: [{ caption: 'Top', props: {} }, { caption: 'Bottom', props: { placement: 'bottom' } }],
     },
     {
@@ -4525,7 +4526,7 @@ const OVERLAY_CATEGORY: CategoryDef = {
       setName: 'DS/Drawer',
       eyebrow: 'ORGANISM · OVERLAY',
       desc: '측면에서 밀려나오는 내비게이션 드로어.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Drawer', [{ name: 'side', values: ['right', 'left'] }], (c) => renderDrawer(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '메뉴' }, { prop: 'Item 1', layer: 'Item 1', def: '홈' }, { prop: 'Item 2', layer: 'Item 2', def: '프로필' }, { prop: 'Item 3', layer: 'Item 3', def: '설정' }], swaps: [{ prop: 'Icon 1', layer: 'Icon 1', defKey: '_Icon/House' }, { prop: 'Icon 2', layer: 'Icon 2', defKey: '_Icon/Person' }, { prop: 'Icon 3', layer: 'Icon 3', defKey: '_Icon/Settings' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Drawer', [{ name: 'side', values: ['right', 'left'] }], (c) => renderDrawer(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '메뉴' }, { prop: 'Item 1', layer: 'Item 1', def: '홈' }, { prop: 'Item 2', layer: 'Item 2', def: '프로필' }, { prop: 'Item 3', layer: 'Item 3', def: '설정' }], swaps: [{ prop: 'Icon 1', layer: 'Icon 1', defKey: '_Icon/House' }, { prop: 'Icon 2', layer: 'Icon 2', defKey: '_Icon/Person' }, { prop: 'Icon 3', layer: 'Icon 3', defKey: '_Icon/Settings' }] }),
       states: [{ caption: 'Right', props: {} }, { caption: 'Left', props: { side: 'left' } }],
     },
     {
@@ -4533,7 +4534,7 @@ const OVERLAY_CATEGORY: CategoryDef = {
       setName: 'DS/BottomSheet',
       eyebrow: 'ORGANISM · OVERLAY',
       desc: '하단에서 올라오는 시트(핸들 포함).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/BottomSheet', [{ name: 'state', values: ['default'] }], (c) => renderBottomSheet(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '옵션 선택' }, { prop: 'Body', layer: 'Body', def: '아래에서 원하는 항목을 선택하세요.' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/BottomSheet', [{ name: 'state', values: ['default'] }], (c) => renderBottomSheet(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '옵션 선택' }, { prop: 'Body', layer: 'Body', def: '아래에서 원하는 항목을 선택하세요.' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4565,7 +4566,7 @@ const DATA_CATEGORY: CategoryDef = {
       setName: 'DS/Statistics',
       eyebrow: 'MOLECULE · DATA',
       desc: '지표 값과 증감을 보여주는 통계 카드.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Statistics', [{ name: 'delta', values: ['up', 'down', 'flat'] }], (c) => renderStatistics(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '총 매출' }, { prop: 'Value', layer: 'Value', def: '₩12,400,000' }, { prop: 'Delta', layer: 'Delta', def: '+12.5%' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Statistics', [{ name: 'delta', values: ['up', 'down', 'flat'] }], (c) => renderStatistics(ctx, c), { texts: [{ prop: 'Label', layer: 'label', def: '총 매출' }, { prop: 'Value', layer: 'value', def: '₩12,400,000' }, { prop: 'Delta', layer: 'Delta', def: '+12.5%' }] }),
       states: [{ caption: 'Up', props: {} }, { caption: 'Down', props: { delta: 'down' } }, { caption: 'Flat', props: { delta: 'flat' } }],
     },
     {
@@ -4573,7 +4574,7 @@ const DATA_CATEGORY: CategoryDef = {
       setName: 'DS/Progress',
       eyebrow: 'ATOM · DATA',
       desc: '진행 상태를 나타내는 진행 바.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Progress', [{ name: 'value', values: ['25', '50', '75', '100'] }], (c) => renderProgress(ctx, c), { texts: [{ prop: 'Label', layer: 'Label', def: '진행률' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Progress', [{ name: 'value', values: ['25', '50', '75', '100'] }], (c) => renderProgress(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '진행률' }] }),
       states: [{ caption: '25%', props: { value: '25' } }, { caption: '50%', props: { value: '50' } }, { caption: '75%', props: { value: '75' } }, { caption: '100%', props: { value: '100' } }],
     },
     {
@@ -4605,7 +4606,7 @@ const DATA_CATEGORY: CategoryDef = {
       setName: 'DS/Carousel',
       eyebrow: 'MOLECULE · DATA',
       desc: '슬라이드 + 좌우 이동 + 인디케이터 캐러셀.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Carousel', [{ name: 'showArrows', values: ['true', 'false'] }, { name: 'showDots', values: ['true', 'false'] }], (c) => renderCarousel(ctx, c), { texts: [{ prop: 'Slide', layer: 'Slide', def: '슬라이드 1 / 4' }], swaps: [{ prop: 'Prev', layer: 'Prev Icon', defKey: '_Icon/ChevronLeft' }, { prop: 'Next', layer: 'Next Icon', defKey: '_Icon/ChevronRight' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Carousel', [{ name: 'showArrows', values: ['true', 'false'] }, { name: 'showDots', values: ['true', 'false'] }], (c) => renderCarousel(ctx, c), { texts: [{ prop: 'Slide', layer: 'Slide', def: '슬라이드 1 / 4' }], swaps: [{ prop: 'Prev', layer: 'Prev', defKey: '_Icon/ChevronLeft' }, { prop: 'Next', layer: 'Next', defKey: '_Icon/ChevronRight' }] }),
       states: [{ caption: 'Default', props: {} }, { caption: 'No Arrows', props: { showArrows: 'false' } }, { caption: 'No Dots', props: { showDots: 'false' } }],
     },
     {
@@ -4645,7 +4646,7 @@ const STRUCTURE_CATEGORY: CategoryDef = {
       setName: 'DS/Navbar',
       eyebrow: 'ORGANISM · STRUCTURE',
       desc: '브랜드 + 내비 링크 + CTA로 구성된 상단 내비게이션 바.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Navbar', [{ name: 'state', values: ['default'] }], (c) => renderNavbar(ctx, c), { texts: [{ prop: 'Brand', layer: 'Brand', def: 'TDS' }, { prop: 'Link 1', layer: 'Link 1', def: '홈' }, { prop: 'Link 2', layer: 'Link 2', def: '제품' }, { prop: 'Link 3', layer: 'Link 3', def: '가격' }, { prop: 'CTA', layer: 'CTA', def: '시작하기' }], swaps: [{ prop: 'Brand Icon', layer: 'Brand Icon', defKey: '_Icon/Sparkles' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Navbar', [{ name: 'state', values: ['default'] }], (c) => renderNavbar(ctx, c), { texts: [{ prop: 'brand', layer: 'brand', def: 'TDS' }, { prop: 'Link 1', layer: 'Link 1', def: '홈' }, { prop: 'Link 2', layer: 'Link 2', def: '제품' }, { prop: 'Link 3', layer: 'Link 3', def: '가격' }, { prop: 'CTA', layer: 'CTA', def: '시작하기' }], swaps: [{ prop: 'Brand Icon', layer: 'Brand Icon', defKey: '_Icon/Sparkles' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4653,7 +4654,7 @@ const STRUCTURE_CATEGORY: CategoryDef = {
       setName: 'DS/Header',
       eyebrow: 'ORGANISM · STRUCTURE',
       desc: '메뉴·제목 + 검색·알림·아바타의 앱 헤더.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Header', [{ name: 'state', values: ['default'] }], (c) => renderHeader(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '페이지 제목' }], swaps: [{ prop: 'Menu Icon', layer: 'Menu Icon', defKey: '_Icon/Menu' }, { prop: 'Search Icon', layer: 'Search Icon', defKey: '_Icon/Search' }, { prop: 'Bell Icon', layer: 'Bell Icon', defKey: '_Icon/Bell' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Header', [{ name: 'state', values: ['default'] }], (c) => renderHeader(ctx, c), { texts: [{ prop: 'title', layer: 'title', def: '페이지 제목' }], swaps: [{ prop: 'Menu Icon', layer: 'Menu Icon', defKey: '_Icon/Menu' }, { prop: 'Search Icon', layer: 'Search Icon', defKey: '_Icon/Search' }, { prop: 'Bell Icon', layer: 'Bell Icon', defKey: '_Icon/Bell' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4661,7 +4662,7 @@ const STRUCTURE_CATEGORY: CategoryDef = {
       setName: 'DS/Footer',
       eyebrow: 'ORGANISM · STRUCTURE',
       desc: '저작권 표기 + 링크로 구성된 하단 푸터.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Footer', [{ name: 'state', values: ['default'] }], (c) => renderFooter(ctx, c), { texts: [{ prop: 'Copyright', layer: 'Copyright', def: '© 2026 TDS. All rights reserved.' }, { prop: 'Link 1', layer: 'Link 1', def: '이용약관' }, { prop: 'Link 2', layer: 'Link 2', def: '개인정보' }, { prop: 'Link 3', layer: 'Link 3', def: '문의' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Footer', [{ name: 'state', values: ['default'] }], (c) => renderFooter(ctx, c), { texts: [{ prop: 'copyright', layer: 'copyright', def: '© 2026 TDS. All rights reserved.' }, { prop: 'Link 1', layer: 'Link 1', def: '이용약관' }, { prop: 'Link 2', layer: 'Link 2', def: '개인정보' }, { prop: 'Link 3', layer: 'Link 3', def: '문의' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4669,7 +4670,7 @@ const STRUCTURE_CATEGORY: CategoryDef = {
       setName: 'DS/Sidebar',
       eyebrow: 'ORGANISM · STRUCTURE',
       desc: '브랜드 + 세로 내비 항목의 사이드바(활성 상태 포함).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Sidebar', [{ name: 'state', values: ['default'] }], (c) => renderSidebar(ctx, c), { texts: [{ prop: 'Brand', layer: 'Brand', def: 'TDS Console' }, { prop: 'Item 1', layer: 'Item 1', def: '홈' }, { prop: 'Item 2', layer: 'Item 2', def: '대시보드' }, { prop: 'Item 3', layer: 'Item 3', def: '설정' }], swaps: [{ prop: 'Brand Icon', layer: 'Brand Icon', defKey: '_Icon/Sparkles' }, { prop: 'Icon 1', layer: 'Icon 1', defKey: '_Icon/House' }, { prop: 'Icon 2', layer: 'Icon 2', defKey: '_Icon/Grid' }, { prop: 'Icon 3', layer: 'Icon 3', defKey: '_Icon/Settings' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Sidebar', [{ name: 'state', values: ['default'] }], (c) => renderSidebar(ctx, c), { texts: [{ prop: 'Brand', layer: 'brand', def: 'TDS Console' }, { prop: 'Item 1', layer: 'Item 1', def: '홈' }, { prop: 'Item 2', layer: 'Item 2', def: '대시보드' }, { prop: 'Item 3', layer: 'Item 3', def: '설정' }], swaps: [{ prop: 'Brand Icon', layer: 'Brand Icon', defKey: '_Icon/Sparkles' }, { prop: 'Icon 1', layer: 'Icon 1', defKey: '_Icon/House' }, { prop: 'Icon 2', layer: 'Icon 2', defKey: '_Icon/Grid' }, { prop: 'Icon 3', layer: 'Icon 3', defKey: '_Icon/Settings' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
   ],
@@ -4685,7 +4686,7 @@ const DATETIME_CATEGORY: CategoryDef = {
       setName: 'DS/Calendar',
       eyebrow: 'ORGANISM · DATE',
       desc: '월 단위 달력 그리드(선택일·오늘 표시).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Calendar', [{ name: 'state', values: ['default'] }], (c) => renderCalendar(ctx, c), { texts: [{ prop: 'Title', layer: 'Title', def: '2026년 7월' }], swaps: [{ prop: 'Prev', layer: 'Prev', defKey: '_Icon/ChevronLeft' }, { prop: 'Next', layer: 'Next', defKey: '_Icon/ChevronRight' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Calendar', [{ name: 'state', values: ['default'] }], (c) => renderCalendar(ctx, c), { texts: [{ prop: 'Title', layer: 'title', def: '2026년 7월' }], swaps: [{ prop: 'Prev', layer: 'Prev', defKey: '_Icon/ChevronLeft' }, { prop: 'Next', layer: 'Next', defKey: '_Icon/ChevronRight' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4693,7 +4694,7 @@ const DATETIME_CATEGORY: CategoryDef = {
       setName: 'DS/DatePicker',
       eyebrow: 'MOLECULE · DATE',
       desc: '날짜를 선택하는 입력 필드(달력 아이콘).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/DatePicker', [{ name: 'state', values: ['default'] }], () => pickerField(ctx, '날짜', '2026-07-15', '_Icon/Calendar'), { texts: [{ prop: 'Label', layer: 'Label', def: '날짜' }, { prop: 'Value', layer: 'Value', def: '2026-07-15' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Calendar' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/DatePicker', [{ name: 'state', values: ['default'] }], () => pickerField(ctx, '날짜', '2026-07-15', '_Icon/Calendar'), { texts: [{ prop: 'label', layer: 'label', def: '날짜' }, { prop: 'Value', layer: 'value', def: '2026-07-15' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Calendar' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4701,7 +4702,7 @@ const DATETIME_CATEGORY: CategoryDef = {
       setName: 'DS/TimePicker',
       eyebrow: 'MOLECULE · DATE',
       desc: '시간을 선택하는 입력 필드(시계 아이콘).',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/TimePicker', [{ name: 'state', values: ['default'] }], () => pickerField(ctx, '시간', '오후 2:30', '_Icon/Clock'), { texts: [{ prop: 'Label', layer: 'Label', def: '시간' }, { prop: 'Value', layer: 'Value', def: '오후 2:30' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Clock' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/TimePicker', [{ name: 'state', values: ['default'] }], () => pickerField(ctx, '시간', '오후 2:30', '_Icon/Clock'), { texts: [{ prop: 'label', layer: 'label', def: '시간' }, { prop: 'value', layer: 'value', def: '오후 2:30' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Clock' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
     {
@@ -4709,7 +4710,7 @@ const DATETIME_CATEGORY: CategoryDef = {
       setName: 'DS/DateRangePicker',
       eyebrow: 'MOLECULE · DATE',
       desc: '기간(시작~종료)을 선택하는 입력 필드.',
-      build: (ctx, page) => buildSet(ctx, page, 'DS/DateRangePicker', [{ name: 'state', values: ['default'] }], () => pickerField(ctx, '기간', '2026-07-01  ~  2026-07-15', '_Icon/Calendar'), { texts: [{ prop: 'Label', layer: 'Label', def: '기간' }, { prop: 'Value', layer: 'Value', def: '2026-07-01  ~  2026-07-15' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Calendar' }] }),
+      build: (ctx, page) => buildSet(ctx, page, 'DS/DateRangePicker', [{ name: 'state', values: ['default'] }], () => pickerField(ctx, '기간', '2026-07-01  ~  2026-07-15', '_Icon/Calendar'), { texts: [{ prop: 'label', layer: 'label', def: '기간' }, { prop: 'Value', layer: 'value', def: '2026-07-01  ~  2026-07-15' }], swaps: [{ prop: 'Icon', layer: 'Icon', defKey: '_Icon/Calendar' }] }),
       states: [{ caption: 'Default', props: {} }],
     },
   ],
@@ -4724,7 +4725,7 @@ function krFieldDoc(han: string, key: string, spec: KrSpec): ComponentDoc {
     desc: han + ' 입력 필드.',
     build: (ctx, page) =>
       buildSet(ctx, page, 'DS/' + key, [{ name: 'state', values: ['default', 'filled', 'error', 'disabled'] }], (c) => krField(ctx, spec, c), {
-        texts: [{ prop: 'Label', layer: 'Label', def: spec.label }, { prop: 'Value', layer: 'Value', def: spec.ph }],
+        texts: [{ prop: 'label', layer: 'label', def: spec.label }, { prop: 'value', layer: 'value', def: spec.ph }],
       }),
     states: [
       { caption: 'Default', props: {} },
@@ -4876,10 +4877,10 @@ const MEDIA_CATEGORY: CategoryDef = {
           (c) => renderImageCard(ctx, c),
           {
             texts: [
-              { prop: 'Eyebrow', layer: 'Eyebrow', def: '카테고리' },
-              { prop: 'Title', layer: 'Title', def: '이미지 카드' },
+              { prop: 'eyebrow', layer: 'eyebrow', def: '카테고리' },
+              { prop: 'title', layer: 'title', def: '이미지 카드' },
               { prop: 'Body', layer: 'Body', def: '이미지 위에 제목과 설명이 붙는 카드입니다.' },
-              { prop: 'Badge', layer: 'Badge', def: 'NEW' },
+              { prop: 'badge', layer: 'badge', def: 'NEW' },
               { prop: 'Action', layer: 'Action', def: '자세히 보기' },
             ],
           },
@@ -4911,8 +4912,8 @@ const MEDIA_CATEGORY: CategoryDef = {
         buildSet(ctx, page, 'DS/ImageSlide', [{ name: 'ratio', values: MEDIA_RATIOS }], (c) => renderImageSlide(ctx, c), {
           texts: [{ prop: 'Counter', layer: 'Counter', def: '1 / 3' }],
           swaps: [
-            { prop: 'Prev', layer: 'Prev Icon', defKey: '_Icon/ChevronLeft' },
-            { prop: 'Next', layer: 'Next Icon', defKey: '_Icon/ChevronRight' },
+            { prop: 'Prev', layer: 'Prev', defKey: '_Icon/ChevronLeft' },
+            { prop: 'Next', layer: 'Next', defKey: '_Icon/ChevronRight' },
           ],
         }),
       states: [
@@ -4945,7 +4946,7 @@ const ETC_CATEGORY: CategoryDef = {
             { name: 'size', values: ['md', 'lg'] },
           ],
           (c) => renderSocial(ctx, c),
-          { texts: [{ prop: 'Label', layer: 'Label', def: '카카오 로그인' }], bools: [{ prop: 'Show Logo', layer: 'logo', def: true }] },
+          { texts: [{ prop: 'label', layer: 'label', def: '카카오 로그인' }], bools: [{ prop: 'showLogo', layer: 'logo', def: true }] },
         ),
       states: [
         { caption: 'Kakao', props: {} },

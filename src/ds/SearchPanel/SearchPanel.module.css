@@ -15,6 +15,15 @@
   --tone: var(--ds-color-primary);
 }
 
+/* appearance='plain' — 카드 크롬만 벗긴다(내부 배치는 그대로).
+   이미 카드 안에 넣을 때 보더가 두 겹으로 겹치지 않게. */
+.plain {
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
 /* 검색 중 — 조건 영역은 잠그고 버튼만 살아 있게 */
 .loading .grid {
   opacity: 0.6;
@@ -185,6 +194,17 @@
   /* 넓은 필드(기간 등)는 2열에서 한 줄 전체를 쓴다 */
   .wide {
     grid-column: span 2;
+  }
+
+  /* columns=1은 좁아져도 1열 그대로 — 위 2열 규칙을 되돌린다(더 접을 것이 없다).
+     .grid와 같은 특이도라 뒤에 와야 이긴다. */
+  .single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 1열에서는 '넓은 필드'도 한 칸이다 — span 2는 없는 열을 가리킨다 */
+  .single .wide {
+    grid-column: span 1;
   }
 }
 

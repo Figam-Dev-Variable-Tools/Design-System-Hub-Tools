@@ -99,49 +99,7 @@ function deduceScale(baseSize: number, sizes: Record<string, number>): number {
   return Math.round((sizes.lg / sizes.md) * 100) / 100
 }
 
-// ── export: mode당 TokensJson 1개 (COLOR → hex 대문자 6자리) ──
-export async function exportTokens(): Promise<TokensJson[]> {
-  const { color, typography, radiusSpacing, vars } = await getCollections()
-  const typoMode = typography.modes[0].modeId
-  const rsMode = radiusSpacing.modes[0].modeId
 
-  const familyRaw = vars.get('font/family')?.valuesByMode[typoMode]
-  const fontFamily = typeof familyRaw === 'string' ? familyRaw : ''
-
-  const sizes = {} as TokensJson['typography']['sizes']
-  for (const k of SIZE_KEYS) sizes[k] = numberOf(vars, `font/size/${k}`, typoMode)
-  const weights = {} as TokensJson['typography']['weights']
-  for (const k of WEIGHT_KEYS) weights[k] = numberOf(vars, `font/weight/${k}`, typoMode)
-  const radius = {} as TokensJson['radius']
-  for (const k of RADIUS_KEYS) radius[k] = numberOf(vars, `radius/${k}`, rsMode)
-  const spacing = {} as TokensJson['spacing']
-  for (const k of SPACING_KEYS) spacing[k] = numberOf(vars, `spacing/${k}`, rsMode)
-
-  const baseSize = sizes.md
-  const scale = deduceScale(baseSize, sizes)
-
-  const out: TokensJson[] = []
-  for (const mode of color.modes) {
-    const preset = mode.name as PresetName
-    const colorOut = {} as TokensJson['color']
-    for (const k of COLOR_KEYS) {
-      const v = vars.get(`color/${k}`)
-      if (!v) throw new Error(`변수 없음: color/${k}`)
-      const raw = v.valuesByMode[mode.modeId]
-      if (!raw || typeof raw !== 'object' || !('r' in (raw as RGB)))
-        throw new Error(`COLOR 아님: color/${k}`)
-      colorOut[k] = rgbToHex(raw as RGB)
-    }
-    out.push({
-      $preset: preset,
-      color: colorOut,
-      typography: { fontFamily, baseSize, scale, sizes, weights },
-      radius,
-      spacing,
-    })
-  }
-  return out
-}
 
 // ── import: 스키마 검증 후 해당 preset mode 값만 갱신 (재생성 금지) ──
 export async function importTokens(json: TokensJson): Promise<string[]> {

@@ -36,7 +36,7 @@ import {
   WHITE,
 } from './foundations'
 import { iconInstance, ICON_COMPONENTS } from './icon-vec'
-import { SITE_SETS, siteSet, adoptSiteSets, propKeys } from './site'
+import { SITE_SETS, siteSet, adoptSiteSets, propKeys, MENU } from './site'
 import type { PresetName } from '../presets'
 
 // 오너 규칙: 페이지 탭은 "순번. System - 이름". 카테고리(1~14) · Admin(15) · Layout(16) · Admin Screens(17) · Site(18) 다음.
@@ -139,7 +139,7 @@ const CTRL_H = 44 // 폼 컨트롤 높이(프론트는 어드민보다 넉넉)
 const BTN_H = 48 // CTA 버튼
 
 const BRAND = 'SPACE PLANNING'
-const MENU = ['회사 소개', '연혁', '포트폴리오', '상품', '오시는길']
+// MENU는 site.ts가 단일 출처다 — 여기서 배열을 다시 쓰지 않는다(위 import 참조).
 
 // ── 팔레트 — 라이트 단일(표면별 갈아끼우기가 사라졌다) ────────────────
 const V_BG = 'color/bg' // 섹션 면(plain) · 카드 · 컨트롤

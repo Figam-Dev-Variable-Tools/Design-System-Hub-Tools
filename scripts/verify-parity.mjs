@@ -5,7 +5,7 @@
 //  3) 이름 존재   — Figma 변수명 템플릿이 generators/tokens.ts 에 실제로 선언됨.
 // 사용: pnpm verify:parity  (드리프트 시 비정상 종료)
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
-import { resolve, dirname, join } from 'node:path'
+import { resolve, dirname, join, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CATEGORY_FILES } from './lib/figma-sets.mjs'
 
@@ -183,28 +183,104 @@ try {
   }
   walkS(join(storyRoot, 'ds'))
   if (existsSync(join(storyRoot, 'templates'))) walkS(join(storyRoot, 'templates'))
-  const general = []
-  let krCount = 0
-  let tplCount = 0
-  for (const f of storyFiles) {
-    const t = (readFileSync(f, 'utf8').match(/title:\s*['"]([^'"]+)['"]/) || [])[1]
-    if (!t) continue
-    const leaf = t.split('/').pop()
-    if (t.startsWith('3. 컴포넌트/')) general.push(leaf)
-    else if (t.startsWith('6. KR')) krCount++
-    else if (t.startsWith('Templates') || t.startsWith('Admin')) tplCount++
+  // ── 스토리 제목 추출 ─────────────────────────────────────────────────
+  // 예전 코드는 파일의 **첫 번째** `title:` 을 잡았다. 스토리 파일 안의 목 데이터
+  // (`{ title: '배송은 얼마나 걸리나요?' }`)가 meta 보다 먼저 나오면 그걸 제목으로 착각한다.
+  // 그 결과 179개 중 24개를 오독했고, Accordion·List·Sidebar·Timeline 4개가
+  // 커버리지 검사에서 **통째로 빠져** "60/60 (100%)" 이라는 거짓 수치가 나왔다(분모가 틀렸다).
+  const metaTitle = (src) => {
+    const m = src.match(/(?:const\s+meta[^=]*=|export\s+default)\s*\{[\s\S]*?title:\s*['"]([^'"]+)['"]/)
+    return m ? m[1] : undefined
   }
-  const missing = general.filter((g) => !figmaSets.has('DS/' + g))
-  const covered = general.length - missing.length
-  const pct = general.length ? Math.round((covered / general.length) * 100) : 100
-  const krFigma = [...figmaSets].filter((s) => s.startsWith('DS/Kr')).length
+  /** 스토리 폴더명 = 컴포넌트명 = Figma 세트명(DS/<이름>). KR 은 제목이 한글이라 폴더명으로만 맞출 수 있다. */
+  const folderOf = (f) => basename(dirname(f))
+
+  const sections = { general: [], kr: [], site: [], admin: [], other: [] }
+  for (const f of storyFiles) {
+    const t = metaTitle(readFileSync(f, 'utf8'))
+    // 조용한 스킵 금지 — 제목을 못 읽으면 그 컴포넌트는 검사에서 사라진다. 그게 이 버그였다.
+    if (!t) {
+      note(`스토리 meta title 을 읽지 못함: ${f} — 검사에서 빠지므로 실패로 처리한다`)
+      continue
+    }
+    const item = { name: folderOf(f), title: t, file: f }
+    if (t.startsWith('3. 컴포넌트/')) sections.general.push(item)
+    else if (t.startsWith('6. KR')) sections.kr.push(item)
+    else if (t.startsWith('Site/')) sections.site.push(item)
+    else if (t.startsWith('Admin/') || t.startsWith('Templates')) sections.admin.push(item)
+    else sections.other.push(item)
+  }
+
+  // 스토리가 아예 없는 컴포넌트는 **모든 게이트에 안 보인다**(InputBase 가 그래서 Figma 에 없었다).
+  const dsRoot = join(storyRoot, 'ds')
+  const storyless = []
+  for (const d of readdirSync(dsRoot)) {
+    const dir = join(dsRoot, d)
+    if (!statSync(dir).isDirectory() || d === 'kr') continue
+    if (!existsSync(join(dir, `${d}.tsx`))) continue
+    if (!readdirSync(dir).some((f) => f.endsWith('.stories.tsx'))) storyless.push(d)
+  }
+
+  // figmaSets 는 **카테고리 생성기만** 스캔한다(위 지표의 분모를 보존하려고 admin/site 를 일부러 뺐다).
+  // 커버리지는 "이 컴포넌트가 Figma 어딘가에 세트로 있는가"를 묻는 것이므로 admin·site 도 포함해야 한다.
+  const allSets = new Set(figmaSets)
+  for (const n of ['admin', 'site']) {
+    const s = readFileSync(join(root, 'figma-plugin', 'src', 'generators', `${n}.ts`), 'utf8')
+    for (const m of s.matchAll(/setName: '(DS\/[^']+)'/g)) allSets.add(m[1])
+    for (const m of s.matchAll(/buildSet\(ctx, page, '(DS\/[^']+)'/g)) allSets.add(m[1])
+  }
+  const hasSet = (n) => allSets.has('DS/' + n)
+
+  // 페이지 컴포넌트는 세트가 아니라 **화면**으로 그려진다(AboutPage → screens.ts/site-screens.ts 의 screenAbout).
+  // 세트가 없다고 누락이 아니다 — 화면 빌더가 있으면 커버된 것이다.
+  const screenSrc = ['screens', 'site-screens']
+    .map((n) => readFileSync(join(root, 'figma-plugin', 'src', 'generators', `${n}.ts`), 'utf8'))
+    .join('\n')
+  const hasScreen = (n) =>
+    new RegExp(`\\bscreen${n.replace(/Page$|Screen$/, '')}\\b`).test(screenSrc)
+
+  const covered = (n) => hasSet(n) || hasScreen(n)
+  const gapsOf = (list) => list.filter((x) => !covered(x.name)).map((x) => x.name)
+  const gaps = {
+    general: gapsOf(sections.general),
+    kr: gapsOf(sections.kr),
+    site: gapsOf(sections.site),
+    storyless,
+  }
+
   console.log(
     `\n── 컴포넌트 커버리지(Storybook→Figma) ──\n` +
-      `  일반 컴포넌트: ${covered}/${general.length} (${pct}%)  · Figma 세트 없음: ${missing.join(', ') || '없음'}\n` +
-      `  KR: Storybook ${krCount} · Figma ${krFigma} 세트   |   Templates: Storybook ${tplCount} · Figma ${[...figmaSets].filter((s) => ['DS/AdminShell', 'DS/Dashboard', 'DS/ListPage', 'DS/Settings', 'DS/Login', 'DS/EmptyState', 'DS/FilterBar'].includes(s)).length} 세트`,
+      `  3. 컴포넌트: ${sections.general.length - gaps.general.length}/${sections.general.length}` +
+      `   · KR: ${sections.kr.length - gaps.kr.length}/${sections.kr.length}` +
+      `   · Site: ${sections.site.length - gaps.site.length}/${sections.site.length}` +
+      `   · Admin·Templates: ${sections.admin.length}개(화면으로 그려짐 — 아래 참조)`,
   )
+
+  // 알려진 갭 — **사유와 만료가 있어야 한다.** 사유 없는 면제는 부채가 아니라 거짓말이다.
+  const KNOWN_GAPS = {
+    // 오너 지시로 별도 컴포넌트화했으나 Figma 미러링이 아직 안 됐다. 다음 배치에서 세트 신설.
+    EraTimeline: '연혁 표기 컴포넌트 — Figma 세트 신설 예정(누락 채우기 배치)',
+    Highlight: '강조 텍스트 컴포넌트 — Figma 세트 신설 예정(누락 채우기 배치)',
+    KrAddressAutocomplete: 'KR 주소 자동완성 — Figma 세트 신설 예정(누락 채우기 배치)',
+    KrAddressForm: 'KR 주소 입력 — Figma 세트 신설 예정(누락 채우기 배치)',
+    KrCertAuth: 'KR 인증서 인증 — Figma 세트 신설 예정(누락 채우기 배치)',
+    InputBase: '입력 박스 프리미티브 — 스토리조차 없다. 스토리 + DS/InputBase 세트 신설 예정(누락 채우기 배치)',
+    // Admin/Templates 는 세트가 아니라 **화면**(17·18번 페이지)으로 그려진다.
+    // 어떤 것이 세트여야 하고 어떤 것이 화면이어야 하는지 규칙이 아직 없다 → 17번 모듈화 배치에서 확정한다.
+  }
+  const allGaps = [...gaps.general, ...gaps.kr, ...gaps.site, ...gaps.storyless]
+  const unexpected = allGaps.filter((g) => !(g in KNOWN_GAPS))
+  const stale = Object.keys(KNOWN_GAPS).filter((k) => !allGaps.includes(k))
+
+  if (allGaps.length) {
+    console.log(`  알려진 갭 ${allGaps.length}건 (전부 사유 있음):`)
+    for (const g of allGaps) console.log(`    · ${g} — ${KNOWN_GAPS[g] ?? '(사유 없음)'}`)
+  }
+  for (const u of unexpected) note(`Figma 세트 없는 Storybook 컴포넌트: ${u} — 세트를 만들거나 KNOWN_GAPS 에 사유를 적어라`)
+  for (const s of stale) note(`KNOWN_GAPS 가 썩었다: ${s} — 이미 해소됐으니 목록에서 지워라`)
 } catch (e) {
-  console.error('커버리지 계산 건너뜀: ' + e.message)
+  // 조용한 스킵 금지 — 계산이 깨지면 커버리지는 **검사되지 않은 것**이지 통과한 것이 아니다.
+  note(`커버리지 계산이 실패했다: ${e.message}`)
 }
 
 // ── 결과 ──────────────────────────────────────────────────────────────

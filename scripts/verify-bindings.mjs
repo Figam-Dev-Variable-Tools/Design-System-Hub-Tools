@@ -97,6 +97,22 @@ for (const abs of files) {
   const lines = src.split(/\r?\n/)
   const canon = CANON_FILES.includes(rel)
 
+  /**
+   * B5 준비: `<id>.opacity = …` 의 `<id>` 가 **텍스트 노드**인지 판정한다.
+   * 같은 이름이 한 파일에서 여러 번 선언되므로(admin.ts 의 `ph` 는 921행에서 아이콘, 1675행에서 텍스트)
+   * 파일 전역으로 모으면 오탐이 난다 → **가장 가까운 앞선 선언**을 찾아 판정한다.
+   */
+  const isTextNodeAt = (id, lineIdx) => {
+    const decl = new RegExp(`(?:const|let)\\s+${id}\\b\\s*(?::[^=]*)?=\\s*(.*)$`)
+    for (let i = lineIdx; i >= 0; i--) {
+      const m = lines[i].match(decl)
+      if (!m) continue
+      // 텍스트로 만든 것 / TextNode 로 단언한 것 (`scrim.children[1] as TextNode`) 둘 다 텍스트다.
+      return /^\s*(?:boundText|txt)\s*\(/.test(m[1]) || /\bas\s+TextNode\b|:\s*TextNode\b/.test(lines[i])
+    }
+    return false
+  }
+
   lines.forEach((line, i) => {
     const code = line.replace(/\/\/.*$/, '') // 주석 제거 — 문서에 적는 것은 위반이 아니다
     if (!code.trim()) return
@@ -107,6 +123,25 @@ for (const abs of files) {
       if (canon) continue
       if (isAllowed(rel, r.code)) continue
       violations.push({ code: r.code, file: rel, line: i + 1, src: code.trim(), msg: r.msg, fix: r.fix })
+    }
+
+    // B5: 텍스트 노드에 불투명도를 걸었다.
+    // 오너: "폰트에 불투명도 적용되어있던데 그거 100%로 해야지."
+    // 흐린 글자는 **불투명도가 아니라 색 토큰**으로 표현한다 — React 는 `--ds-color-secondary` 를 쓰고
+    // 텍스트에 opacity 를 걸지 않는다. Figma 만 `color/secondary + opacity 0.6` 을 발명했다(screens.ts tMuted).
+    // 불투명도를 쓰면 (a) 글자가 배경과 섞여 대비가 깨지고 (b) 사용자가 폰트 색을 바꿔도 흐림이 남는다.
+    if (!isAllowed(rel, 'B5')) {
+      const m = code.match(/([A-Za-z0-9_]+)\.opacity\s*=\s*([\d.]+)/)
+      if (m && Number(m[2]) < 1 && isTextNodeAt(m[1], i)) {
+        violations.push({
+          code: 'B5',
+          file: rel,
+          line: i + 1,
+          src: code.trim(),
+          msg: `텍스트 '${m[1]}' 에 불투명도 ${m[2]} — 폰트는 100% 여야 한다`,
+          fix: '불투명도를 지우고 **색 토큰**으로 표현하라 (예: color/secondary). React 는 텍스트에 opacity 를 쓰지 않는다.',
+        })
+      }
     }
 
     // B2: 정본 밖에서 미바인딩 텍스트 헬퍼를 호출한다
@@ -158,6 +193,7 @@ const LABEL = {
   B2: '미바인딩 텍스트',
   B3: '하드코딩 폰트',
   B4: '복제된 바인딩 헬퍼',
+  B5: '텍스트에 걸린 불투명도 (폰트는 100%여야 한다)',
 }
 
 if (violations.length === 0) {
@@ -169,7 +205,7 @@ if (violations.length === 0) {
 }
 
 console.error(`verify-bindings FAIL — 미바인딩 ${violations.length}건\n`)
-for (const c of ['B4', 'B1', 'B3', 'B2']) {
+for (const c of ['B4', 'B5', 'B1', 'B3', 'B2']) {
   const list = byCode(c)
   if (!list.length) continue
   console.error(`── ${c}: ${LABEL[c]} (${list.length}건) ──`)

@@ -204,6 +204,15 @@ const ALLOWLIST = [
       '다섯 번째 축이 되면 32 → 64변형(권장 상한 40 초과). 가격 글자색만 바뀌는 축이라 기본값 success(레퍼런스의 그린)만 그린다.',
     owner: 'sb.hong',
   },
+  {
+    component: 'PasswordField',
+    kind: 'axis-missing',
+    figma: null,
+    code: 'fullWidth',
+    reason:
+      "PasswordField는 이미 축 5개(error·success·disabled·required·readOnly)라 32변형인데, fullWidth를 축으로 세우면 64변형이 된다(권장 상한 40 초과) — ProductCard.accent(32→64)와 같은 사유. renderInput(categories-core.ts:97 `combo.fullWidth === 'true' ? 480 : FIELD_W`)이 fullWidth를 그릴 수는 있지만 **폭만 320→480으로 바뀔 뿐** 상태 조합마다 새 정보가 없다. Textarea는 축이 5개여도 fullWidth를 포함해 32라서 축으로 유지한다(같은 규칙, 다른 예산). fullWidth 자체는 React에 실재하는 prop이다 — AdminLogin에서 이메일 필드(InputBase.fullWidth)와 폭이 8px 어긋나 추가했고, PasswordField는 InputBase를 감싸므로 통과만 시킨다.",
+    owner: 'sb.hong',
+  },
   // 2026-07: DS/EraTimeline 생성기가 실제로 ratio 축을 세웠다(site.ts:1463, ERA_RATIOS 4값) —
   // 위에서 "아직 안 세운 축(deferred)"이라던 axis-missing 면제는 해소돼 지웠다(E-ALLOWLIST-STALE로
   // 확인). 남은 것은 대표 4값 축소(코드 10값 유니온 → 축 4값)뿐이라 axis-values로 옮긴다 — 아래 (10)

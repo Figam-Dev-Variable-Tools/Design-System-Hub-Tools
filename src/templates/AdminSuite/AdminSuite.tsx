@@ -2628,7 +2628,22 @@ export function AdminSuite({ initialMenu = 'dashboard' }: AdminSuiteProps = {}) 
           rows={historyRows}
           title={trail.title}
           description={trail.desc}
+          // onCreate/onEdit는 "버튼·아이콘을 띄우는 스위치"다(AdminListPage 규약) — 값이 있어야 렌더된다.
+          // 실제 저장은 onCreateSubmit/onEditSubmit(모달 확인)에서 일어난다.
           onCreate={() => undefined}
+          onEdit={() => undefined}
+          onCreateSubmit={(values) =>
+            setHistoryRows((prev) => [
+              // id·등록일은 부모가 부여한다 — 폼은 행의 내용만 다룬다(HistoryList 주석 참조).
+              { id: `h-${Date.now().toString(36)}`, createdAt: new Date().toISOString().slice(0, 10), ...values },
+              ...prev,
+            ])
+          }
+          onEditSubmit={(row, values) =>
+            setHistoryRows((prev) =>
+              prev.map((item) => (item.id === row.id ? { ...item, ...values } : item)),
+            )
+          }
           onDelete={(ids) =>
             setHistoryRows((prev) => prev.filter((row) => !ids.includes(row.id)))
           }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
 import {
   mergeLabels,
@@ -12,11 +12,19 @@ import {
   type StatusLabels,
   type TabLabels,
 } from '../../shared/labels'
+// 이미지 업로드+미리보기+삭제는 AdminFormPage가 이미 갖고 있다(§0-2) — DropZone을 직접
+// 다시 감싸면 썸네일 폭·삭제 버튼·data URL 변환을 이 폴더에서 두 번째로 구현하게 된다.
+import { AdminFormImageField } from '../AdminFormPage/AdminFormPage'
 import { AdminListPage, type AdminListRowContext } from '../AdminListPage/AdminListPage'
 import type { AdminColumn, AdminTableLabels } from '../AdminTable/AdminTable'
 import type { CategoryTabItem } from '../CategoryTabs/CategoryTabs'
+import { CrudDialog } from '../CrudDialog/CrudDialog'
+import { FieldRow } from '../FieldRow/FieldRow'
+import { InputBase } from '../InputBase/InputBase'
 import { RowActions } from '../RowActions/RowActions'
 import type { SelectOption } from '../Select/Select'
+import { Textarea } from '../Textarea/Textarea'
+import { Toggle } from '../Toggle/Toggle'
 
 /*
  * HistoryList — '연혁 관리'(어드민). 고객용 화면은 HistoryPage(+EraTimeline)다.
@@ -45,6 +53,20 @@ export type HistoryRow = {
   /** 노출 여부 — 끄면 고객 화면 연혁에서 이 줄이 빠진다 */
   visible: boolean
   createdAt: string
+}
+
+/**
+ * 등록/수정 모달의 폼 값 — HistoryRow에서 id·createdAt을 뺀 나머지.
+ * id·등록일 부여는 이 컴포넌트가 하지 않는다(부모가 rows를 들고 있으므로 부여도 부모의 몫이다 —
+ * onDelete·onToggleVisible이 이미 그렇듯, 저장 방식은 화면마다 다를 수 있다).
+ */
+export type HistoryFormValues = {
+  year: string
+  month?: string
+  title: string
+  description?: string
+  image?: string
+  visible: boolean
 }
 
 /** 탭 — 전체 + 노출 상태 2종 */
@@ -95,6 +117,22 @@ type HistoryListLabelsResolved = {
    * 여기서 다시 적지 않는다(적는 순간 두 값이 갈라진다).
    */
   table?: AdminTableLabels
+  /**
+   * 등록/수정 모달 문구 — 필드 라벨(연도·월·제목·설명·대표 이미지·노출)은 columns를,
+   * 노출 토글의 ON/OFF 문구는 tabs.visible/tabs.hidden을 그대로 재사용한다
+   * (같은 글자를 두 곳에 적으면 그 순간 두 값이 갈라진다 — CLAUDE.md §0-2).
+   * 여기 남는 건 모달에만 있는 문구뿐이다.
+   */
+  form: {
+    /** 등록 모달 제목 — 없으면 CrudDialog 기본값('등록')이 뜬다 */
+    createTitle: string
+    /** 수정 모달 제목 — 없으면 CrudDialog 기본값('수정')이 뜬다 */
+    editTitle: string
+    /** 대표 이미지 삭제 버튼 — AdminFormImageField의 기본값('이미지 삭제') 대신 쓴다 */
+    removeImage: string
+    /** 연도·제목을 비운 채 저장을 누르면 그 필드 아래 뜨는 문구 */
+    requiredError: string
+  }
 }
 
 export const DEFAULT_HISTORY_LIST_LABELS: HistoryListLabelsResolved = {
@@ -125,6 +163,12 @@ export const DEFAULT_HISTORY_LIST_LABELS: HistoryListLabelsResolved = {
   deleteDialog: {
     title: '선택한 연혁을 삭제할까요?',
     description: (ids) => `연혁 ${ids.length}건이 목록에서 제거됩니다.`,
+  },
+  form: {
+    createTitle: '연혁 등록',
+    editTitle: '연혁 수정',
+    removeImage: '이미지 삭제',
+    requiredError: '필수 항목입니다.',
   },
 } as const
 
@@ -178,15 +222,30 @@ export type HistoryListProps = {
   density?: 'compact' | 'comfortable'
 
   /* ── 액션 — 넘긴 것만 화면에 생긴다 ── */
-  /** 있으면 헤더 우측 [연혁 등록] */
+  /**
+   * 있으면 헤더 우측 [연혁 등록]이 뜬다. 클릭하면 이 콜백을 부른 뒤(있으면) 등록 모달을 연다 —
+   * 모달은 이 컴포넌트가 갖고 있으므로 onCreate가 없어도 폼 자체는 동작하지만,
+   * 버튼 자체는 기존 규약(onCreate가 있어야 렌더)을 그대로 따른다.
+   */
   onCreate?: () => void
   /** 제목 클릭 — 상세/수정으로 이동 */
   onRowOpen?: (row: HistoryRow) => void
+  /**
+   * 있으면 행 관리 컬럼에 [수정] 아이콘이 뜬다. 클릭하면 이 콜백을 부른 뒤(있으면) 그 행 값으로
+   * 채운 수정 모달을 연다 — onCreate와 같은 결(버튼 유무는 기존 규약, 클릭 후 동작만 확장).
+   */
   onEdit?: (row: HistoryRow) => void
   /** 행 삭제와 선택 일괄 삭제가 함께 부른다(항상 id 배열, 확인창을 거친 뒤에만) */
   onDelete?: (ids: string[]) => void
   /** 행 안의 노출 토글 */
   onToggleVisible?: (row: HistoryRow, next: boolean) => void
+  /**
+   * 등록 모달에서 [등록]을 누르면, 필수값(연도·제목) 검증을 통과한 폼 값과 함께 불린다.
+   * id·등록일 부여는 부모의 몫이다(rows를 들고 있는 쪽이 저장 방식도 정한다).
+   */
+  onCreateSubmit?: (values: HistoryFormValues) => void
+  /** 수정 모달에서 [저장]을 누르면, 대상 행(원본)과 검증을 통과한 새 값이 함께 불린다. */
+  onEditSubmit?: (row: HistoryRow, values: HistoryFormValues) => void
 
   /* ── 페이지 크기 — 셸의 축을 그대로 통과시킨다 ── */
   /** 한 페이지 행 수. 기본 20(셸 규격) */
@@ -278,6 +337,31 @@ function orderRows(rows: HistoryRow[], sort: string | null): HistoryRow[] {
   return next.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
+/** 등록 모달을 열 때의 빈 값 */
+const EMPTY_HISTORY_FORM: HistoryFormValues = {
+  year: '',
+  month: '',
+  title: '',
+  description: '',
+  image: undefined,
+  visible: true,
+}
+
+/** 수정 모달을 열 때 — 행 값을 폼 값으로 편다(id·createdAt은 폼이 모른다) */
+function formValuesFromRow(row: HistoryRow): HistoryFormValues {
+  return {
+    year: row.year,
+    month: row.month ?? '',
+    title: row.title,
+    description: row.description ?? '',
+    image: row.image,
+    visible: row.visible,
+  }
+}
+
+/** 등록/수정 모달의 내부 상태 — null이면 닫힘. edit는 원본 행을 함께 들고 있는다(onEditSubmit에 되돌려 줄 대상) */
+type HistoryDialogState = { mode: 'create' } | { mode: 'edit'; row: HistoryRow }
+
 /**
  * HistoryList — 연혁 관리 화면(AdminListPage 프리셋).
  *
@@ -285,9 +369,11 @@ function orderRows(rows: HistoryRow[], sort: string | null): HistoryRow[] {
  *   tabs    : 전체 / 노출 / 숨김 — 건수는 셸이 matchTab으로 rows에서 센다
  *   toolbar : 제목 검색 · 정렬(최신순/연도순) · 총 N건
  *   content : 표 — 순번 · 연도 · 월 · 제목 · 설명 · 대표 이미지 · 노출(토글) · 등록일 · 관리
- *   dialog  : 삭제 확인(선택 일괄 삭제 · 행 삭제가 같은 창을 쓴다)
+ *   dialog  : 삭제 확인(선택 일괄 삭제 · 행 삭제가 같은 창을 쓴다) + 등록/수정 폼(CrudDialog)
  *
  * 탭 필터·검색·정렬·페이징·선택은 전부 셸의 축이다 — 이 파일은 rows를 그대로 넘긴다.
+ * 등록/수정 모달은 이 컴포넌트가 직접 들고 있다(ProductList의 category/status 미니 다이얼로그와 같은 결) —
+ * AdminListPage 셸은 delete 확인창만 안다.
  */
 export function HistoryList({
   rows,
@@ -300,6 +386,8 @@ export function HistoryList({
   onEdit,
   onDelete,
   onToggleVisible,
+  onCreateSubmit,
+  onEditSubmit,
   pageSize,
   onPageSizeChange,
   pageSizeOptions,
@@ -320,6 +408,62 @@ export function HistoryList({
 }: HistoryListProps) {
   const on = resolveShow(show)
   const L = mergeLabels(DEFAULT_HISTORY_LIST_LABELS, labels)
+
+  /*
+   * 등록/수정 모달 상태 — 셸(AdminListPage)이 모르는, 이 화면만의 다이얼로그다(delete만 셸이 안다).
+   * 열림 자체는 항상 내부 상태다(닫힌 게 기본) — onCreate/onEdit의 존재 여부는 '버튼이 뜨는지'만
+   * 결정한다(기존 규약 그대로). 버튼을 클릭하면 외부 콜백을 먼저 부르고(하위호환 알림) 모달을 연다.
+   */
+  const [dialog, setDialog] = useState<HistoryDialogState | null>(null)
+  const [draft, setDraft] = useState<HistoryFormValues>(EMPTY_HISTORY_FORM)
+  const [formErrors, setFormErrors] = useState<{ year?: string; title?: string }>({})
+
+  const openCreateDialog = () => {
+    setDraft(EMPTY_HISTORY_FORM)
+    setFormErrors({})
+    setDialog({ mode: 'create' })
+  }
+
+  const openEditDialog = (row: HistoryRow) => {
+    setDraft(formValuesFromRow(row))
+    setFormErrors({})
+    setDialog({ mode: 'edit', row })
+  }
+
+  const closeDialog = () => setDialog(null)
+
+  // onCreate가 없으면 헤더 버튼 자체가 안 뜬다(AdminListPage 규약) — 그래서 undefined를 그대로 둔다
+  const handleCreateClick =
+    onCreate == null
+      ? undefined
+      : () => {
+          onCreate()
+          openCreateDialog()
+        }
+
+  // onEdit가 없으면 RowActions의 수정 아이콘 자체가 안 뜬다(RowActions 규약) — 위와 같은 결
+  const handleEditClick =
+    onEdit == null
+      ? undefined
+      : (row: HistoryRow) => {
+          onEdit(row)
+          openEditDialog(row)
+        }
+
+  /** 저장 — 연도·제목이 비어 있으면 그 필드 아래 에러만 띄우고 닫지 않는다 */
+  const handleDialogConfirm = () => {
+    if (dialog == null) return
+    const nextErrors: { year?: string; title?: string } = {}
+    if (draft.year.trim() === '') nextErrors.year = L.form.requiredError
+    if (draft.title.trim() === '') nextErrors.title = L.form.requiredError
+    if (nextErrors.year != null || nextErrors.title != null) {
+      setFormErrors(nextErrors)
+      return
+    }
+    if (dialog.mode === 'create') onCreateSubmit?.(draft)
+    else onEditSubmit?.(dialog.row, draft)
+    setDialog(null)
+  }
 
   const tabs: CategoryTabItem[] = TAB_ORDER.map((key) => ({
     label: resolveLabel(tabLabels?.[key], L.tabs[key]) ?? DEFAULT_HISTORY_LIST_LABELS.tabs[key],
@@ -371,7 +515,7 @@ export function HistoryList({
       render: (row) => (
         <RowActions
           size="sm"
-          onEdit={onEdit == null ? undefined : () => onEdit(row)}
+          onEdit={handleEditClick == null ? undefined : () => handleEditClick(row)}
           onDelete={onDelete == null ? undefined : () => ctx.confirmDelete([row.id])}
           labels={{ edit: L.rowActions.edit(row.title), delete: L.rowActions.delete(row.title) }}
         />
@@ -380,55 +524,122 @@ export function HistoryList({
   ]
 
   return (
-    <AdminListPage<HistoryRow>
-      rows={rows}
-      columns={columns}
-      rowKey={(row) => row.id}
-      total={total}
-      loading={loading}
-      title={resolveLabel(title, L.title)}
-      description={resolveLabel(description, L.description)}
-      onCreate={onCreate}
-      createLabel={resolveLabel(createLabel, L.create)}
-      createIcon={createIcon ?? <Plus size={16} aria-hidden="true" />}
-      tabs={tabs}
-      matchTab={matchesTab}
-      // 검색은 툴바 한 줄(inline) — 조건이 제목 하나뿐이라 상단 검색 패널을 세울 이유가 없다
-      search="inline"
-      searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
-      matchKeyword={matchesKeyword}
-      sortOptions={sorts}
-      orderRows={orderRows}
-      onRowOpen={onRowOpen}
-      onToggleStatus={onToggleVisible}
-      // 선택 일괄 삭제 — 표 하단 [선택 삭제]와 행 관리의 삭제가 같은 확인창을 지난다
-      onBulkDelete={onDelete}
-      deleteConfirm={{
-        title: resolveLabel(deleteTitle, L.deleteDialog.title) ?? L.deleteDialog.title,
-        description: resolveLabel(deleteDescription, L.deleteDialog.description),
-        confirmLabel: L.deleteDialog.confirmLabel,
-      }}
-      emptyText={resolveLabel(emptyText, L.empty.title)}
-      // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
-      labels={{ table: L.table }}
-      exportFilename={exportFilename}
-      pageSize={pageSize}
-      onPageSizeChange={onPageSizeChange}
-      pageSizeOptions={pageSizeOptions}
-      density={density}
-      show={{
-        header: on.header,
-        tabs: on.tabs,
-        toolbar: on.toolbar,
-        search: on.search,
-        count: on.count,
-        pagination: on.pagination,
-        pageSize: on.pageSize,
-        bulk: on.bulk,
-        rowActions: on.rowActions,
-        columnPicker: on.columnPicker,
-        export: on.export,
-      }}
-    />
+    <>
+      <AdminListPage<HistoryRow>
+        rows={rows}
+        columns={columns}
+        rowKey={(row) => row.id}
+        total={total}
+        loading={loading}
+        title={resolveLabel(title, L.title)}
+        description={resolveLabel(description, L.description)}
+        onCreate={handleCreateClick}
+        createLabel={resolveLabel(createLabel, L.create)}
+        createIcon={createIcon ?? <Plus size={16} aria-hidden="true" />}
+        tabs={tabs}
+        matchTab={matchesTab}
+        // 검색은 툴바 한 줄(inline) — 조건이 제목 하나뿐이라 상단 검색 패널을 세울 이유가 없다
+        search="inline"
+        searchPlaceholder={resolveLabel(searchPlaceholder, L.search.searchPlaceholder)}
+        matchKeyword={matchesKeyword}
+        sortOptions={sorts}
+        orderRows={orderRows}
+        onRowOpen={onRowOpen}
+        onToggleStatus={onToggleVisible}
+        // 선택 일괄 삭제 — 표 하단 [선택 삭제]와 행 관리의 삭제가 같은 확인창을 지난다
+        onBulkDelete={onDelete}
+        deleteConfirm={{
+          title: resolveLabel(deleteTitle, L.deleteDialog.title) ?? L.deleteDialog.title,
+          description: resolveLabel(deleteDescription, L.deleteDialog.description),
+          confirmLabel: L.deleteDialog.confirmLabel,
+        }}
+        emptyText={resolveLabel(emptyText, L.empty.title)}
+        // 표 크롬 문구는 셸이 AdminTable로 그대로 통과시킨다 — 넘기지 않으면 undefined라 기본값이 그대로 산다
+        labels={{ table: L.table }}
+        exportFilename={exportFilename}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        pageSizeOptions={pageSizeOptions}
+        density={density}
+        show={{
+          header: on.header,
+          tabs: on.tabs,
+          toolbar: on.toolbar,
+          search: on.search,
+          count: on.count,
+          pagination: on.pagination,
+          pageSize: on.pageSize,
+          bulk: on.bulk,
+          rowActions: on.rowActions,
+          columnPicker: on.columnPicker,
+          export: on.export,
+        }}
+      />
+
+      {/*
+       * 등록/수정 폼 — create/edit 둘 다 이 한 다이얼로그를 쓴다(모드만 다르다).
+       * FieldRow가 라벨+컨트롤을 규격화하고, CrudDialog의 본문(.form)이 이미 세로 flex(gap-4)라
+       * FormSection(카드+3열 그리드)을 다시 씌우지 않는다 — 모달 안에 카드를 또 두면 보더가 겹친다.
+       */}
+      {dialog != null && (
+        <CrudDialog
+          open
+          mode={dialog.mode}
+          labels={{ title: dialog.mode === 'edit' ? L.form.editTitle : L.form.createTitle }}
+          onCancel={closeDialog}
+          onConfirm={handleDialogConfirm}
+        >
+          <FieldRow label={L.columns.year} required error={formErrors.year}>
+            <InputBase
+              value={draft.year}
+              onChange={(next) => {
+                setDraft((prev) => ({ ...prev, year: next }))
+                setFormErrors((prev) => ({ ...prev, year: undefined }))
+              }}
+            />
+          </FieldRow>
+
+          <FieldRow label={L.columns.month}>
+            <InputBase
+              value={draft.month ?? ''}
+              onChange={(next) => setDraft((prev) => ({ ...prev, month: next }))}
+            />
+          </FieldRow>
+
+          <FieldRow label={L.columns.title} required error={formErrors.title}>
+            <InputBase
+              value={draft.title}
+              onChange={(next) => {
+                setDraft((prev) => ({ ...prev, title: next }))
+                setFormErrors((prev) => ({ ...prev, title: undefined }))
+              }}
+            />
+          </FieldRow>
+
+          <FieldRow label={L.columns.description}>
+            <Textarea
+              value={draft.description ?? ''}
+              onChange={(next) => setDraft((prev) => ({ ...prev, description: next }))}
+            />
+          </FieldRow>
+
+          <FieldRow label={L.columns.image}>
+            <AdminFormImageField
+              value={draft.image}
+              onChange={(next) => setDraft((prev) => ({ ...prev, image: next }))}
+              removeLabel={L.form.removeImage}
+            />
+          </FieldRow>
+
+          <FieldRow label={L.columns.visible}>
+            <Toggle
+              checked={draft.visible}
+              onChange={(next) => setDraft((prev) => ({ ...prev, visible: next }))}
+              label={draft.visible ? L.tabs.visible : L.tabs.hidden}
+            />
+          </FieldRow>
+        </CrudDialog>
+      )}
+    </>
   )
 }

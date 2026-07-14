@@ -4712,10 +4712,226 @@ function screenProductEditPage(ctx: Ctx): FrameNode {
   return s
 }
 
+// ══ 25. 로그인 ═══════════════════════════════════════════════════════
+// 스토리북 src/ds/AdminLogin(신규) 1:1 — AdminLogin.module.css .page: bgSubtle 배경 전체 +
+// 가운데 Card(관리자 로그인). 로그인은 AdminShell이 마운트되기 전에 일어나므로 다른 화면과 달리
+// DS/AdminSidebar·DS/AdminTopbar 인스턴스를 넣지 않는다 — screenShell()을 부르지 않는 유일한 화면이다.
+// (아래 SCREEN_BUILDERS의 4번째 요소 true = "이미 완성된 화면 프레임을 반환한다, 셸을 씌우지 마라".)
+//
+// InputBase·PasswordField·Checkbox·Button은 카테고리 페이지 소속 세트라 이 파일의 inst()
+// (ADMIN_SETS만 본다)로 닿지 않는다 — 이 파일의 다른 모든 입력·버튼·체크박스와 마찬가지로
+// 로컬 원자(input()·btn()·checkbox())로 그린다.
+const LOGIN_CARD_W = 360 // DS/Card 기본 max-width(Card.module.css: max-width 360px)
+const LOGIN_SUBMIT_H = 44 // Button size=lg 근사치 — 이 파일의 다른 lg 버튼(장바구니·구매하기 등)과 같은 높이
+const LOGIN_VIEWPORT_H = 900 // AdminLogin.module.css의 min-height:100vh를 정적 목업에서 흉내낸 대표 뷰포트 높이
+
+/**
+ * 라벨-위-컨트롤 세로 필드 — AdminLogin이 쓰는 InputBase·PasswordField는 FieldRow가 아니라
+ * 컴포넌트 자신이 라벨을 위에 그린다(InputBase.module.css: .field { flex-direction: column }).
+ * fieldRow()는 라벨이 왼쪽에 고정폭으로 붙는 어드민 폼 전용 모양이라 여기 못 쓴다 — 새로 하나 둔다.
+ */
+function vField(ctx: Ctx, label: string, control: FrameNode, required = false): FrameNode {
+  const f = vbox('Field / ' + label, 6)
+  fill(f)
+  const lb = hbox('Label', 3)
+  lb.appendChild(tBody(ctx, label, true))
+  if (required) lb.appendChild(boundText(ctx, '*', F_BODY, 'color/error', TONE_HEX.error, true))
+  f.appendChild(lb)
+  f.appendChild(fill(control))
+  return f
+}
+
+/** DEFAULT_ADMIN_LOGIN_LABELS(AdminLogin.tsx) 그대로 — title·subtitle·필드 라벨·버튼 문구. */
+function loginCard(ctx: Ctx): FrameNode {
+  const c = vbox('Card / 관리자 로그인', 0)
+  c.counterAxisSizingMode = 'FIXED'
+  c.resize(LOGIN_CARD_W, c.height)
+  c.cornerRadius = R_CARD
+  c.clipsContent = true
+  bindFillVar(ctx, c, 'color/bg', WHITE)
+  outline(ctx, c) // Card.module.css: border 1px + radius-lg(그림자는 이 파일의 다른 카드들처럼 보더로 대신한다)
+
+  const head = vbox('header', 0)
+  fill(head)
+  pad(head, 16)
+  bottomLine(ctx, head)
+  head.appendChild(boundText(ctx, '관리자 로그인', 18, 'color/text', INK, true))
+  c.appendChild(head)
+
+  const body = vbox('body', 16)
+  fill(body)
+  pad(body, 16)
+
+  // subtitle — AdminLogin.module.css .subtitle: text-align center
+  const subtitle = tSub(ctx, '운영 콘솔에 접속하려면 계정 정보를 입력하세요.', 13)
+  subtitle.layoutAlign = 'STRETCH'
+  subtitle.textAlignHorizontal = 'CENTER'
+  body.appendChild(subtitle)
+
+  // 에러 Alert — 기본 상태는 error가 없다(AdminLogin.tsx: error != null && <Alert .../>) → 렌더 안 함
+
+  body.appendChild(vField(ctx, '아이디', input(ctx, 'admin@example.com', 0), true))
+  body.appendChild(
+    vField(ctx, '비밀번호', input(ctx, '비밀번호를 입력하세요', 0, { trailIcon: '_Icon/Eye' }), true),
+  )
+
+  // row — 로그인 유지 체크박스 + 비밀번호 찾기 링크(AdminLogin.module.css .row: space-between)
+  const row = hbox('row', 8)
+  row.primaryAxisAlignItems = 'SPACE_BETWEEN'
+  row.counterAxisAlignItems = 'CENTER'
+  fill(row)
+  const remember = hbox('remember', 8)
+  remember.counterAxisAlignItems = 'CENTER'
+  remember.appendChild(checkbox(ctx, false))
+  remember.appendChild(tBody(ctx, '로그인 유지'))
+  row.appendChild(remember)
+  row.appendChild(tLink(ctx, '비밀번호를 잊으셨나요?'))
+  body.appendChild(row)
+
+  const submit = btn(ctx, '로그인', 'primary', undefined, LOGIN_SUBMIT_H)
+  fill(submit)
+  body.appendChild(submit)
+
+  // 소셜 로그인 — show.social 기본값 false라 기본 렌더에는 없다(AdminLogin.tsx: showSocial = show?.social ?? false)
+
+  c.appendChild(body)
+  return c
+}
+
+function screenAdminLogin(ctx: Ctx): FrameNode {
+  const s = figma.createFrame()
+  s.name = 'Screen/로그인'
+  s.layoutMode = 'HORIZONTAL'
+  s.primaryAxisSizingMode = 'FIXED'
+  s.counterAxisSizingMode = 'FIXED'
+  s.resize(SCREEN_W, LOGIN_VIEWPORT_H)
+  s.primaryAxisAlignItems = 'CENTER'
+  s.counterAxisAlignItems = 'CENTER'
+  bindFillVar(ctx, s, 'color/bgSubtle', SURFACE)
+  s.appendChild(loginCard(ctx))
+  return s
+}
+
+// ══ 26. 연혁 등록(모달) ══════════════════════════════════════════════
+// 스토리북 src/ds/HistoryList의 등록/수정 모달(CrudDialog + FieldRow + InputBase/Textarea/Toggle +
+// AdminFormImageField) 1:1 — 연혁 관리 화면(screenHistoryList) 위에 스크림 + 다이얼로그를 얹은 모습.
+// Modal.module.css .backdrop(position:fixed, inset:0)이 사이드바까지 덮으므로, 스크림은 콘텐츠 열이
+// 아니라 화면 전체(screenShell이 만든 셸)를 덮는다 — 그래서 이 화면도 25번(로그인)처럼 이미 완성된
+// 화면 프레임을 직접 반환한다(SCREEN_BUILDERS 4번째 요소 true).
+//
+// DS/CrudDialog 인스턴스를 쓰지 않았다: 그 세트의 create/edit 본문은 상품 필드(상품명·판매가·카테고리)로
+// 고정 렌더된다(admin.ts renderCrudDialog — 그 필드 라벨은 TEXT 속성으로 열려 있지 않다). 실제 연혁
+// 등록 폼(HistoryFormValues, HistoryList.tsx:63-70)은 연도·월·제목·설명·대표 이미지·노출인데 세트를
+// 그대로 쓰면 화면마다 다른 진짜 필드가 사라진다(§0-4 렌더 불변 위반, fieldRow() 조사 기록과 같은 이유)
+// — CrudDialog의 헤더·본문·푸터 구조만 로컬 원자로 재현한다.
+const DIALOG_W = 460 // DS/CrudDialog와 동일한 폭(admin.ts renderCrudDialog: mode !== 'delete' → w = 460)
+const DIALOG_RADIUS = 14 // DS/CrudDialog와 동일(admin.ts renderCrudDialog: c.cornerRadius = 14)
+const SCRIM_OPACITY = 0.45 // Modal.module.css .backdrop: color-mix(text 45%, transparent)
+
+function historyCreateDialogPanel(ctx: Ctx): FrameNode {
+  const panel = vbox('Dialog / 연혁 등록', 0)
+  panel.counterAxisSizingMode = 'FIXED'
+  panel.resize(DIALOG_W, panel.height)
+  panel.cornerRadius = DIALOG_RADIUS
+  panel.clipsContent = true
+  bindFillVar(ctx, panel, 'color/bg', WHITE)
+  bindStrokeVar(ctx, panel, 'color/border', BORDER)
+  panel.strokeWeight = 1
+  panel.strokeAlign = 'INSIDE'
+
+  // 헤더 — 레이어명은 admin.ts renderCrudDialog의 TEXT 속성 이름('title')과 맞춘다
+  const head = hbox('head', 8)
+  head.layoutAlign = 'STRETCH'
+  head.primaryAxisSizingMode = 'FIXED'
+  head.primaryAxisAlignItems = 'SPACE_BETWEEN'
+  head.counterAxisAlignItems = 'CENTER'
+  pad(head, 16, 20)
+  bottomLine(ctx, head)
+  const title = boundText(ctx, '연혁 등록', 16, 'color/text', INK, true) // HistoryList: L.form.createTitle
+  title.name = 'title'
+  head.appendChild(title)
+  head.appendChild(icon(ctx, '_Icon/Close', 16))
+  panel.appendChild(head)
+
+  // 본문 — HistoryFormValues(HistoryList.tsx:63-70): year(필수)·month·title(필수)·description·image·visible
+  const body = vbox('body', 12)
+  fill(body)
+  pad(body, 20)
+  body.appendChild(fieldRow(ctx, '연도', input(ctx, '예) 2026', 0), true, 110))
+  body.appendChild(fieldRow(ctx, '월', input(ctx, '예) 7월', 0), false, 110))
+  body.appendChild(fieldRow(ctx, '제목', input(ctx, '예) 신규 지점 오픈', 0), true, 110))
+  body.appendChild(
+    fieldRow(ctx, '설명', textarea(ctx, '연혁에 대한 설명을 입력하세요.', 72), false, 110),
+  )
+
+  // 대표 이미지 — AdminFormImageField는 값이 비어 있으면 DropZone만 남는다(미리보기 없음)
+  const imageField = vbox('Image Field', 0)
+  fill(imageField)
+  const dz = inst(ctx, 'DS/DropZone', {
+    name: '대표 이미지 DropZone',
+    variant: { state: 'idle', compact: 'true' },
+  })
+  imageField.appendChild(dz ? instFill(dz) : drawDropZone(ctx))
+  body.appendChild(fieldRow(ctx, '대표 이미지', imageField, false, 110))
+
+  // 노출 — Toggle 기본값 true(EMPTY_HISTORY_FORM.visible = true), 라벨은 tabs.visible을 재사용한다
+  const visRow = hbox('vis', 10)
+  visRow.counterAxisAlignItems = 'CENTER'
+  visRow.counterAxisSizingMode = 'FIXED'
+  visRow.resize(visRow.width, CTRL_H)
+  visRow.appendChild(toggleMini(ctx, true))
+  visRow.appendChild(tSub(ctx, '노출'))
+  body.appendChild(fieldRow(ctx, '노출', visRow, false, 110))
+  panel.appendChild(body)
+
+  // 푸터 — CrudDialog 기본값(mode=create): 취소 / 등록
+  const footer = hbox('footer', 8)
+  footer.layoutAlign = 'STRETCH'
+  footer.primaryAxisSizingMode = 'FIXED'
+  footer.primaryAxisAlignItems = 'MAX'
+  footer.counterAxisAlignItems = 'CENTER'
+  pad(footer, 14, 20)
+  bindFillVar(ctx, footer, 'color/bgSubtle', SURFACE)
+  footer.appendChild(btn(ctx, '취소', 'outline'))
+  footer.appendChild(btn(ctx, '등록', 'primary'))
+  panel.appendChild(footer)
+
+  return panel
+}
+
+function screenHistoryCreateDialog(ctx: Ctx): FrameNode {
+  // 배경 = 연혁 관리 화면 그대로(screenHistoryList 재사용) — 모달은 그 위에 뜬 모습이다
+  const shell = screenShell(ctx, '연혁 등록', screenHistoryList(ctx), 'history')
+
+  const scrim = hbox('Scrim', 0)
+  scrim.primaryAxisAlignItems = 'CENTER'
+  scrim.counterAxisAlignItems = 'CENTER'
+  shell.appendChild(scrim)
+  // ⚠️ ABSOLUTE는 반드시 appendChild 뒤에 세운다 — 먼저 세우면 부모가 없어 인스턴스 생성이 실패한다.
+  scrim.layoutPositioning = 'ABSOLUTE'
+  scrim.primaryAxisSizingMode = 'FIXED'
+  scrim.counterAxisSizingMode = 'FIXED'
+  scrim.resize(shell.width, shell.height)
+  scrim.x = 0
+  scrim.y = 0
+  bindFillVar(ctx, scrim, 'color/text', INK)
+  // 노드 opacity는 자식(다이얼로그)까지 흐리게 만든다 — paint 알파만 얹는다. verify-bindings B1 안내의
+  // 정본 패턴(바인딩 후 스프레드) 그대로다 — categories-shared.ts의 overlayAlpha와 같은 결이지만
+  // 그 헬퍼는 TextNode 전용이라 FrameNode인 스크림엔 그대로 못 쓴다.
+  const [scrimPaint] = scrim.fills as SolidPaint[]
+  scrim.fills = [{ ...scrimPaint, opacity: SCRIM_OPACITY }]
+
+  scrim.appendChild(historyCreateDialogPanel(ctx))
+  return shell
+}
+
 // ── 생성 ─────────────────────────────────────────────────────────────
-// [화면 이름, 빌더, 사이드바 active 메뉴]. 배열 순서 = 캔버스 세로 배치 순서이며 사이드바 메뉴 순서를 따른다.
-// 'none' = 메뉴에 없는 화면(공지사항) — 사이드바는 그리되 아무 항목도 강조하지 않는다.
-const SCREEN_BUILDERS: Array<[string, (ctx: Ctx) => FrameNode, AdminActive]> = [
+// [화면 이름, 빌더, 사이드바 active 메뉴, prebuilt?]. 배열 순서 = 캔버스 세로 배치 순서이며
+// 사이드바 메뉴 순서를 따른다. 'none' = 메뉴에 없는 화면(공지사항) — 사이드바는 그리되 아무 항목도
+// 강조하지 않는다. prebuilt=true는 빌더가 이미 완성된 화면 프레임(Screen/*)을 반환한다는 뜻이라
+// 아래 루프가 screenShell()로 다시 감싸지 않는다 — 로그인(셸 없음)·연혁 등록(모달이 셸까지 덮는
+// 스크림)처럼 표준 셸 조립이 안 맞는 화면에 쓴다.
+const SCREEN_BUILDERS: Array<[string, (ctx: Ctx) => FrameNode, AdminActive, boolean?]> = [
   ['대시보드', screenDashboard, 'dashboard'],
   ['고객 목록', screenMemberList, 'users'],
   ['고객 상세', screenCustomerDetail, 'users'],
@@ -4736,17 +4952,22 @@ const SCREEN_BUILDERS: Array<[string, (ctx: Ctx) => FrameNode, AdminActive]> = [
   ['문의 설정', screenInquirySettings, 'inquiries'],
   ['회사소개 관리', screenCompanyForm, 'about'],
   ['연혁 관리', screenHistoryList, 'history'],
+  // 모달은 '연혁 관리' 화면 위에 뜬 모습이라 셸을 다시 안 씌운다(prebuilt=true) — active 값은
+  // 표기용(배경 화면이 실제로 쓰는 값)이고 루프는 prebuilt일 때 이 값을 쓰지 않는다.
+  ['연혁 등록', screenHistoryCreateDialog, 'history', true],
   ['포트폴리오 관리', screenPortfolioList, 'portfolio'],
   ['포트폴리오 등록', screenPortfolioForm, 'portfolio'],
   ['메인비주얼 관리', screenMainVisualList, 'mainvisual'],
   ['메인비주얼 등록', screenMainVisualForm, 'mainvisual'],
   ['공지사항', screenNotice, 'none'],
+  // 셸(사이드바·탑바) 없이 단독으로 뜨는 유일한 화면 — prebuilt=true(screenAdminLogin 주석 참고).
+  ['로그인', screenAdminLogin, 'none', true],
 ]
 
 /** 어드민 화면 개수 — 문구에 숫자를 박지 않고 SCREEN_BUILDERS에서 파생시킨다(화면을 늘릴 때마다 갈라지는 걸 막는다). */
 export const SCREEN_COUNT = SCREEN_BUILDERS.length
 
-/** 어드민 화면 24종을 1920 폭 프레임(사이드바 + 콘텐츠)으로 생성한다(세로 나열). */
+/** 어드민 화면을 1920 폭 프레임(사이드바 + 콘텐츠, 셸 없는 화면은 단독)으로 생성한다(세로 나열, 개수는 SCREEN_COUNT). */
 export async function generateScreens(
   fontFamily: string,
   colors?: Record<string, string>,
@@ -4785,10 +5006,11 @@ export async function generateScreens(
   applyPageColorMode(ctx, page)
 
   let y = 0
-  for (const [name, build, active] of SCREEN_BUILDERS) {
+  for (const [name, build, active, prebuilt] of SCREEN_BUILDERS) {
     try {
-      // 콘텐츠 열을 만든 뒤 사이드바와 함께 셸로 감싼다 — 화면 프레임(Screen/*)은 항상 셸이다.
-      const frame = screenShell(ctx, name, build(ctx), active)
+      // 콘텐츠 열을 만든 뒤 사이드바와 함께 셸로 감싼다 — prebuilt 화면(로그인·연혁 등록)만 예외로
+      // 이미 완성된 화면 프레임을 그대로 쓴다(SCREEN_BUILDERS 배열 주석 참고).
+      const frame = prebuilt ? build(ctx) : screenShell(ctx, name, build(ctx), active)
       page.appendChild(frame)
       frame.x = 0
       frame.y = y

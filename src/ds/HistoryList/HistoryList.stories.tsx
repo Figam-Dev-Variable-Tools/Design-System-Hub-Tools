@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { FIGMA_FILE } from '../../shared/figma'
 import { mockImage } from '../../shared/mediaMock'
-import { HistoryList, type HistoryListProps, type HistoryRow } from './HistoryList'
+import {
+  DEFAULT_HISTORY_LIST_LABELS,
+  HistoryList,
+  type HistoryListProps,
+  type HistoryRow,
+} from './HistoryList'
 
 /** 목데이터 — 고객용 HistoryPage의 연대 그룹을 '연혁 한 줄' 단위로 편 22건 */
 const HISTORY: HistoryRow[] = [
@@ -77,7 +82,12 @@ type Story = StoryObj<typeof meta>
 /** 데모 래퍼가 직접 채우는 값 + 나머지는 args 그대로 흘려보낸다 */
 type DemoProps = Omit<HistoryListProps, 'rows'> & { initialRows: HistoryRow[] }
 
-/** 노출 토글·삭제가 실제로 반영되도록 rows를 들고 있는 데모 래퍼 */
+/** 등록 모달이 새 행에 부여하는 id·등록일 — 저장 방식은 화면(부모)이 정한다(HistoryList는 모른다) */
+function nextHistoryId(): string {
+  return `h-${Date.now().toString(36)}`
+}
+
+/** 노출 토글·삭제·등록·수정이 실제로 반영되도록 rows를 들고 있는 데모 래퍼 */
 function HistoryListDemo({ initialRows, ...rest }: DemoProps) {
   const [rows, setRows] = useState<HistoryRow[]>(initialRows)
 
@@ -94,7 +104,55 @@ function HistoryListDemo({ initialRows, ...rest }: DemoProps) {
           prev.map((item) => (item.id === row.id ? { ...item, visible: next } : item)),
         )
       }
+      onCreateSubmit={(values) =>
+        setRows((prev) => [
+          { ...values, id: nextHistoryId(), createdAt: new Date().toISOString().slice(0, 10) },
+          ...prev,
+        ])
+      }
+      onEditSubmit={(row, values) =>
+        setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, ...values } : item)))
+      }
     />
+  )
+}
+
+/**
+ * 스토리 전용 — 마운트 직후 접근성 이름이 일치하는 버튼을 눌러 등록/수정 모달이 열린 상태를 보여준다.
+ * 이 저장소에는 Storybook play 함수 도구(@storybook/test)가 설치돼 있지 않다 — 새 의존성을
+ * 늘리는 대신, 실제 사용자가 하는 것과 같은 클릭을 그대로 흉내낸다(컨테이너 안에서만 찾는다).
+ */
+function useOpenDialogOnMount(containerRef: RefObject<HTMLDivElement | null>, accessibleName: string) {
+  useEffect(() => {
+    const root = containerRef.current
+    if (root == null) return
+    const button = Array.from(root.querySelectorAll('button')).find(
+      (el) => el.getAttribute('aria-label') === accessibleName || el.textContent?.trim() === accessibleName,
+    )
+    button?.click()
+  }, [containerRef, accessibleName])
+}
+
+/** 등록 모달이 열린 상태 — 헤더의 [연혁 등록]을 흉내내 누른다 */
+function HistoryListCreateOpenDemo(props: DemoProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  useOpenDialogOnMount(ref, props.createLabel ?? DEFAULT_HISTORY_LIST_LABELS.create)
+  return (
+    <div ref={ref}>
+      <HistoryListDemo {...props} />
+    </div>
+  )
+}
+
+/** 수정 모달이 열린 상태 — 첫 행 관리 컬럼의 [OO 수정]을 흉내내 누른다(행 값이 채워져 있다) */
+function HistoryListEditOpenDemo(props: DemoProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const firstTitle = props.initialRows[0]?.title ?? ''
+  useOpenDialogOnMount(ref, DEFAULT_HISTORY_LIST_LABELS.rowActions.edit(firstTitle))
+  return (
+    <div ref={ref}>
+      <HistoryListDemo {...props} />
+    </div>
   )
 }
 
@@ -184,4 +242,20 @@ export const Labels: Story = {
     },
   },
   render: (args) => <HistoryListDemo {...args} initialRows={HISTORY} />,
+}
+
+/**
+ * 등록 모달 — 헤더 [연혁 등록]을 누른 상태. 연도·제목이 필수(*)이고, 비운 채 저장을 누르면
+ * 그 필드 아래 에러가 뜬다. 확인을 누르면 데모 래퍼가 새 행을 목록 맨 위에 추가한다.
+ */
+export const CreateOpen: Story = {
+  render: (args) => <HistoryListCreateOpenDemo {...args} initialRows={HISTORY} />,
+}
+
+/**
+ * 수정 모달 — 첫 행의 관리 컬럼 [수정]을 누른 상태. 연도·월·제목·설명·대표 이미지·노출이
+ * 그 행의 값으로 채워져 있다. 확인을 누르면 데모 래퍼가 같은 id의 행을 갈아끼운다.
+ */
+export const EditOpen: Story = {
+  render: (args) => <HistoryListEditOpenDemo {...args} initialRows={HISTORY} />,
 }

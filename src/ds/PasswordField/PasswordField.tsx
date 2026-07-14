@@ -15,6 +15,12 @@ export type PasswordFieldProps = {
   maxLength?: number
   /** 표시/숨김 토글 버튼 (기본 표시) */
   showToggle?: boolean
+  /**
+   * true면 부모(폼 그리드의 열·로그인 카드)를 꽉 채운다 — InputBase의 기본 320px 상한을 푼다.
+   * 이 축이 없어서 로그인 화면에서 이메일(InputBase fullWidth)과 비밀번호의 폭이 어긋났다.
+   * PasswordField는 InputBase를 감싸고 있으므로 **통과만 시키면 된다**(중복 구현 금지).
+   */
+  fullWidth?: boolean
 }
 
 function EyeIcon({ off }: { off: boolean }) {
@@ -40,6 +46,7 @@ export function PasswordField({
   helperText,
   maxLength,
   showToggle = true,
+  fullWidth,
 }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false)
 
@@ -57,6 +64,7 @@ export function PasswordField({
       required={required}
       helperText={helperText}
       maxLength={maxLength}
+      fullWidth={fullWidth}
       trailing={
         showToggle ? (
           <button

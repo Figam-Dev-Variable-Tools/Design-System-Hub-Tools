@@ -2,7 +2,7 @@
   "generatedBy": "scripts/build-site-stats.mjs",
   "components": 65,
   "krComponents": 20,
-  "adminScreens": 24,
+  "adminScreens": 26,
   "siteScreens": 5,
   "figmaSets": 137,
   "figmaPages": 20,

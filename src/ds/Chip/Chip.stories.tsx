@@ -41,6 +41,10 @@ const meta = {
     selected: false,
     disabled: false,
     size: 'md',
+    // 삭제 버튼의 접근성 이름. 안 주면 `defaultRemoveLabel(label)` = `${label} 제거` 가 되는데,
+    // 그건 **함수 계산값**이라 매니페스트 빌더(scripts/build-story-manifest.mjs)가 읽을 수 없다
+    // (기본값의 단일 출처는 스토리 args 다). 렌더되는 값과 똑같은 문자열을 명시해 둔다 — 렌더는 불변.
+    removeLabel: '식비 제거',
   },
   argTypes: {
     size: { control: 'inline-radio', options: ['sm', 'md'] },

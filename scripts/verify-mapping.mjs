@@ -10,7 +10,13 @@ import { rmSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { parsePropsFile, classifyProps, indexComponents } from './lib/ds-props.mjs'
+import {
+  parsePropsFile,
+  classifyProps,
+  indexComponents,
+  parseBooleanDefaults,
+  parseStoryTextDefaults,
+} from './lib/ds-props.mjs'
 import { extractFigmaSets } from './lib/figma-sets.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -60,7 +66,7 @@ const COMPONENT_MANIFEST = await loadPluginManifest()
 function checkManifestSync(component, manifestName) {
   const spec = COMPONENT_MANIFEST.components.find((c) => c.name === manifestName)
   if (!spec) return failures.push(`${manifestName}: P3 매니페스트에 없음`)
-  const { props } = parsePropsFile(root, component)
+  const { props, src } = parsePropsFile(root, component)
   const expect = classifyProps(props)
 
   const actualAxes = spec.variants.map((v) => ({ name: v.name, values: v.values }))
@@ -72,6 +78,22 @@ function checkManifestSync(component, manifestName) {
     failures.push(`${manifestName}: TEXT 불일치 — 기대 ${expect.text} vs 실제 ${spec.text.map((t) => t.name)}`)
   if (!eq(spec.booleans.map((b) => b.name), expect.booleans))
     failures.push(`${manifestName}: BOOLEAN 불일치 — 기대 ${expect.booleans} vs 실제 ${spec.booleans.map((b) => b.name)}`)
+
+  // **기본값도 검사한다.** 예전엔 이름만 대조해서, 기본값이 틀려도 이 게이트는 초록이었다 —
+  // 그러다 `pnpm build:manifest`(deep-equal 왕복 검증)에서야 CI 가 터졌다(Chip.removeLabel).
+  // build-story-manifest 와 **같은 방식**으로 파생해야 두 검사가 갈라지지 않는다.
+  const boolDefaults = parseBooleanDefaults(src)
+  const textDefaults = parseStoryTextDefaults(root, component, component)
+  const expectText = expect.text.map((name) => ({ name, default: textDefaults[name] ?? name }))
+  const expectBool = expect.booleans.map((name) => ({ name, default: boolDefaults[name] ?? false }))
+  if (!eq(spec.text.map((t) => ({ name: t.name, default: t.default })), expectText))
+    failures.push(
+      `${manifestName}: TEXT 기본값 불일치\n  기대(코드·스토리): ${JSON.stringify(expectText)}\n  실제(P3): ${JSON.stringify(spec.text)}`,
+    )
+  if (!eq(spec.booleans.map((b) => ({ name: b.name, default: b.default })), expectBool))
+    failures.push(
+      `${manifestName}: BOOLEAN 기본값 불일치\n  기대(코드·스토리): ${JSON.stringify(expectBool)}\n  실제(P3): ${JSON.stringify(spec.booleans)}`,
+    )
   if (!eq(spec.swaps.map((s) => s.name), expect.swaps))
     failures.push(`${manifestName}: INSTANCE_SWAP 불일치 — 기대 ${expect.swaps} vs 실제 ${spec.swaps.map((s) => s.name)}`)
   const actualSlot = spec.slot ? spec.slot.name : null

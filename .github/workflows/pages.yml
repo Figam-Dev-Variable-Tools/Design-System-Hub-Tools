@@ -53,6 +53,8 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:manifest
+      # 랜딩의 수치(컴포넌트·세트·화면·아이콘·게이트)를 소스에서 계산 → docs/ds-stats.json
+      - run: pnpm build:stats
       - run: pnpm build-storybook
       - name: 사이트 조립 — 랜딩(/) + 컴포넌트 문서(/docs/) + Storybook(/storybook/) + 선언 파일
         run: |
@@ -70,6 +72,8 @@ jobs:
           cp tokens/*.json _site/storybook/tokens/
           cp docs/docs-content.json _site/docs-content.json
           cp docs/docs-content.json _site/storybook/docs-content.json
+          # 랜딩이 fetch 로 읽는 통계(빌드 때 소스에서 계산 — 하드코딩 금지)
+          cp docs/ds-stats.json _site/ds-stats.json
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }

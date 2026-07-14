@@ -105,7 +105,14 @@
   .steps .t code { background: var(--surface-2); padding: 1.5px 7px; border-radius: 6px; font-size: 13px; font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace; color: var(--accent); }
 
   /* stats */
+  /* 통계는 이제 8칸이다(빌드 때 소스에서 계산) — 4칸 고정이면 넘친다. */
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  /* 플러그인이 만드는 Figma 페이지 목록 */
+  .pages { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .pages li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .pages li .n { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .pages li .sub { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .pages li.muted { color: var(--ink-3); font-weight: 500; }
   .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 26px 18px; text-align: center; }
   .stat .big { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
   .stat .lbl { font-size: 13.5px; color: var(--ink-3); margin-top: 5px; font-weight: 600; }
@@ -175,8 +182,8 @@
     </div>
     <div class="sync-row">
       <span class="sync-chip"><b>✓</b> 토큰 (색·타이포·간격)</span>
-      <span class="sync-chip"><b>✓</b> 아이콘 60종 (Lucide)</span>
-      <span class="sync-chip"><b>✓</b> 소셜 로고 5종</span>
+      <span class="sync-chip"><b>✓</b> 아이콘 <b data-stat="icons">–</b>종 (Lucide)</span>
+      <span class="sync-chip"><b>✓</b> 소셜 로고 <b data-stat="logos">–</b>종</span>
       <span class="sync-chip"><b>✓</b> 컴포넌트 100%</span>
     </div>
   </section>
@@ -221,13 +228,28 @@
     <div class="sec-head">
       <div class="tag">동기화 현황</div>
       <h2>지금 두 시스템은 완전히 같습니다</h2>
+      <p>아래 수치는 <b>빌드 때 소스에서 계산</b>합니다(<code>pnpm build:stats</code>) — 손으로 적지 않으므로 썩지 않습니다.</p>
     </div>
     <div class="stats">
       <div class="stat hl"><div class="big">100%</div><div class="lbl">컴포넌트 커버리지</div></div>
-      <div class="stat"><div class="big">62</div><div class="lbl">컴포넌트</div></div>
-      <div class="stat"><div class="big">165</div><div class="lbl">Variables (3프리셋)</div></div>
-      <div class="stat"><div class="big">60</div><div class="lbl">아이콘</div></div>
+      <div class="stat"><div class="big" data-stat="components">–</div><div class="lbl">컴포넌트</div></div>
+      <div class="stat"><div class="big" data-stat="figmaSets">–</div><div class="lbl">Figma 컴포넌트 세트</div></div>
+      <div class="stat"><div class="big" data-stat="variablesTotal">–</div><div class="lbl">Variables (3프리셋)</div></div>
+      <div class="stat"><div class="big" data-stat="icons">–</div><div class="lbl">아이콘</div></div>
+      <div class="stat"><div class="big" data-stat="krComponents">–</div><div class="lbl">KR 컴포넌트</div></div>
+      <div class="stat"><div class="big" data-stat="adminScreens">–</div><div class="lbl">어드민 화면</div></div>
+      <div class="stat"><div class="big" data-stat="gates">–</div><div class="lbl">검증 게이트</div></div>
     </div>
+  </section>
+
+  <section id="figma-output">
+    <div class="sec-head">
+      <div class="tag">플러그인 생성 결과</div>
+      <h2>Figma에 이만큼이 자동으로 생깁니다</h2>
+      <p>"생성"을 누르면 아래 페이지가 통째로 만들어집니다. 컴포넌트는 네이티브 <b>세트·베리언트·Variables</b>로,
+        화면은 그 세트의 <b>인스턴스</b>로 조립됩니다 — 컴포넌트를 고치면 화면이 따라옵니다.</p>
+    </div>
+    <ul class="pages" id="page-list"><li class="muted">불러오는 중…</li></ul>
   </section>
 </main>
 
@@ -237,5 +259,49 @@
     <div>Figma ⇄ Storybook 디자인 시스템 · 단일 소스로 관리</div>
   </div>
 </footer>
+
+<script>
+  // 수치는 **빌드 때 소스에서 계산**한 ds-stats.json 에서 읽는다(scripts/build-site-stats.mjs).
+  // 예전엔 랜딩에 하드코딩돼 있었고 전부 썩어 있었다 — 아이콘 "60종"(실제 298) · 로고 "5종"(실제 7) ·
+  // 컴포넌트 "62"(실제 65) · Variables "165"(실제 103×3). 같은 값을 두 곳에 적으면 두 번째로 적는 순간 갈라진다.
+  (function () {
+    var pageList = document.getElementById('page-list')
+    fetch('./ds-stats.json')
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        return r.json()
+      })
+      .then(function (s) {
+        document.querySelectorAll('[data-stat]').forEach(function (el) {
+          var v = s[el.getAttribute('data-stat')]
+          if (v != null) el.textContent = String(v)
+        })
+        var admin = s.adminScreens
+        var client = s.siteScreens
+        pageList.innerHTML = s.pageNames
+          .map(function (name) {
+            var num = name.split('.')[0]
+            var title = name.replace(/^\d+\.\s*/, '')
+            var sub = ''
+            if (/Admin Pages/.test(title)) sub = admin + '개 화면'
+            else if (/Client Pages/.test(title)) sub = client + '개 화면'
+            return (
+              '<li><span class="n">' +
+              num +
+              '</span><span>' +
+              title +
+              '</span>' +
+              (sub ? '<span class="sub">' + sub + '</span>' : '') +
+              '</li>'
+            )
+          })
+          .join('')
+      })
+      .catch(function (e) {
+        // 조용히 실패하지 않는다 — 수치가 안 보이면 무엇이 잘못됐는지 화면에 남긴다.
+        pageList.innerHTML = '<li class="muted">페이지 목록을 불러오지 못했습니다 (' + e.message + ')</li>'
+      })
+  })()
+</script>
 </body>
 </html>

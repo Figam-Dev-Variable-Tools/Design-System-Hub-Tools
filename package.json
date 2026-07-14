@@ -23,6 +23,7 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "typecheck:figma": "tsc -p figma-plugin/tsconfig.json --noEmit",
     "build:manifest": "node scripts/build-story-manifest.mjs",
+    "build:stats": "node scripts/build-site-stats.mjs",
     "build:tw": "tailwindcss -i src/frameworks/tailwind/tailwind.source.css -o src/frameworks/tailwind/tailwind.generated.css --minify",
     "snapshots": "node scripts/capture-snapshots.mjs"
   },

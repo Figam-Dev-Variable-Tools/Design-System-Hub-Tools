@@ -13,7 +13,8 @@
             "secondary",
             "error",
             "success",
-            "warning"
+            "warning",
+            "neutral"
           ]
         },
         {
@@ -34,6 +35,20 @@
         },
         {
           "name": "disabled",
+          "values": [
+            "false",
+            "true"
+          ]
+        },
+        {
+          "name": "fullWidth",
+          "values": [
+            "false",
+            "true"
+          ]
+        },
+        {
+          "name": "iconOnly",
           "values": [
             "false",
             "true"
@@ -209,7 +224,8 @@
             "secondary",
             "error",
             "success",
-            "warning"
+            "warning",
+            "neutral"
           ]
         },
         {
@@ -365,6 +381,10 @@
         {
           "name": "label",
           "default": "식비"
+        },
+        {
+          "name": "removeLabel",
+          "default": "식비 제거"
         }
       ],
       "booleans": [],
@@ -414,6 +434,7 @@
         "error": "#DC3545",
         "success": "#198754",
         "warning": "#FFC107",
+        "neutral": "#212529",
         "bg": "#FFFFFF",
         "bgSubtle": "#F8F9FA",
         "text": "#212529",
@@ -459,6 +480,7 @@
         "error": "#EF4444",
         "success": "#22C55E",
         "warning": "#F59E0B",
+        "neutral": "#0F172A",
         "bg": "#FFFFFF",
         "bgSubtle": "#F9FAFB",
         "text": "#0F172A",
@@ -504,6 +526,7 @@
         "error": "#F04452",
         "success": "#00C471",
         "warning": "#FF9F0A",
+        "neutral": "#191F28",
         "bg": "#FFFFFF",
         "bgSubtle": "#F5F7FA",
         "text": "#191F28",

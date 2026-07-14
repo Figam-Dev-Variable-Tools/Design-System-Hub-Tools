@@ -15,6 +15,7 @@
     "verify:mapping": "node scripts/verify-mapping.mjs",
     "verify:naming": "node scripts/verify-naming.mjs",
     "verify:screens": "node scripts/verify-screen-props.mjs",
+    "verify:bindings": "node scripts/verify-bindings.mjs",
     "verify:guard": "node .claude/hooks/guard-git.test.mjs",
     "verify": "pnpm verify:parity && pnpm verify:mapping && pnpm verify:naming && pnpm verify:screens",
     "verify:all": "pnpm typecheck && pnpm typecheck:figma && pnpm verify && pnpm verify:guard",

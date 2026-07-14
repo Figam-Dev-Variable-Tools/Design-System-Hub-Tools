@@ -7,7 +7,7 @@
 //     않는 그림자 선언이므로 보지 않는다. 정본 생성기의 buildSet 선언만 본다.
 //  3. 못 읽으면 실패다. 파싱 실패를 continue로 넘기지 않는다(E-UNPARSED / E-COVERAGE).
 //
-// 규약 N1~N7은 docs/naming-parity.md 참조.
+// 규약 N1~N8은 docs/naming-parity.md 참조.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -1081,10 +1081,12 @@ const ALLOWLIST = [
   {
     component: 'Statistics',
     kind: 'axis-extra',
-    figma: 'delta',
+    figma: 'trend',
     code: null,
     reason:
-      '증감 방향(up/down/flat)은 prop이 아니라 items[].delta의 **부호**다(양수 ▲success · 음수 ▼error). 대응하는 React prop 이름이 없어 개명할 수 없지만, 증감 표시는 이 컴포넌트의 핵심 그림이라 지울 수 없다 — 지표 카드의 대표 3그림으로 남긴다.',
+      '증감 방향(up/down/flat)은 prop이 아니라 items[].delta의 **부호**다(양수 ▲success · 음수 ▼error). 대응하는 React prop 이름이 없어 개명할 수 없지만, 증감 표시는 이 컴포넌트의 핵심 그림이라 지울 수 없다 — 지표 카드의 대표 3그림으로 남긴다. ' +
+      "축 이름은 원래 'delta'였으나 TEXT 속성 'delta'(items[].delta 값)와 이름이 겹쳐 addComponentProperty 네임스페이스 충돌을 일으켰다(N8 — 실제로 Figma 런타임에서 " +
+      "'속성 이름 delta이 둘 이상이다' 경고가 났다). 2026-07 categories-data-kr-media.ts에서 축을 'trend'로 개명해 충돌을 없앴다(figma-plugin/src/generators/categories-data-kr-media.ts:1931).",
     owner: 'sb.hong',
   },
 
@@ -1827,6 +1829,38 @@ for (const spec of specs) {
     }
   }
 
+  // ── N8 §8: 세트 안에서 속성 이름 중복 금지 ──
+  // Figma의 addComponentProperty는 VARIANT 축과 TEXT/BOOLEAN/INSTANCE_SWAP 속성을 같은 이름
+  // 네임스페이스에 넣는다(componentPropertyDefinitions의 키는 'name' 또는 'name#id') — build-set.ts의
+  // resolveStateProps(:167-174)가 실제로 겪는 실패 모드다: 이름이 겹치면 keyOf[name]이 나중 것으로
+  // 덮이고, "속성 이름 '<name>'이 둘 이상이다 — 문서 오버라이드가 어느 쪽에 붙을지 보장되지 않는다"
+  // 경고가 난다(build-set.ts:171, 이 경고는 사람이 Figma에서 플러그인을 돌려야만 보인다).
+  // 실사고: DS/Statistics가 VARIANT 축 'delta'(up/down/flat)와 TEXT 'delta'를 동시에 선언했다 —
+  // 정적 게이트는 전부 초록이었다. 여기서 그 부류를 정적으로 잡는다(축 ∪ TEXT ∪ BOOLEAN ∪ INSTANCE_SWAP).
+  const nameSlots = [
+    ...spec.axes.map((a) => ({ kind: 'VARIANT', propName: a.name, line: a.line })),
+    ...spec.texts.map((t) => ({ kind: 'TEXT', propName: t.prop, line: t.line })),
+    ...spec.bools.map((b) => ({ kind: 'BOOLEAN', propName: b.prop, line: b.line })),
+    ...spec.swaps.map((s) => ({ kind: 'INSTANCE_SWAP', propName: s.prop, line: s.line })),
+  ]
+  const slotsByName = new Map()
+  for (const it of nameSlots) {
+    if (!slotsByName.has(it.propName)) slotsByName.set(it.propName, [])
+    slotsByName.get(it.propName).push(it)
+  }
+  for (const [dupName, occ] of slotsByName) {
+    if (occ.length < 2) continue
+    const kinds = occ.map((o) => o.kind).join(' · ')
+    V('N8', 'prop-name-collision', name, {
+      ...at,
+      ...codeAt,
+      line: occ[occ.length - 1].line,
+      code: null,
+      figma: `${dupName} (${kinds})`,
+      fix: `속성 이름 '${dupName}'이 ${occ.length}번(${kinds}) 선언됐다 — 이름이 겹치면 어느 속성에 문서/화면 오버라이드가 붙을지 Figma가 보장하지 않는다(build-set.ts:171). 하나만 남기고 나머지 이름을 바꿔라.`,
+    })
+  }
+
   /**
    * 이름 집합 비교 공통 루틴 — 정확 일치가 판정, 정규화 매칭은 "개명이다"라고 알려줄 때만 쓴다.
    *
@@ -2019,7 +2053,7 @@ const allowlistSummaryLine = `  allowlist ${ALLOWLIST.length}건 (영구 ${perma
 const s = summarize(shown, known.length)
 if (failing) {
   console.error(
-    `verify-naming FAIL — ${shown.length}건 / ${specs.length}세트 / 규칙 7개` +
+    `verify-naming FAIL — ${shown.length}건 / ${specs.length}세트 / 규칙 8개` +
       (known.length ? ` (KNOWN ${known.length}건은 baseline으로 강등)` : '') +
       `\n  by rule : ${s.byRule}\n  by file : ${s.byFile}\n` +
       `  allowlist: ${usedAllow.size}건 적용, ${stale.length}건 stale\n` +
@@ -2030,7 +2064,7 @@ if (failing) {
   process.exit(1)
 }
 console.log(
-  `verify-naming OK — ${specs.length}세트, 이름 규약(N1~N7) 위반 0건` +
+  `verify-naming OK — ${specs.length}세트, 이름 규약(N1~N8) 위반 0건` +
     (known.length ? ` (baseline KNOWN ${known.length}건)` : '') +
     `\n  allowlist ${usedAllow.size}건 적용 · 미파싱 0건 · 커버리지 ${specs.length}/${specs.length}` +
     `\n${allowlistSummaryLine}`,

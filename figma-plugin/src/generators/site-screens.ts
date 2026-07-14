@@ -1615,7 +1615,14 @@ const SITE_SCREEN_BUILDERS: Array<[string, (ctx: Ctx) => FrameNode]> = [
   ['오시는길', screenContact],
 ]
 
-/** 프론트 화면 5종을 1920 폭 프레임으로 생성한다(세로 나열, 간격 120). */
+/**
+ * 화면 개수는 **세지 말고 계산한다.** 진행 문구에 숫자를 박으면 화면을 늘릴 때마다 갈라진다 —
+ * 실제로 `code.ts`·`ui.html`이 "어드민 화면 14종"이라고 박아둔 채 24종을 생성해서,
+ * 오너가 로그를 보고 화면이 덜 만들어진 줄 알았다(CLAUDE.md §0-2).
+ */
+export const SITE_SCREEN_COUNT = SITE_SCREEN_BUILDERS.length
+
+/** 프론트 화면을 1920 폭 프레임으로 생성한다(세로 나열, 간격 120). */
 export async function generateSiteScreens(
   fontFamily: string,
   colors?: Record<string, string>,

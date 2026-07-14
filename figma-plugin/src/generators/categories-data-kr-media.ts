@@ -71,7 +71,7 @@ function renderStatistics(ctx: Ctx, combo: Record<string, string>): ComponentNod
   const value = boundText(ctx, '₩12,400,000', 24, 'color/text', INK, true)
   value.name = 'value'
   c.appendChild(value)
-  const dir = combo.delta || 'up'
+  const dir = combo.trend || 'up'
   const dmap: Record<string, [string, string, string, string]> = {
     up: ['_Icon/ArrowUp', '#00C471', 'color/success', '+12.5%'],
     down: ['_Icon/ArrowDown', '#F04452', 'color/error', '-8.3%'],
@@ -1925,9 +1925,11 @@ export const DATA_CATEGORY: CategoryDef = {
       setName: 'DS/Statistics',
       eyebrow: 'MOLECULE · DATA',
       desc: '지표 값과 증감을 보여주는 통계 카드. appearance=plain은 이미 보더가 있는 카드 안에 넣을 때.',
-      // delta(up/down/flat)는 prop이 아니라 items[].delta의 부호다 — 지표 카드의 대표 3그림으로 남긴다.
-      build: (ctx, page) => buildSet(ctx, page, 'DS/Statistics', [{ name: 'delta', values: ['up', 'down', 'flat'] }, { name: 'appearance', values: ['card', 'plain'] }], (c) => renderStatistics(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '총 매출' }, { prop: 'value', layer: 'value', def: '₩12,400,000' }, { prop: 'delta', layer: 'delta', def: '+12.5%' }] }),
-      states: [{ caption: 'Up', props: {} }, { caption: 'Down', props: { delta: 'down' } }, { caption: 'Flat', props: { delta: 'flat' } }, { caption: 'Plain', props: { appearance: 'plain' } }],
+      // trend(up/down/flat)는 prop이 아니라 items[].delta의 부호다 — 지표 카드의 대표 3그림으로 남긴다.
+      // 축 이름은 'delta'가 아니라 'trend'다 — TEXT 속성 delta(레이어 .delta, CSS 클래스와 동명)와
+      // 이름이 겹치면 문서 오버라이드가 어느 쪽에 붙을지 보장되지 않는다(build-set.ts의 이름 중복 경고).
+      build: (ctx, page) => buildSet(ctx, page, 'DS/Statistics', [{ name: 'trend', values: ['up', 'down', 'flat'] }, { name: 'appearance', values: ['card', 'plain'] }], (c) => renderStatistics(ctx, c), { texts: [{ prop: 'label', layer: 'label', def: '총 매출' }, { prop: 'value', layer: 'value', def: '₩12,400,000' }, { prop: 'delta', layer: 'delta', def: '+12.5%' }] }),
+      states: [{ caption: 'Up', props: {} }, { caption: 'Down', props: { trend: 'down' } }, { caption: 'Flat', props: { trend: 'flat' } }, { caption: 'Plain', props: { appearance: 'plain' } }],
     },
     {
       key: 'Progress',

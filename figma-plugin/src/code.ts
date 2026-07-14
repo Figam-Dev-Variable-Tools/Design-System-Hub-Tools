@@ -6,15 +6,18 @@ import { generateFoundations } from './generators/foundations'
 import { generateCategories } from './generators/categories'
 import { generateAdmin } from './generators/admin'
 import { generateLayoutGuide } from './generators/layout-guide'
-import { generateScreens } from './generators/screens'
+import { generateScreens, SCREEN_COUNT } from './generators/screens'
 import { generateSite } from './generators/site'
-import { generateSiteScreens } from './generators/site-screens'
+import { generateSiteScreens, SITE_SCREEN_COUNT } from './generators/site-screens'
 import { resetGenerated } from './generators/reset'
 import { DOCS_CONTENT } from './docs-content-data'
 import { importTokens, validateTokens } from './generators/sync'
 import type { PresetName, TokensJson, ColorKey } from './presets'
 
 figma.showUI(__html__, { width: 420, height: 680 })
+
+// UI 의 화면 개수는 **생성기에서 파생**한다 — HTML 에 숫자를 박으면 화면을 늘릴 때마다 갈라진다.
+figma.ui.postMessage({ type: 'counts', screens: SCREEN_COUNT, siteScreens: SITE_SCREEN_COUNT })
 
 // 실행 중인 빌드 식별자 — 옛 dist가 실행되는 사고를 눈으로 잡기 위해 시작 시 상태창에 찍는다.
 const BUILD_TAG = 'build 2026-07-13 · site'
@@ -169,10 +172,10 @@ async function handleGenerate(msg: GenerateMsg) {
   // 17은 15의 세트를 인스턴스로 조립한다 → 위 admin 블록 뒤에 와야 한다.
   if (msg.scope.screens) {
     try {
-      status('info', '어드민 화면 14종 — 컴포넌트 인스턴스로 조립 중… 시간이 걸립니다.')
+      status('info', `어드민 화면 ${SCREEN_COUNT}종 — 컴포넌트 인스턴스로 조립 중… 시간이 걸립니다.`)
       const warnings = await generateScreens(msg.typography.fontFamily, msg.colors, msg.preset)
       warnings.forEach((w) => status('warn', w))
-      status('info', "'17. System - Admin Pages' 페이지 생성 완료 (14화면).")
+      status('info', `'17. System - Admin Pages' 페이지 생성 완료 (${SCREEN_COUNT}화면).`)
     } catch (e) {
       status('error', `어드민 화면 실패: ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -195,7 +198,7 @@ async function handleGenerate(msg: GenerateMsg) {
   // 화면은 18의 세트를 인스턴스로 조립하고, 18페이지에 바로 이어 그린다 → 위 site 블록 뒤에 와야 한다.
   if (msg.scope.siteScreens) {
     try {
-      status('info', '프론트 화면 5종 — 컴포넌트 인스턴스로 조립 중… 시간이 걸립니다.')
+      status('info', `프론트 화면 ${SITE_SCREEN_COUNT}종 — 컴포넌트 인스턴스로 조립 중… 시간이 걸립니다.`)
       const warnings = await generateSiteScreens(msg.typography.fontFamily, msg.colors, msg.preset)
       warnings.forEach((w) => status('warn', w))
       status('info', "'18. System - Client Pages'에 프론트 화면 5종 추가 완료.")

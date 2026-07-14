@@ -129,12 +129,12 @@
     <label class="chip"><input type="checkbox" id="scope-categories" checked /> 컴포넌트</label>
     <label class="chip"><input type="checkbox" id="scope-admin" checked /> 어드민 컴포넌트</label>
     <label class="chip"><input type="checkbox" id="scope-layout" checked /> 레이아웃 가이드</label>
-    <label class="chip"><input type="checkbox" id="scope-screens" checked /> 어드민 화면(14종)</label>
+    <label class="chip"><input type="checkbox" id="scope-screens" checked /> 어드민 화면(<span data-count="screens">…</span>종)</label>
     <label class="chip"><input type="checkbox" id="scope-site" checked /> 프론트 컴포넌트</label>
-    <label class="chip"><input type="checkbox" id="scope-siteScreens" checked /> 프론트 화면(5종)</label>
+    <label class="chip"><input type="checkbox" id="scope-siteScreens" checked /> 프론트 화면(<span data-count="siteScreens">…</span>종)</label>
   </div>
   <p class="help">
-    어드민 화면(14종) · 프론트 화면(5종)은 1920 폭 화면을 통째로 그려 생성이 오래 걸립니다.
+    어드민 화면(<span data-count="screens">…</span>종) · 프론트 화면(<span data-count="siteScreens">…</span>종)은 1920 폭 화면을 통째로 그려 생성이 오래 걸립니다.
     프론트 화면은 별도 페이지가 아니라 '프론트 컴포넌트' 페이지(18. Client Pages)에 이어 그려집니다.
   </p>
   <label class="reset"><input type="checkbox" id="opt-reset" /> 기존 결과 삭제 후 재생성</label>
@@ -239,7 +239,17 @@
   const log = $('log')
   onmessage = (e) => {
     const msg = e.data.pluginMessage
-    if (!msg || msg.type !== 'status') return
+    if (!msg) return
+    // 화면 개수는 **생성기에서 온다**(SCREEN_BUILDERS.length). 여기에 숫자를 박으면 갈라진다 —
+    // 실제로 "어드민 화면(14종)"이라고 박아둔 채 24종을 생성해서 오너가 덜 만들어진 줄 알았다.
+    if (msg.type === 'counts') {
+      document.querySelectorAll('[data-count]').forEach((el) => {
+        const v = msg[el.getAttribute('data-count')]
+        if (v != null) el.textContent = String(v)
+      })
+      return
+    }
+    if (msg.type !== 'status') return
     const div = document.createElement('div')
     div.className = msg.level
     div.textContent = msg.message

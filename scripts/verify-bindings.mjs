@@ -19,6 +19,15 @@
  *                                               `buildSet` 4벌 · `variantItem` 3벌에서 실제로 그랬다.)
  *   B5  텍스트 노드에 불투명도를 걸지 마라      → 리터럴(`x.opacity = 0.6`)뿐 아니라 삼항식·계산식
  *       (`x.opacity = cond ? a : b`) 도 우변이 **리터럴 1이 아니면** 잡는다 — 정적으로 항상 1임을 증명할 수 없다.
+ *   B6  `layoutPositioning`을 `appendChild` **전에** 세우지 마라 — Figma는 속성을 세우는 그 순간의
+ *       부모를 검사한다(부모가 auto-layout이 아니면 런타임에서 던진다. plugin-api.d.ts:8122-8142의
+ *       공식 예제도 append → layoutMode → layoutPositioning 순서). 정적으로 잡을 수 있는 순서 버그다:
+ *       같은 함수 스코프 안에서 `<parent>.appendChild(<X>)`보다 `<X>.layoutPositioning = …`이 먼저
+ *       나오면(또는 appendChild 호출 자체가 없으면) 위반이다. 실사고: renderAdminChart류 5곳이
+ *       이 순서를 뒤집어 "Required value missing" 부류로 런타임에서만 터졌었다.
+ *   B7  `as unknown as` 캐스팅 금지            → 타입체커를 의도적으로 무력화하는 이중 단언이다.
+ *       실사고: `left ? 'MIN' : (undefined as unknown as 'MIN')`가 정확히 이 지점에서
+ *       "Required value missing" 런타임 에러를 냈다 — 타입체크는 초록인데 실행은 던졌다.
  *
  * ALLOWLIST 에는 **왜 면제인지**를 반드시 적는다. 사유 없는 면제는 부채가 아니라 거짓말이다.
  * 면제는 `file` 전체 또는 `file`+`line` 한 줄 단위로 걸 수 있다 — 한 파일에 진짜 위반과 정당한 예외가
@@ -28,6 +37,10 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const ts = require('typescript')
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..')
 const GEN = join(root, 'figma-plugin', 'src', 'generators')
@@ -240,6 +253,111 @@ for (const [name, sites] of defs) {
   })
 }
 
+// ── B6: layoutPositioning 을 appendChild 보다 먼저(또는 아예 호출 없이) 세우는 순서 버그 ──
+// AST로 본다 — 같은 변수 이름이 여러 함수에서 재사용되는 이 코드베이스(B5의 isTextNodeAt이 겪은 것과
+// 같은 문제)에서 줄 기반 정규식은 오탐이 크다. `enclosingFunctionLike`로 함수 스코프를 좁히고,
+// 같은 스코프 안에서 `appendChild(<id>)`가 `<id>.layoutPositioning = …`보다 **먼저**(소스 오프셋 기준)
+// 나왔는지를 정확히 비교한다.
+function enclosingFunctionLike(node) {
+  let p = node.parent
+  while (p) {
+    if (
+      ts.isFunctionDeclaration(p) ||
+      ts.isFunctionExpression(p) ||
+      ts.isArrowFunction(p) ||
+      ts.isMethodDeclaration(p)
+    )
+      return p
+    p = p.parent
+  }
+  return null // 모듈 최상위(이 코드베이스엔 실질적으로 없다 — render 로직은 전부 함수 안에 있다)
+}
+
+for (const abs of files) {
+  const rel = relative(GEN, abs).replaceAll('\\', '/')
+  const src = readFileSync(abs, 'utf8')
+  const sf = ts.createSourceFile(abs, src, ts.ScriptTarget.ES2020, true)
+  const lineOf = (node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+
+  const appendEvents = [] // { id, pos, fn }
+  const posEvents = [] // { id, pos, fn, node }
+  const b7Events = [] // { node } — `undefined as unknown as <T>` 발견 지점
+
+  const visit = (node) => {
+    // <parent>.appendChild(<id>) — 자식으로 붙는 그 순간이 "부모가 생긴" 시점이다.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'appendChild' &&
+      node.arguments.length === 1 &&
+      ts.isIdentifier(node.arguments[0])
+    ) {
+      appendEvents.push({ id: node.arguments[0].text, pos: node.getStart(sf), fn: enclosingFunctionLike(node) })
+    }
+    // <id>.layoutPositioning = …
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isPropertyAccessExpression(node.left) &&
+      node.left.name.text === 'layoutPositioning' &&
+      ts.isIdentifier(node.left.expression)
+    ) {
+      posEvents.push({ id: node.left.expression.text, pos: node.getStart(sf), fn: enclosingFunctionLike(node), node })
+    }
+    // B7 — `undefined as unknown as <X>` / `null as unknown as <X>`. 정확히 이 이중 단언 형태만 잡는다.
+    // 왜 "as unknown as" 전체를 금지하지 않는가: 이 코드베이스엔 `node as unknown as { children?: … }`
+    // 처럼 SceneNode 유니온이 좁게 잡아주지 않는 프로퍼티(children·findAll·setBoundVariable)에 접근하려는
+    // **정당한** 구조적 타이핑 우회가 9곳 있다(lib/bind.ts:48·109·114, admin.ts:152·3242,
+    // screens.ts:267, site-screens.ts:365, site.ts:69·276 — 전부 직접 확인함). 전부 금지하면 이 게이트가
+    // 나오자마자 9건짜리 면제 배치가 필요해진다. 실제 사고 패턴은 **없는 값을 있는 척** 속이는
+    // `undefined as unknown as 'MIN'`(admin.ts, categories-core.ts류의 삼항 분기)뿐이다 — 그 부분집합만
+    // AST로 정확히 짚는다(node.expression을 괄호 벗기고 Identifier 'undefined' 또는 NullKeyword인지 본다).
+    if (
+      ts.isAsExpression(node) &&
+      node.type.kind === ts.SyntaxKind.UnknownKeyword
+    ) {
+      let inner = node.expression
+      while (ts.isParenthesizedExpression(inner)) inner = inner.expression
+      const isUndefinedOrNull =
+        (ts.isIdentifier(inner) && inner.text === 'undefined') || inner.kind === ts.SyntaxKind.NullKeyword
+      if (isUndefinedOrNull) {
+        const outer = ts.isAsExpression(node.parent) && node.parent.expression === node ? node.parent : node
+        b7Events.push({ node: outer })
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+
+  for (const pe of posEvents) {
+    const line = lineOf(pe.node)
+    if (isAllowed(rel, 'B6', line)) continue
+    const hasPriorAppend = appendEvents.some((ae) => ae.id === pe.id && ae.fn === pe.fn && ae.pos < pe.pos)
+    if (hasPriorAppend) continue
+    violations.push({
+      code: 'B6',
+      file: rel,
+      line,
+      src: pe.node.getText(sf).trim(),
+      msg: `'${pe.id}.layoutPositioning'을 '${pe.id}'가 부모에 appendChild되기 전에(또는 appendChild 호출 자체 없이) 세웠다 — Figma는 속성을 세우는 순간의 부모를 검사한다.`,
+      fix: `먼저 <parent>.appendChild(${pe.id})로 부모(auto-layout)에 붙인 뒤에 ${pe.id}.layoutPositioning = 'ABSOLUTE'를 세워라.`,
+    })
+  }
+
+  for (const be of b7Events) {
+    const line = lineOf(be.node)
+    if (isAllowed(rel, 'B7', line)) continue
+    violations.push({
+      code: 'B7',
+      file: rel,
+      line,
+      src: be.node.getText(sf).trim(),
+      msg: "'undefined as unknown as <T>' — 없는 값을 있는 척 속이는 이중 단언이다. 정확히 이 패턴이 런타임에 'Required value missing'을 냈다(값을 세우는 Figma API가 실제로는 undefined를 받는다).",
+      fix: '캐스팅 대신 실제로 유효한 값을 만들어라(삼항의 두 분기 다 실제 값을 리턴하게 하거나, 그 프로퍼티 자체를 생략). 정당한 사용처면 ALLOWLIST에 사유와 함께 등록.',
+    })
+  }
+}
+
 // ── 보고 ────────────────────────────────────────────────────────────────
 const byCode = (c) => violations.filter((v) => v.code === c)
 const LABEL = {
@@ -248,6 +366,8 @@ const LABEL = {
   B3: '하드코딩 폰트',
   B4: '복제된 바인딩 헬퍼',
   B5: '텍스트에 걸린 불투명도 (폰트는 100%여야 한다)',
+  B6: 'layoutPositioning을 appendChild보다 먼저(또는 없이) 세움',
+  B7: `'as unknown as' 캐스팅으로 타입체커 무력화`,
 }
 
 if (violations.length === 0) {
@@ -259,7 +379,7 @@ if (violations.length === 0) {
 }
 
 console.error(`verify-bindings FAIL — 미바인딩 ${violations.length}건\n`)
-for (const c of ['B4', 'B5', 'B1', 'B3', 'B2']) {
+for (const c of ['B4', 'B5', 'B6', 'B7', 'B1', 'B3', 'B2']) {
   const list = byCode(c)
   if (!list.length) continue
   console.error(`── ${c}: ${LABEL[c]} (${list.length}건) ──`)

@@ -2304,7 +2304,10 @@ function renderFieldRow(ctx: Ctx, combo: Record<string, string>): ComponentNode 
   c.counterAxisSizingMode = 'FIXED'
   c.resize(w, c.height)
   c.itemSpacing = left ? 16 : 6
-  c.counterAxisAlignItems = left ? 'MIN' : undefined as unknown as 'MIN'
+  // counterAxisAlignItems엔 'STRETCH'가 없다(MIN|MAX|CENTER|BASELINE만 허용) — undefined를 넣으면
+  // "Required value missing"으로 세트 생성 자체가 실패한다(런타임 전용 에러). React .row(top 배치)의
+  // 기본 align-items:stretch는 부모가 아니라 각 자식의 layoutAlign='STRETCH'로 표현한다(아래 labelRow·control).
+  c.counterAxisAlignItems = 'MIN'
   c.fills = []
 
   const labelRow = autoFrame('label', 'HORIZONTAL')
@@ -2312,6 +2315,8 @@ function renderFieldRow(ctx: Ctx, combo: Record<string, string>): ComponentNode 
     labelRow.resize(140, labelRow.height)
     labelRow.counterAxisSizingMode = 'FIXED'
     labelRow.paddingTop = 8
+  } else {
+    labelRow.layoutAlign = 'STRETCH'
   }
   labelRow.counterAxisAlignItems = 'CENTER'
   labelRow.itemSpacing = 4
@@ -2925,10 +2930,12 @@ function renderMainVisualUploader(ctx: Ctx, _combo: Record<string, string>): Com
     order.cornerRadius = 4
     bindSolidFill(ctx, order, 'primary')
     order.appendChild(boundText(ctx, String(i + 1), 10, onVarName('primary'), onHex(ctx, 'primary'), true))
+    thumb.appendChild(order)
+    // layoutPositioning='ABSOLUTE'는 부모(auto-layout)에 이미 붙은 뒤에만 세울 수 있다 —
+    // appendChild보다 먼저 세우면 부모가 없어 "layoutMode !== NONE" 검증에서 던진다.
     order.layoutPositioning = 'ABSOLUTE'
     order.x = 4
     order.y = 4
-    thumb.appendChild(order)
     row.appendChild(thumb)
     const fields = autoFrame('fields', 'VERTICAL')
     fields.layoutGrow = 1
@@ -3309,7 +3316,8 @@ function donutRing(ctx: Ctx, size: number, slices: Array<[string, number, string
 /** 값 축 그리드 — 3줄. showGrid(BOOLEAN)가 이 프레임째 끈다. */
 function chartGrid(ctx: Ctx, w: number, h: number): FrameNode {
   const grid = fixedFrame('showGrid', 'VERTICAL', w, h)
-  grid.layoutPositioning = 'ABSOLUTE'
+  // layoutPositioning은 여기서 세우지 않는다 — 이 시점엔 아직 부모(plotWrap)에 붙지 않았다.
+  // 호출부(renderAdminChart)가 appendChild한 뒤에 세운다.
   grid.itemSpacing = 0
   for (let i = 0; i < 3; i++) {
     const line = fixedFrame('gridline', 'HORIZONTAL', w, 1)
@@ -3364,9 +3372,6 @@ function barsPlot(ctx: Ctx, w: number, h: number, stacked: boolean, showTooltip:
   // showTooltip — 실제 호버 상호작용은 정적 문서에 없으므로, 켜졌을 때 데모 툴팁 말풍선 하나로 대신 보여준다.
   if (showTooltip) {
     const tip = autoFrame('showTooltip', 'VERTICAL')
-    tip.layoutPositioning = 'ABSOLUTE'
-    tip.x = slotW * 3 - 20
-    tip.y = 4
     tip.paddingTop = tip.paddingBottom = 4
     tip.paddingLeft = tip.paddingRight = 8
     tip.cornerRadius = 6
@@ -3374,6 +3379,10 @@ function barsPlot(ctx: Ctx, w: number, h: number, stacked: boolean, showTooltip:
     const tt = boundText(ctx, '65', 11, 'color/bg', WHITE, true)
     tip.appendChild(tt)
     plot.appendChild(tip)
+    // plot(auto-layout)에 붙은 뒤에만 절대 배치를 켤 수 있다 — 붙기 전에 세우면 부모가 없어 던진다.
+    tip.layoutPositioning = 'ABSOLUTE'
+    tip.x = slotW * 3 - 20
+    tip.y = 4
   }
   return plot
 }
@@ -3474,9 +3483,6 @@ function renderAdminChart(ctx: Ctx, combo: Record<string, string>): ComponentNod
   if (donut) {
     canvas.appendChild(donutRing(ctx, ch, AC_DONUT))
     const centerWrap = autoFrame('center', 'VERTICAL')
-    centerWrap.layoutPositioning = 'ABSOLUTE'
-    centerWrap.x = cw / 2 - 40
-    centerWrap.y = ch / 2 - 20
     centerWrap.resize(80, 40)
     centerWrap.counterAxisSizingMode = 'FIXED'
     centerWrap.primaryAxisAlignItems = 'CENTER'
@@ -3491,14 +3497,20 @@ function renderAdminChart(ctx: Ctx, combo: Record<string, string>): ComponentNod
     cap.textAlignHorizontal = 'CENTER'
     centerWrap.appendChild(cap)
     canvas.appendChild(centerWrap)
+    // canvas(auto-layout)에 붙은 뒤에만 절대 배치를 켤 수 있다 — 도넛 중앙 라벨을 겹쳐 앉힌다.
+    centerWrap.layoutPositioning = 'ABSOLUTE'
+    centerWrap.x = cw / 2 - 40
+    centerWrap.y = ch / 2 - 20
   } else {
     const plotWrap = fixedFrame('plotWrap', 'VERTICAL', cw, ch)
-    plotWrap.appendChild(chartGrid(ctx, cw, ch))
+    const grid = chartGrid(ctx, cw, ch)
+    plotWrap.appendChild(grid)
+    grid.layoutPositioning = 'ABSOLUTE' // plotWrap에 붙은 뒤에만 세울 수 있다(값 축 그리드는 plot과 겹쳐 깔린다)
     const plot = kind === 'bar' ? barsPlot(ctx, cw, ch, stacked, showTooltip) : linePlot(ctx, cw, ch, stacked, area)
-    plot.layoutPositioning = 'ABSOLUTE'
+    plotWrap.appendChild(plot)
+    plot.layoutPositioning = 'ABSOLUTE' // 마찬가지로 plotWrap에 붙은 뒤에만
     plot.x = 0
     plot.y = 0
-    plotWrap.appendChild(plot)
     canvas.appendChild(plotWrap)
   }
   plotCol.appendChild(canvas)

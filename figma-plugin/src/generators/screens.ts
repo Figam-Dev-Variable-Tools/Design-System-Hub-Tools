@@ -4743,6 +4743,9 @@ const SCREEN_BUILDERS: Array<[string, (ctx: Ctx) => FrameNode, AdminActive]> = [
   ['공지사항', screenNotice, 'none'],
 ]
 
+/** 어드민 화면 개수 — 문구에 숫자를 박지 않고 SCREEN_BUILDERS에서 파생시킨다(화면을 늘릴 때마다 갈라지는 걸 막는다). */
+export const SCREEN_COUNT = SCREEN_BUILDERS.length
+
 /** 어드민 화면 24종을 1920 폭 프레임(사이드바 + 콘텐츠)으로 생성한다(세로 나열). */
 export async function generateScreens(
   fontFamily: string,

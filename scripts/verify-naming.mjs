@@ -201,6 +201,15 @@ const ALLOWLIST = [
       '다섯 번째 축이 되면 32 → 64변형(권장 상한 40 초과). 가격 글자색만 바뀌는 축이라 기본값 success(레퍼런스의 그린)만 그린다.',
     owner: 'sb.hong',
   },
+  {
+    component: 'EraTimeline',
+    kind: 'axis-missing',
+    figma: null,
+    code: 'ratio',
+    reason:
+      'ratio는 MediaRatio 10값 유니온이라 축으로 세우면 columns(3) × accent(2) × ratio(10) = 60변형이 된다(권장 상한 40 초과). 이미지 프레임의 종횡비만 바뀌는 축이라 변형마다 정보량이 거의 없다 — 기본값 1x1만 그린다. ImageCard·ProductCard의 ratio도 같은 사유로 축이 아니다.',
+    owner: 'sb.hong',
+  },
 
   // (7) 파서 한계 — 코드에 prop이 실재하는데 검사기가 못 읽는다.
   {
@@ -557,6 +566,15 @@ const ALLOWLIST = [
     code: null,
     reason:
       'CalloutProps.children(본문)이다. INSTANCE_SWAP 기본값은 아이콘 컴포넌트만 가능해 노드 슬롯을 담을 수 없고, 세트가 그리는 실체는 텍스트 한 줄이라 TEXT가 유일하게 쓸모 있는 표현이다. 이름은 규약 §7의 슬롯 이름 content 그대로다(이 TEXT가 N7의 content 레이어도 함께 만족시킨다).',
+    owner: 'sb.hong',
+  },
+  {
+    component: 'Highlight',
+    kind: 'text-extra',
+    figma: 'content',
+    code: null,
+    reason:
+      'HighlightProps.children(강조할 글자)이다. Callout.content와 완전히 같은 사유 — 세트가 그리는 실체는 텍스트 한 줄이고, 이름은 규약 §7의 슬롯 이름 content 그대로다. 근본 원인은 ds-props.mjs가 children을 code.slot으로만 분류하고 code.text에 넣지 않아 N4가 이 TEXT를 "여분"으로 오판하는 것이다(파서 한계이지 규약 위반이 아니다).',
     owner: 'sb.hong',
   },
 
@@ -1055,6 +1073,180 @@ const ALLOWLIST = [
   //       React의 `icon ?? <Placeholder kind=…>`와 같은 우선순위).
 ]
 
+// ── 영구(permanent) / 연기(deferred) 분류 ───────────────────────────────
+// ALLOWLIST 404건 중 대부분은 permanent다: Figma 컴포넌트 속성 타입(VARIANT/TEXT/BOOLEAN/
+// INSTANCE_SWAP) 네 가지로는 애초에 표현 못 하는 것들이다(숫자 prop·배열·ReactNode 슬롯·
+// 화면에 안 그려지는 문자열·데이터 등 — 위 각 항목의 reason이 이미 그렇게 말하고 있다).
+//
+// 그러나 DEFERRED에 실린 항목은 "표현 불가"가 아니라 "지금 이 세트/이 검사기를 손대면
+// 모양이 바뀌거나(세트 확장·재설계가 필요) 이 저장소의 검사 도구(파서·N7 판정)가 아직 그
+// 대응을 못 읽어서" 미룬 것이다. 판단 근거는 이 목록을 만들며 각 항목의 reason 원문을 다시
+// 읽고 확인했다(추측 없음) — 두 갈래 중 하나에 해당하면 deferred:
+//   (1) reason이 "이 세트가 그리지 않는 UI"라고 말하고, 그 UI가 반대편 React 컴포넌트에는
+//       실재하는 prop이며, 주석이 "세트 확장 배치로 분리"라고 명시한 것(admin.ts 배치(2),
+//       categories-nav-overlay.ts 배치(4), categories-data-kr-media.ts 배치(3)) — 그 UI를
+//       실제로 그리면 해소된다.
+//   (2) reason이 "세트 몸통을 재설계해야 한다"고 말하는 레이아웃 엔진 축(DefinitionList·
+//       TodoSummary·SearchPanel의 columns/layout/align) — 재설계 배치가 해소한다.
+//   (3) reason이 이 저장소 자신의 파서/검사기 한계를 지목한 것(ProductCard.ratio의 Extract<>
+//       미해석, children slot-missing의 N7 판정 한계, Card 등 4건의 classifyProps 분류 한계)
+//       — 코드가 아니라 scripts/lib 쪽이 고쳐지면 해소된다.
+// 이 세 갈래에 안 걸리면(예: 숫자·배열·미디어·비가시 텍스트·플랫폼이 요구하는 축·중복 변형)
+// permanent로 남긴다 — "언젠가 다시 그리면 생길 것"이 아니라 "Figma가 그 타입 자체를 갖고
+// 있지 않아 영원히 안 생길 것"이기 때문이다.
+//
+// 매칭 키는 ALLOWLIST와 동일(component·kind·figma·code). 연기 항목이 안 보이면 영구 면제로
+// 조용히 굳는다 — 그래서 verify-naming의 요약 줄에 매번 연기 건수를 찍는다(아래 CLI 출력부).
+// 표 형태 상세(컴포넌트 · 무엇이 막혔나 · 무엇이 생기면 풀리나)는 docs/naming-parity.md 참조.
+const DEFERRED = [
+  // (A) admin.ts 배치(2) — DS 세트가 아예 그리지 않는 UI(툴바·로딩·빈 상태·에러·메모 이력·접기
+  //     토글). 반대편 React 컴포넌트에는 실재하는 prop이다(loading·emptyText·collapsible 등).
+  ...[
+    ['AdminTable', 'axis-missing', 'columnPicker'],
+    ['AdminTable', 'axis-missing', 'exportable'],
+    ['AdminTable', 'axis-missing', 'loading'],
+    ['AdminTable', 'axis-missing', 'emptyKind'],
+    ['AdminTable', 'text-missing', 'emptyText'],
+    ['AdminTable', 'text-missing', 'emptyDescription'],
+    ['AdminTable', 'text-missing', 'loadingLabel'],
+    ['AdminTable', 'bool-missing', 'showEmptyDescription'],
+    ['AdminTable', 'swap-missing', 'kebabIcon'],
+    ['AdminTable', 'swap-missing', 'dragIcon'],
+    ['AdminTable', 'swap-missing', 'csvIcon'],
+    ['AdminTable', 'swap-missing', 'excelIcon'],
+    ['AdminTable', 'swap-missing', 'columnPickerIcon'],
+    ['SearchPanel', 'axis-missing', 'collapsible'],
+    ['SearchPanel', 'axis-missing', 'defaultCollapsed'],
+    ['SearchPanel', 'text-missing', 'expandLabel'],
+    ['SearchPanel', 'text-missing', 'collapseLabel'],
+    ['SearchPanel', 'swap-missing', 'collapseIcon'],
+    ['ActivityLog', 'text-missing', 'emptyText'],
+    ['MemoBox', 'text-missing', 'emptyText'],
+    ['MemoBox', 'axis-missing', 'composer'],
+    ['MemoBox', 'text-missing', 'labels.itemActions.group'],
+    ['MemoBox', 'text-missing', 'labels.itemActions.view'],
+    ['MemoBox', 'text-missing', 'labels.itemActions.edit'],
+    ['MemoBox', 'text-missing', 'labels.itemActions.delete'],
+    ['MemoBox', 'text-missing', 'value'],
+    ['DropZone', 'bool-missing', 'showError'],
+    ['DropZone', 'swap-missing', 'errorIcon'],
+    ['StatusTimeline', 'swap-missing', 'skippedIcon'],
+    ['AdminCard', 'text-missing', 'emptyThumbnailLabel'],
+  ].map(([component, kind, code]) => ({
+    component,
+    kind,
+    figma: null,
+    code,
+    blockedBy: 'figma-plugin 세트 확장 배치(생성기 admin.ts) — 아직 아무도 배정되지 않았다',
+    unblockedBy: '이 UI(툴바·로딩·빈 상태·접기 토글 등)를 DS 세트에 실제로 그리는 후속 배치가 실행되면 해소',
+  })),
+
+  // (B) categories-nav-overlay.ts 배치(4) — 위와 같은 사유가 다른 세트에서 반복된다.
+  ...[
+    ['ActionSheet', 'text-missing', 'title'],
+    ['Footer', 'text-missing', 'description'],
+    ['Header', 'text-missing', 'description'],
+    ['Breadcrumb', 'text-missing', 'separator'],
+  ].map(([component, kind, code]) => ({
+    component,
+    kind,
+    figma: null,
+    code,
+    blockedBy: 'figma-plugin 세트 확장 배치(생성기 categories-nav-overlay.ts) — 아직 아무도 배정되지 않았다',
+    unblockedBy: '제목 줄·설명 줄·문자열 구분자를 세트에 실제로 그리는 후속 배치가 실행되면 해소',
+  })),
+
+  // (C) categories-data-kr-media.ts 배치(3) — 위와 같은 사유가 다른 세트에서 반복된다.
+  ...[
+    ['DatePicker', 'text-missing', 'helperText'],
+    ['TimePicker', 'text-missing', 'helperText'],
+    ['DateRangePicker', 'text-missing', 'helperText'],
+    ['KrAddressAutocomplete', 'text-missing', 'helperText'],
+    ['Table', 'text-missing', 'emptyText'],
+    ['KrAddressForm', 'text-missing', 'value.jibun'],
+    ['KrAddressForm', 'text-missing', 'value.requestNote'],
+    ['AdminShell', 'text-missing', 'pageTitle'],
+    ['AdminShell', 'text-missing', 'pageDescription'],
+    ['AdminShell', 'text-missing', 'user.name'],
+    ['AdminShell', 'text-missing', 'user.role'],
+    ['Video', 'text-missing', 'title'],
+    ['YouTube', 'text-missing', 'title'],
+  ].map(([component, kind, code]) => ({
+    component,
+    kind,
+    figma: null,
+    code,
+    blockedBy: 'figma-plugin 세트 확장 배치(생성기 categories-data-kr-media.ts) — 아직 아무도 배정되지 않았다',
+    unblockedBy: '헬퍼 줄·지번 토글·페이지 헤더·캡션 UI를 세트에 실제로 그리는 후속 배치가 실행되면 해소',
+  })),
+
+  // (D) 레이아웃 엔진 재설계 — 축 자체는 실재하는 React prop이지만, 세트 몸통(배치 엔진)을
+  //     다시 짜야 변형 폭발(최대 144변형) 없이 세울 수 있다.
+  ...[
+    ['DefinitionList', 'columns'],
+    ['DefinitionList', 'layout'],
+    ['DefinitionList', 'align'],
+    ['TodoSummary', 'layout'],
+    ['SearchPanel', 'columns'],
+  ].map(([component, code]) => ({
+    component,
+    kind: 'axis-missing',
+    figma: null,
+    code,
+    blockedBy: 'figma-plugin 세트 재설계(레이아웃 엔진) — 아직 아무도 배정되지 않았다',
+    unblockedBy:
+      '세트 몸통을 grid/inline/stacked 등 레이아웃별로 재설계(또는 별도 세트로 분리)하는 후속 배치가 실행되면 해소',
+  })),
+
+  // (E) 파서 한계 — scripts/lib/ds-props.mjs가 TS Extract<> 타입 별칭을 union으로 해석하지 못한다.
+  {
+    component: 'ProductCard',
+    kind: 'axis-extra',
+    figma: 'ratio',
+    blockedBy: 'scripts/lib/ds-props.mjs 파서(Extract<> 타입 별칭 미해석)',
+    unblockedBy: '파서가 Extract<MediaRatio, …> 별칭을 union으로 해석하도록 확장되면 자동 해소',
+  },
+
+  // (F) N7 판정 한계 — verify-naming.mjs의 N7이 buildSet 선언(texts/bools/swaps)의 layer만 보고
+  //     렌더 함수의 name='content' 프레임은 보지 못한다(이 파일 자신의 한계).
+  ...['SiteSection', 'CrudDialog', 'DropZone', 'Upload', 'Drawer', 'AdminShell'].map((component) => ({
+    component,
+    kind: 'slot-missing',
+    figma: null,
+    code: 'children',
+    blockedBy: 'scripts/verify-naming.mjs N7 판정 로직(이 파일 자신)',
+    unblockedBy: "N7이 buildSet 선언뿐 아니라 렌더 함수의 name='content' 프레임도 읽도록 확장되면 해소",
+  })),
+
+  // (G) classifyProps 분류 한계 — children을 code.slot으로만 분류해 code.text 후보에 넣지 않는다.
+  //     그 결과 §7(content 레이어) 규약을 지킨 TEXT 속성이 오히려 'text-extra'로 잡힌다.
+  ...['Card', 'Modal', 'Popover', 'BottomSheet'].map((component) => ({
+    component,
+    kind: 'text-extra',
+    figma: 'content',
+    blockedBy: 'scripts/lib/ds-props.mjs classifyProps(children → code.slot 전용 분류)',
+    unblockedBy: 'classifyProps가 §7 content 레이어와 짝지어진 children을 code.text 후보로도 인정하도록 확장되면 해소',
+  })),
+]
+
+// component·kind·figma·code 네 축으로 ALLOWLIST 항목과 DEFERRED 항목을 짝짓는다(ALLOWLIST
+// 매칭 로직과 같은 키 — 와일드카드 없이 정확 일치만).
+const deferredKey = (a) => `${a.component}|${a.kind}|${a.figma ?? ''}|${a.code ?? ''}`
+const deferredIndex = new Map(DEFERRED.map((d) => [deferredKey(d), d]))
+for (const a of ALLOWLIST) {
+  const d = deferredIndex.get(deferredKey(a))
+  a.lifecycle = d ? 'deferred' : 'permanent'
+  if (d) {
+    a.blockedBy = d.blockedBy
+    a.unblockedBy = d.unblockedBy
+  }
+}
+// DEFERRED에 적어 넣었는데 ALLOWLIST 어디에도 그 키로 걸리는 항목이 없으면 오타이거나
+// 이미 고쳐진 것이다 — 조용히 무시하지 않고 실패시킨다(stale과 같은 원리).
+const deferredUnmatched = DEFERRED.filter((d) => !ALLOWLIST.some((a) => deferredKey(a) === deferredKey(d)))
+const deferredCount = ALLOWLIST.filter((a) => a.lifecycle === 'deferred').length
+const permanentCount = ALLOWLIST.length - deferredCount
+
 // ── CLI ──────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2)
 const flag = (n) => argv.includes(`--${n}`)
@@ -1433,7 +1625,13 @@ shown = shown.filter((v) => {
 })
 
 const hardErrors = errors.filter((e) => strict || e.code !== 'W-')
-const failing = shown.length > 0 || hardErrors.length > 0 || stale.length > 0 || expired.length > 0 || staleBaseline.length > 0
+const failing =
+  shown.length > 0 ||
+  hardErrors.length > 0 ||
+  stale.length > 0 ||
+  expired.length > 0 ||
+  staleBaseline.length > 0 ||
+  deferredUnmatched.length > 0
 
 if (asJson) {
   console.log(
@@ -1443,7 +1641,15 @@ if (asJson) {
         known: known.length,
         errors: hardErrors,
         summary: summarize(shown, known.length),
-        allowlist: { applied: usedAllow.size, stale: stale.length, expired: expired.length },
+        allowlist: {
+          applied: usedAllow.size,
+          stale: stale.length,
+          expired: expired.length,
+          total: ALLOWLIST.length,
+          permanent: permanentCount,
+          deferred: deferredCount,
+          deferredUnmatched: deferredUnmatched.length,
+        },
         baselineStale: staleBaseline,
       },
       null,
@@ -1476,6 +1682,15 @@ for (const a of expired) {
 for (const k of staleBaseline) {
   console.error(`FAIL  E-BASELINE-STALE\n  ${k} — 고쳐졌다. baseline에서 지워라(--update-baseline).\n`)
 }
+for (const d of deferredUnmatched) {
+  console.error(
+    `FAIL  E-DEFERRED-STALE\n  ${d.component} / ${d.kind} / ${d.figma ?? '(없음)'} / ${d.code ?? '(없음)'}` +
+      ` — DEFERRED에는 있는데 ALLOWLIST에 같은 키가 없다(오타이거나 이미 해소됨). DEFERRED에서 지워라.\n`,
+  )
+}
+
+// 연기 항목은 안 보이면 영구 면제로 조용히 굳는다 — 그래서 PASS·FAIL 모두에서 매번 찍는다.
+const allowlistSummaryLine = `  allowlist ${ALLOWLIST.length}건 (영구 ${permanentCount} · 연기 ${deferredCount}) — 연기 항목은 docs/naming-parity.md 참조`
 
 const s = summarize(shown, known.length)
 if (failing) {
@@ -1484,6 +1699,8 @@ if (failing) {
       (known.length ? ` (KNOWN ${known.length}건은 baseline으로 강등)` : '') +
       `\n  by rule : ${s.byRule}\n  by file : ${s.byFile}\n` +
       `  allowlist: ${usedAllow.size}건 적용, ${stale.length}건 stale\n` +
+      allowlistSummaryLine +
+      '\n' +
       (hardErrors.length ? `  errors  : ${hardErrors.length}건 (E-UNPARSED/E-COVERAGE — 파서가 못 읽은 선언)\n` : ''),
   )
   process.exit(1)
@@ -1491,7 +1708,8 @@ if (failing) {
 console.log(
   `verify-naming OK — ${specs.length}세트, 이름 규약(N1~N7) 위반 0건` +
     (known.length ? ` (baseline KNOWN ${known.length}건)` : '') +
-    `\n  allowlist ${usedAllow.size}건 적용 · 미파싱 0건 · 커버리지 ${specs.length}/${specs.length}`,
+    `\n  allowlist ${usedAllow.size}건 적용 · 미파싱 0건 · 커버리지 ${specs.length}/${specs.length}` +
+    `\n${allowlistSummaryLine}`,
 )
 
 function summarize(list, knownCount) {
